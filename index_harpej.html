@@ -25,7 +25,7 @@
       Clear All Markers
     </button>
     <span class="text-gray-600 text-sm">
-      Click any key to toggle a marker.
+      Click any key to toggle a marker and play its note.
     </span>
   </div>
 
@@ -52,6 +52,7 @@
  * - Draw keys in a grid, each key representing a note.
  * - Clicking a key toggles a "marker" (finger placement).
  * - Optional display of note names.
+ * - Play note sounds when keys are clicked.
  */
 
 // ==============================
@@ -87,6 +88,62 @@ for (let y = 0; y < numberOfFrets; y++) {
 
 // Whether to show note names or not:
 let showNotes = false;
+
+// ==============================
+// Audio Synthesis Setup
+// ==============================
+let audioContext;
+let masterGainNode;
+
+function initAudio() {
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  masterGainNode = audioContext.createGain();
+  masterGainNode.gain.value = 0.1; // Lower volume to avoid being too loud
+  masterGainNode.connect(audioContext.destination);
+}
+
+// Convert note name and octave to frequency
+function noteToFrequency(noteName, octave) {
+  const noteIndex = NOTES.indexOf(noteName);
+  if (noteIndex === -1) return 440; // Default to A4 if note not found
+  
+  // Calculate semitones from A4 (A4 = 440Hz)
+  const A4_OCTAVE = 4;
+  const A4_INDEX = NOTES.indexOf("A");
+  const semitones = (octave - A4_OCTAVE) * 12 + (noteIndex - A4_INDEX);
+  
+  // Convert semitones to frequency using the formula: freq = 440 * 2^(semitones/12)
+  return 440 * Math.pow(2, semitones / 12);
+}
+
+// Play a note with the given frequency
+function playNote(frequency) {
+  if (!audioContext) initAudio();
+  
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.type = 'sine';
+  oscillator.frequency.value = frequency;
+  
+  gainNode.gain.value = 0.5;
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(masterGainNode);
+  
+  oscillator.start();
+  
+  // Envelope for a nicer sound
+  gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+  
+  // Stop and cleanup after the note is done
+  setTimeout(() => {
+    oscillator.stop();
+    oscillator.disconnect();
+    gainNode.disconnect();
+  }, 500);
+}
 
 // ==============================
 // Utility: positive mod
@@ -177,36 +234,6 @@ function drawTablature() {
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // 4) Draw fret / string indices (small numbers)
-  // Frets (vertical indices)
-  for (let y = 0; y < numberOfFrets; y++) {
-    const textEl = document.createElementNS("http://www.w3.org/2000/svg","text");
-    textEl.setAttribute("x", 5);
-    textEl.setAttribute("y", y * fretSpacing + fretSpacing/2 - 2);
-    textEl.setAttribute("fill", "black");
-    textEl.setAttribute("font-size", "10");
-    textEl.setAttribute("font-family", "Helvetica, Arial, sans-serif");
-    textEl.setAttribute("font-weight", "600");
-    textEl.textContent = String(numberOfFrets - y);
-    if (y === 0 || y === numberOfFrets - 1) {
-      // example highlight, optional
-    }
-    g.appendChild(textEl);
-  }
-
-  // Strings (horizontal indices)
-  for (let x = 0; x < numberOfStrings; x++) {
-    const textEl = document.createElementNS("http://www.w3.org/2000/svg","text");
-    textEl.setAttribute("x", x * stringSpacing + stringSpacing + 2);
-    textEl.setAttribute("y", (numberOfFrets - 0.5) * fretSpacing + 12);
-    textEl.setAttribute("fill", "black");
-    textEl.setAttribute("font-size", "10");
-    textEl.setAttribute("font-family", "Helvetica, Arial, sans-serif");
-    textEl.setAttribute("font-weight", "600");
-    textEl.textContent = String(x + 1);
-    g.appendChild(textEl);
-  }
-
   // 5) Draw the keys (rectangles) for each fret/string intersection
   //    plus optional marker if toggled, plus note name if showNotes is true
   for (let y = 0; y < numberOfFrets; y++) {
@@ -260,8 +287,14 @@ function drawTablature() {
       // Attach an event listener to toggle marker when clicked
       keyGroup.style.cursor = "pointer";
       keyGroup.addEventListener("click", () => {
-        // Toggle
+        // Toggle marker
         keysState[y][x].marker = !keysState[y][x].marker;
+        
+        // Play the note
+        const frequency = noteToFrequency(noteName, octave);
+        playNote(frequency);
+        
+        // Redraw
         drawTablature();
       });
 
