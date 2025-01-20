@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Harpejji Tablature Emulation (Plain JS + Tailwind)</title>
+  <!-- Tailwind CSS (via CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+<div class="max-w-5xl mx-auto bg-white rounded shadow p-4">
+  <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
+
+  <!-- Controls -->
+  <div class="flex flex-wrap items-center gap-4 mb-4">
+    <button 
+      id="toggleNotesBtn"
+      class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+    >
+      Toggle Note Names
+    </button>
+    <button 
+      id="resetMarkersBtn"
+      class="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+    >
+      Clear All Markers
+    </button>
+    <span class="text-gray-600 text-sm">
+      Click any key to toggle a marker.
+    </span>
+  </div>
+
+  <!-- Our Tablature SVG -->
+  <svg 
+    id="tablature" 
+    class="border border-gray-400"
+  >
+    <!-- Will be drawn dynamically via JavaScript -->
+  </svg>
+</div>
+
+<script>
+/**
+ * This is a plain JavaScript + Tailwind CSS demonstration
+ * of drawing a simplified Harpejji® tablature grid.
+ *
+ * No Vue, React, or external frameworks - pure JS.
+ * Just open this file in a browser (no server needed).
+ *
+ * Main features emulated:
+ * - Draw "frets" (horizontal lines).
+ * - Draw "strings" (vertical lines).
+ * - Draw keys in a grid, each key representing a note.
+ * - Clicking a key toggles a "marker" (finger placement).
+ * - Optional display of note names.
+ */
+
+// ==============================
+// Configuration
+// ==============================
+const numberOfFrets   = 15;  // vertical count
+const numberOfStrings = 24;  // horizontal count
+const fretSpacing     = 30;  // vertical spacing in pixels
+const stringSpacing   = 30;  // horizontal spacing in pixels
+
+// Offsets in the note formula (roughly from the provided code)
+const c1  = 5;   // used in note name formula
+const c2  = 6;   // used in octave formula
+const c2_2= 0;   // used in octave formula
+const c3  = 2;   // base octave offset
+
+// The notes array:
+const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+// The drawing region will be sized accordingly:
+const svgWidth  = stringSpacing * (numberOfStrings + 2);
+const svgHeight = fretSpacing   * (numberOfFrets   + 2);
+
+// We keep an array of the "keys" states so we can toggle markers, etc.
+// This will be a 2D array of objects. Each "cell" has { marker: boolean }
+const keysState = [];
+for (let y = 0; y < numberOfFrets; y++) {
+  keysState[y] = [];
+  for (let x = 0; x < numberOfStrings; x++) {
+    keysState[y][x] = { marker: false };
+  }
+}
+
+// Whether to show note names or not:
+let showNotes = false;
+
+// ==============================
+// Utility: positive mod
+// ==============================
+function mod(n, m) {
+  return ((n % m) + m) % m;
+}
+
+// ==============================
+// Compute note name and octave
+// from a given (x, y) coordinate
+// ==============================
+function getNoteName(x, y) {
+  // from the snippet: notes[ mod(x*2 + c1 - y, 12) ]
+  const index = mod((x * 2) + c1 - y, NOTES.length);
+  return NOTES[index];
+}
+
+function getNoteOctave(x, y) {
+  // from the snippet: floor((x + c2 - floor((y + c2_2)/2))/6) + c3
+  const val = Math.floor((x + c2 - Math.floor((y + c2_2) / 2)) / 6);
+  return val + c3;
+}
+
+// For convenience, black notes are those with "#" in them.
+function isBlackNote(noteName) {
+  return noteName.includes("#");
+}
+
+// ==============================
+// Main draw function
+// ==============================
+function drawTablature() {
+  const svg = document.getElementById("tablature");
+  // Clear previous children
+  svg.innerHTML = "";
+
+  // Set the SVG size
+  svg.setAttribute("width",  svgWidth);
+  svg.setAttribute("height", svgHeight);
+
+  // Draw a white background
+  const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
+  bg.setAttribute("width", "100%");
+  bg.setAttribute("height","100%");
+  bg.setAttribute("fill", "white");
+  svg.appendChild(bg);
+
+  // Group for everything
+  const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+  // We'll shift it a bit so there's some margin
+  const offsetX = stringSpacing;
+  const offsetY = fretSpacing;
+  g.setAttribute("transform", `translate(${offsetX}, ${offsetY})`);
+  svg.appendChild(g);
+
+  // 1) Draw frets (horizontal lines)
+  for (let y = 0; y < numberOfFrets; y++) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1", 0);
+    line.setAttribute("y1", y * fretSpacing + fretSpacing/2);
+    line.setAttribute("x2", (numberOfStrings) * stringSpacing);
+    line.setAttribute("y2", y * fretSpacing + fretSpacing/2);
+    line.setAttribute("stroke", "#000");
+    line.setAttribute("stroke-width", "1");
+    g.appendChild(line);
+  }
+
+  // 2) Draw strings (vertical lines)
+  for (let x = 0; x < numberOfStrings; x++) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1", x * stringSpacing + stringSpacing);
+    line.setAttribute("y1", 0);
+    line.setAttribute("x2", x * stringSpacing + stringSpacing);
+    line.setAttribute("y2", (numberOfFrets - 0.5) * fretSpacing);
+    line.setAttribute("stroke", "#CCC");
+    line.setAttribute("stroke-width", "1");
+    g.appendChild(line);
+  }
+
+  // 3) Optional border around the entire zone
+  const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+  borderRect.setAttribute("x", 0.5);
+  borderRect.setAttribute("y", 0.5);
+  borderRect.setAttribute("width",  (numberOfStrings) * stringSpacing - 1 + stringSpacing);
+  borderRect.setAttribute("height", (numberOfFrets - 0.5) * fretSpacing - 1 + fretSpacing/2);
+  borderRect.setAttribute("fill", "transparent");
+  borderRect.setAttribute("stroke", "black");
+  g.appendChild(borderRect);
+
+  // 4) Draw fret / string indices (small numbers)
+  // Frets (vertical indices)
+  for (let y = 0; y < numberOfFrets; y++) {
+    const textEl = document.createElementNS("http://www.w3.org/2000/svg","text");
+    textEl.setAttribute("x", 5);
+    textEl.setAttribute("y", y * fretSpacing + fretSpacing/2 - 2);
+    textEl.setAttribute("fill", "black");
+    textEl.setAttribute("font-size", "10");
+    textEl.setAttribute("font-family", "Helvetica, Arial, sans-serif");
+    textEl.setAttribute("font-weight", "600");
+    textEl.textContent = String(numberOfFrets - y);
+    if (y === 0 || y === numberOfFrets - 1) {
+      // example highlight, optional
+    }
+    g.appendChild(textEl);
+  }
+
+  // Strings (horizontal indices)
+  for (let x = 0; x < numberOfStrings; x++) {
+    const textEl = document.createElementNS("http://www.w3.org/2000/svg","text");
+    textEl.setAttribute("x", x * stringSpacing + stringSpacing + 2);
+    textEl.setAttribute("y", (numberOfFrets - 0.5) * fretSpacing + 12);
+    textEl.setAttribute("fill", "black");
+    textEl.setAttribute("font-size", "10");
+    textEl.setAttribute("font-family", "Helvetica, Arial, sans-serif");
+    textEl.setAttribute("font-weight", "600");
+    textEl.textContent = String(x + 1);
+    g.appendChild(textEl);
+  }
+
+  // 5) Draw the keys (rectangles) for each fret/string intersection
+  //    plus optional marker if toggled, plus note name if showNotes is true
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      // We determine the note name to color black/white, etc.
+      const noteName = getNoteName(x, y);
+      const octave   = getNoteOctave(x, y);
+      const blackKey = isBlackNote(noteName);
+
+      // The "key" is drawn around (x * stringSpacing + offset, y * fretSpacing + offset)
+      const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
+      keyGroup.setAttribute(
+        "transform", 
+        `translate(${x * stringSpacing + stringSpacing}, ${y * fretSpacing + fretSpacing/2})`
+      );
+
+      // The background rectangle
+      const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      rect.setAttribute("x", -7.5);
+      rect.setAttribute("y", 0);
+      rect.setAttribute("width", 15);
+      rect.setAttribute("height", 25);
+      rect.setAttribute("stroke", "#666");
+      rect.setAttribute("stroke-width", "1");
+      rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
+      keyGroup.appendChild(rect);
+
+      // If the key is toggled on, draw a circular marker
+      if (keysState[y][x].marker) {
+        const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        circ.setAttribute("cx", 0);
+        circ.setAttribute("cy", 12.5);
+        circ.setAttribute("r", 7);
+        circ.setAttribute("fill", "rgba(0, 153, 255, 0.8)");
+        keyGroup.appendChild(circ);
+      }
+
+      // If showNotes, place a small label
+      if (showNotes) {
+        const label = document.createElementNS("http://www.w3.org/2000/svg","text");
+        label.setAttribute("x", "0");
+        label.setAttribute("y", blackKey ? "8" : "8");
+        label.setAttribute("fill", blackKey ? "#EEE" : "#555");
+        label.setAttribute("font-size", "7");
+        label.setAttribute("font-family", "Helvetica, Arial, sans-serif");
+        label.setAttribute("text-anchor", "middle");
+        label.textContent = noteName + octave;
+        keyGroup.appendChild(label);
+      }
+
+      // Attach an event listener to toggle marker when clicked
+      keyGroup.style.cursor = "pointer";
+      keyGroup.addEventListener("click", () => {
+        // Toggle
+        keysState[y][x].marker = !keysState[y][x].marker;
+        drawTablature();
+      });
+
+      g.appendChild(keyGroup);
+    }
+  }
+}
+
+// ==============================
+// Event handlers
+// ==============================
+document.addEventListener("DOMContentLoaded", () => {
+  drawTablature();
+
+  // Toggle note-name display
+  const toggleNotesBtn = document.getElementById("toggleNotesBtn");
+  toggleNotesBtn.addEventListener("click", () => {
+    showNotes = !showNotes;
+    drawTablature();
+  });
+
+  // Clear all markers
+  const resetMarkersBtn = document.getElementById("resetMarkersBtn");
+  resetMarkersBtn.addEventListener("click", () => {
+    for (let y = 0; y < numberOfFrets; y++) {
+      for (let x = 0; x < numberOfStrings; x++) {
+        keysState[y][x].marker = false;
+      }
+    }
+    drawTablature();
+  });
+});
+</script>
+</body>
+</html>
