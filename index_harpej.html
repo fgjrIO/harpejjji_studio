@@ -12,18 +12,33 @@
 
   <!-- Controls -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
+    <!-- NEW: Model dropdown -->
+    <div class="flex items-center gap-2">
+      <label for="modelSelect" class="text-gray-700">Model:</label>
+      <select 
+        id="modelSelect"
+        class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[200px]"
+      >
+        <option value="K24">K24 (A0 → A5, 24 strings)</option>
+        <option value="G16">G16 (E2 → C6, 16 strings)</option>
+        <option value="G12">G12 (C2 → G#5, 12 strings)</option>
+      </select>
+    </div>
+
     <button 
       id="toggleNotesBtn"
       class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
     >
       Toggle Note Names
     </button>
+
     <button 
       id="resetMarkersBtn"
       class="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
     >
       Clear All Markers
     </button>
+
     <span class="text-gray-600 text-sm">
       Click any key to toggle a marker and play its note.
     </span>
@@ -34,62 +49,89 @@
     id="tablature" 
     class="border border-gray-400"
   >
-    <!-- Will be drawn dynamically via JavaScript -->
+    <!-- Dynamically drawn via JS -->
   </svg>
 </div>
 
 <script>
 /**
- * This is a plain JavaScript + Tailwind CSS demonstration
- * of drawing a simplified Harpejji® tablature grid.
+ * Harpejji® Tablature Demo (Plain JS + Tailwind)
  *
- * No Vue, React, or external frameworks - pure JS.
- * Just open this file in a browser (no server needed).
- *
- * Main features emulated:
- * - Draw "frets" (horizontal lines).
- * - Draw "strings" (vertical lines).
- * - Draw keys in a grid, each key representing a note.
- * - Clicking a key toggles a "marker" (finger placement).
- * - Optional display of note names.
- * - Play note sounds when keys are clicked.
+ * Key changes from your original code:
+ *  1) A dropdown to select K24 / G16 / G12.
+ *  2) The bottom row is physically at the bottom (row=0 at bottom),
+ *     top row is physically at the top (row=numberOfFrets-1 at top).
+ *  3) The bottom-left is labeled "start note," top-right "end note."
+ *  4) Everything else (colors, widths, lines) is the same as your snippet.
  */
 
-// ==============================
-// Configuration
-// ==============================
-const numberOfFrets   = 15;  // vertical count
-const numberOfStrings = 24;  // horizontal count
-const fretSpacing     = 30;  // vertical spacing in pixels
-const stringSpacing   = 30;  // horizontal spacing in pixels
-const keyHeight       = 25;  // height of each key rectangle
+// === Models ===
+const MODELS = {
+  K24: {
+    numberOfStrings: 24,  // left-to-right
+    numberOfFrets:   15,  // bottom-to-top
+    startNote:  "A",
+    startOctave: 0, // A0
+    endNote:    "A",
+    endOctave:  5  // A5
+  },
+  G16: {
+    numberOfStrings: 16,
+    numberOfFrets:   15,
+    startNote:  "E",
+    startOctave: 2, // E2
+    endNote:    "C",
+    endOctave:  6  // C6
+  },
+  G12: {
+    numberOfStrings: 12,
+    numberOfFrets:   15,
+    startNote:  "C",
+    startOctave: 2, // C2
+    endNote:    "G#",
+    endOctave:  5  // G#5
+  }
+};
 
-// The notes array:
+// Layout constants (same as your original)
+const fretSpacing   = 30; 
+const stringSpacing = 30; 
+const keyHeight     = 25; 
+
+// Chromatic scale
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-// Base note configuration (C2 is the starting note)
-const BASE_NOTE = "C";
-const BASE_OCTAVE = 2;
+// Default: K24
+let currentModel = MODELS.K24;
+let numberOfStrings = currentModel.numberOfStrings;
+let numberOfFrets   = currentModel.numberOfFrets;
+let BASE_NOTE       = currentModel.startNote;
+let BASE_OCTAVE     = currentModel.startOctave;
 
-// The drawing region will be sized accordingly:
-const svgWidth  = stringSpacing * (numberOfStrings + 2);
-const svgHeight = fretSpacing   * (numberOfFrets   + 2);
+// Determine SVG dimension from current model
+let svgWidth  = stringSpacing * (numberOfStrings + 2);
+let svgHeight = fretSpacing   * (numberOfFrets   + 2);
 
-// We keep an array of the "keys" states so we can toggle markers, etc.
-// This will be a 2D array of objects. Each "cell" has { marker: boolean }
-const keysState = [];
-for (let y = 0; y < numberOfFrets; y++) {
-  keysState[y] = [];
-  for (let x = 0; x < numberOfStrings; x++) {
-    keysState[y][x] = { marker: false };
+// Keep track of markers
+let keysState = [];
+
+// Initialize keysState for the current board
+function initKeysState() {
+  keysState = [];
+  for (let y = 0; y < numberOfFrets; y++) {
+    keysState[y] = [];
+    for (let x = 0; x < numberOfStrings; x++) {
+      keysState[y][x] = { marker: false };
+    }
   }
 }
+initKeysState();
 
-// Whether to show note names or not:
+// Show/hide note names
 let showNotes = false;
 
 // ==============================
-// Audio Synthesis Setup
+// Simple Audio Synthesis
 // ==============================
 let audioContext;
 let masterGainNode;
@@ -97,137 +139,136 @@ let masterGainNode;
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   masterGainNode = audioContext.createGain();
-  masterGainNode.gain.value = 0.1; // Lower volume to avoid being too loud
+  masterGainNode.gain.value = 0.1; // a bit quieter
   masterGainNode.connect(audioContext.destination);
 }
 
-// Convert note name and octave to frequency
 function noteToFrequency(noteName, octave) {
   const noteIndex = NOTES.indexOf(noteName);
-  if (noteIndex === -1) return 440; // Default to A4 if note not found
+  if (noteIndex < 0) return 440; // fallback
   
-  // Calculate semitones from A4 (A4 = 440Hz)
+  // semitones from A4 = 440Hz
+  const A4_INDEX  = NOTES.indexOf("A"); // 9
   const A4_OCTAVE = 4;
-  const A4_INDEX = NOTES.indexOf("A");
-  const semitones = (octave - A4_OCTAVE) * 12 + (noteIndex - A4_INDEX);
-  
-  // Convert semitones to frequency using the formula: freq = 440 * 2^(semitones/12)
+  const semitones = (octave - A4_OCTAVE)*12 + (noteIndex - A4_INDEX);
+
   return 440 * Math.pow(2, semitones / 12);
 }
 
-// Play a note with the given frequency
-function playNote(frequency) {
+function playNote(freq) {
   if (!audioContext) initAudio();
   
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
   
-  oscillator.type = 'sine';
-  oscillator.frequency.value = frequency;
+  osc.type = "sine";
+  osc.frequency.value = freq;
   
-  gainNode.gain.value = 0.5;
+  gain.gain.value = 0.5;
   
-  oscillator.connect(gainNode);
-  gainNode.connect(masterGainNode);
+  osc.connect(gain);
+  gain.connect(masterGainNode);
+
+  osc.start();
   
-  oscillator.start();
-  
-  // Envelope for a nicer sound
-  gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-  
-  // Stop and cleanup after the note is done
+  // quick envelope
+  gain.gain.setValueAtTime(0.5, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
   setTimeout(() => {
-    oscillator.stop();
-    oscillator.disconnect();
-    gainNode.disconnect();
+    osc.stop();
+    osc.disconnect();
+    gain.disconnect();
   }, 500);
 }
 
 // ==============================
-// Note Calculation Functions
+// Note Calculation
 // ==============================
 
-// Calculate the total semitones from the base note for a given position
+// We want the bottom row (y=0) to be "startNote" (e.g., A0 for K24),
+// and the top row (y=numberOfFrets-1) to be near the "endNote" (e.g., A5).
+// We'll assume: each row going UP is +1 semitone, each string going RIGHT is +2 semitones.
 function getSemitonesFromBase(x, y) {
-  // Each string (x) moves up by 2 semitones
-  // Each fret (y) moves down by 1 semitone
-  return (x * 2) - y;
+  // y is row from bottom=0 to top=(numberOfFrets-1)
+  // x is string from left=0 to right=(numberOfStrings-1)
+  // So offset in semitones is: y + (2 * x)
+  return y + 2*x;
 }
 
-// Get the note name for a given position
-function getNoteName(x, y) {
-  const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
-  const semitones = getSemitonesFromBase(x, y);
-  
-  // Calculate the new note index, wrapping around the octave
-  const noteIndex = mod(baseNoteIndex + semitones, NOTES.length);
-  
-  return NOTES[noteIndex];
-}
-
-// Get the octave for a given position
-function getNoteOctave(x, y) {
-  const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
-  const semitones = getSemitonesFromBase(x, y);
-  
-  // Calculate how many complete octaves we've moved
-  const totalSemitones = baseNoteIndex + semitones;
-  const octaveShift = Math.floor(totalSemitones / NOTES.length);
-  
-  return BASE_OCTAVE + octaveShift;
-}
-
-// For convenience, black notes are those with "#" in them.
-function isBlackNote(noteName) {
-  return noteName.includes("#");
-}
-
-// Utility: positive mod (for wrapping note indices)
 function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
+function getNoteName(x, y) {
+  const baseIndex = NOTES.indexOf(BASE_NOTE); 
+  const offset = getSemitonesFromBase(x, y);
+  const newIndex = mod(baseIndex + offset, 12);
+  return NOTES[newIndex];
+}
+
+function getNoteOctave(x, y) {
+  const baseIndex = NOTES.indexOf(BASE_NOTE);
+  const offset = getSemitonesFromBase(x, y);
+  // total steps from base note
+  const totalSemitones = baseIndex + offset;
+  // how many 12-step blocks?
+  const octaveShift = Math.floor(totalSemitones / 12);
+  return BASE_OCTAVE + octaveShift;
+}
+
+function isBlackNote(n) {
+  return n.includes("#");
+}
+
 // ==============================
-// Main draw function
+// Draw the Tablature
 // ==============================
 function drawTablature() {
-  const svg = document.getElementById("tablature");
-  // Clear previous children
-  svg.innerHTML = "";
+  // Update dimensions
+  svgWidth  = stringSpacing * (numberOfStrings + 2);
+  svgHeight = fretSpacing   * (numberOfFrets   + 2);
 
-  // Set the SVG size
+  const svg = document.getElementById("tablature");
+  svg.innerHTML = ""; // clear
+
   svg.setAttribute("width",  svgWidth);
   svg.setAttribute("height", svgHeight);
 
-  // Draw a white background
+  // White BG
   const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
   bg.setAttribute("width", "100%");
   bg.setAttribute("height","100%");
   bg.setAttribute("fill", "white");
   svg.appendChild(bg);
 
-  // Group for everything
+  // Main group with offset
   const g = document.createElementNS("http://www.w3.org/2000/svg","g");
-  // We'll shift it a bit so there's some margin
   const offsetX = stringSpacing;
   const offsetY = fretSpacing;
   g.setAttribute("transform", `translate(${offsetX}, ${offsetY})`);
   svg.appendChild(g);
 
-  // 1) Draw frets (horizontal lines)
-  for (let y = 0; y <= numberOfFrets; y++) {
+  // 1) Frets (horizontal lines) from bottom to top
+  //    We'll keep the same "look" as your original, but invert the row so
+  //    row=0 is physically at the bottom and row=numberOfFrets is at the top.
+  for (let row = 0; row <= numberOfFrets; row++) {
+    // old code used (row * fretSpacing + something)
+    // now let's invert row to place it from bottom up:
+    const lineY = (numberOfFrets - row) * fretSpacing 
+                  + (row < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight);
+
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", 0);
-    line.setAttribute("y1", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
-    line.setAttribute("x2", (numberOfStrings) * stringSpacing);
-    line.setAttribute("y2", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
+    line.setAttribute("y1", lineY);
+    line.setAttribute("x2", numberOfStrings * stringSpacing);
+    line.setAttribute("y2", lineY);
     line.setAttribute("stroke", "#000");
     line.setAttribute("stroke-width", "1");
     g.appendChild(line);
   }
 
-  // 2) Draw strings (vertical lines)
+  // 2) Strings (vertical lines) left to right
   for (let x = 0; x < numberOfStrings; x++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", x * stringSpacing + stringSpacing);
@@ -239,31 +280,40 @@ function drawTablature() {
     g.appendChild(line);
   }
 
-  // 3) Optional border around the entire zone
+  // Optional border
   const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
   borderRect.setAttribute("x", 0.5);
   borderRect.setAttribute("y", 0.5);
-  borderRect.setAttribute("width",  (numberOfStrings) * stringSpacing - 1 + stringSpacing);
-  borderRect.setAttribute("height", numberOfFrets * fretSpacing + keyHeight - 1 + fretSpacing/2);
+  borderRect.setAttribute(
+    "width", 
+    (numberOfStrings * stringSpacing - 1 + stringSpacing)
+  );
+  borderRect.setAttribute(
+    "height", 
+    (numberOfFrets * fretSpacing + keyHeight - 1 + fretSpacing/2)
+  );
   borderRect.setAttribute("fill", "transparent");
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // 4) Draw the keys (rectangles) for each fret/string intersection
-  //    plus optional marker if toggled, plus note name if showNotes is true
+  // 3) Draw keys (rectangles) for each row/string
+  //    bottom row is y=0, top row is y=numberOfFrets-1
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
-      // We determine the note name to color black/white, etc.
-      const noteName = getNoteName(x, y);
-      const octave   = getNoteOctave(x, y);
-      const blackKey = isBlackNote(noteName);
+      const noteName   = getNoteName(x, y);
+      const noteOctave = getNoteOctave(x, y);
+      const blackKey   = isBlackNote(noteName);
 
-      // The "key" is drawn around (x * stringSpacing + offset, y * fretSpacing + offset)
+      // We'll invert the visual coordinate so y=0 is at bottom
+      // The original code placed row y at y*fretSpacing + fretSpacing/2
+      // so let's do lineY = (numberOfFrets - 1 - y)*fretSpacing + fretSpacing/2
+      const visualY = (numberOfFrets - 1 - y)*fretSpacing + fretSpacing/2;
+      const visualX = x*stringSpacing + stringSpacing;
+
+      // A group for the key
       const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
-      keyGroup.setAttribute(
-        "transform", 
-        `translate(${x * stringSpacing + stringSpacing}, ${y * fretSpacing + fretSpacing/2})`
-      );
+      keyGroup.setAttribute("transform", `translate(${visualX}, ${visualY})`);
+      keyGroup.style.cursor = "pointer";
 
       // The background rectangle
       const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
@@ -276,7 +326,7 @@ function drawTablature() {
       rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
       keyGroup.appendChild(rect);
 
-      // If the key is toggled on, draw a circular marker
+      // Marker if toggled
       if (keysState[y][x].marker) {
         const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
         circ.setAttribute("cx", 0);
@@ -286,30 +336,23 @@ function drawTablature() {
         keyGroup.appendChild(circ);
       }
 
-      // If showNotes, place a small label
+      // Note label (if showNotes)
       if (showNotes) {
         const label = document.createElementNS("http://www.w3.org/2000/svg","text");
-        label.setAttribute("x", "0");
-        label.setAttribute("y", blackKey ? "8" : "8");
+        label.setAttribute("x", 0);
+        label.setAttribute("y", 8);
         label.setAttribute("fill", blackKey ? "#EEE" : "#555");
         label.setAttribute("font-size", "7");
         label.setAttribute("font-family", "Helvetica, Arial, sans-serif");
         label.setAttribute("text-anchor", "middle");
-        label.textContent = noteName + octave;
+        label.textContent = noteName + noteOctave;
         keyGroup.appendChild(label);
       }
 
-      // Attach an event listener to toggle marker when clicked
-      keyGroup.style.cursor = "pointer";
+      // Click -> toggle marker & play
       keyGroup.addEventListener("click", () => {
-        // Toggle marker
         keysState[y][x].marker = !keysState[y][x].marker;
-        
-        // Play the note
-        const frequency = noteToFrequency(noteName, octave);
-        playNote(frequency);
-        
-        // Redraw
+        playNote(noteToFrequency(noteName, noteOctave));
         drawTablature();
       });
 
@@ -319,12 +362,26 @@ function drawTablature() {
 }
 
 // ==============================
-// Event handlers
+// Event Listeners
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
   drawTablature();
 
-  // Toggle note-name display
+  // Model selection
+  const modelSelect = document.getElementById("modelSelect");
+  modelSelect.addEventListener("change", () => {
+    const chosen = MODELS[modelSelect.value];
+    currentModel     = chosen;
+    numberOfStrings  = chosen.numberOfStrings;
+    numberOfFrets    = chosen.numberOfFrets;
+    BASE_NOTE        = chosen.startNote;
+    BASE_OCTAVE      = chosen.startOctave;
+
+    initKeysState();
+    drawTablature();
+  });
+
+  // Toggle note names
   const toggleNotesBtn = document.getElementById("toggleNotesBtn");
   toggleNotesBtn.addEventListener("click", () => {
     showNotes = !showNotes;
@@ -334,11 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Clear all markers
   const resetMarkersBtn = document.getElementById("resetMarkersBtn");
   resetMarkersBtn.addEventListener("click", () => {
-    for (let y = 0; y < numberOfFrets; y++) {
-      for (let x = 0; x < numberOfStrings; x++) {
-        keysState[y][x].marker = false;
-      }
-    }
+    initKeysState();
     drawTablature();
   });
 });
