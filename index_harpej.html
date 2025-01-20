@@ -74,7 +74,22 @@
     <button id="closeLibraryBtn" class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600">
       Close
     </button>
-    <div id="libraryContent">
+    <!-- Library Controls -->
+    <div class="mb-4 flex flex-wrap gap-2">
+      <button id="importBtn" class="px-3 py-1 rounded bg-green-500 text-white hover:bg-green-600">
+        Import Files
+      </button>
+      <button id="saveLibraryBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
+        Save Library
+      </button>
+      <button id="loadLibraryBtn" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">
+        Load Library
+      </button>
+      <button id="clearLibraryBtn" class="px-3 py-1 rounded bg-gray-500 text-white hover:bg-gray-600">
+        Clear Library
+      </button>
+    </div>
+    <div id="libraryContent" class="space-y-4">
       <!-- Thumbnails and names of saved files will be dynamically added here -->
     </div>
   </div>
@@ -510,20 +525,120 @@ function populateLibrary() {
     return;
   }
 
-  savedSelections.forEach(selection => {
+  savedSelections.forEach((selection, index) => {
     const div = document.createElement("div");
-    div.className = "mb-4 p-2 border rounded hover:bg-gray-100 cursor-pointer";
+    div.className = "relative p-2 border rounded hover:bg-gray-100";
     div.innerHTML = `
-      <img src="${selection.image}" alt="${selection.name}" class="w-full h-32 object-contain mb-2 bg-white">
-      <div class="text-sm">
-        <span class="block text-center font-bold">${selection.name}</span>
-        <span class="block text-center text-gray-500">${selection.model}</span>
-        <span class="block text-center text-gray-400 text-xs">${new Date(selection.timestamp).toLocaleDateString()}</span>
+      <button class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600 text-xs delete-btn">
+        Delete
+      </button>
+      <div class="cursor-pointer selection-content">
+        <img src="${selection.image}" alt="${selection.name}" class="w-full h-32 object-contain mb-2 bg-white">
+        <div class="text-sm">
+          <span class="block text-center font-bold">${selection.name}</span>
+          <span class="block text-center text-gray-500">${selection.model}</span>
+          <span class="block text-center text-gray-400 text-xs">${new Date(selection.timestamp).toLocaleDateString()}</span>
+        </div>
       </div>
     `;
-    div.addEventListener('click', () => loadSelection(selection));
+
+    // Add click handler for loading selection
+    div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
+
+    // Add click handler for delete button
+    div.querySelector('.delete-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteSelection(index);
+    });
+
     libraryContent.appendChild(div);
   });
+}
+
+function deleteSelection(index) {
+  if (!confirm('Are you sure you want to delete this selection?')) return;
+
+  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  savedSelections.splice(index, 1);
+  localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
+  populateLibrary();
+}
+
+function importFiles() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+  input.multiple = true;
+  input.onchange = (event) => {
+    const files = event.target.files;
+    if (files.length === 0) return;
+
+    const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+    let processed = 0;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          savedSelections.push(data);
+          processed++;
+
+          if (processed === files.length) {
+            localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
+            populateLibrary();
+          }
+        } catch (error) {
+          console.error('Error importing file:', error);
+        }
+      };
+      reader.readAsText(file);
+    });
+  };
+  input.click();
+}
+
+function saveLibrary() {
+  const savedSelections = localStorage.getItem('harpejjiSelections');
+  if (!savedSelections) {
+    alert('No selections to save');
+    return;
+  }
+
+  const blob = new Blob([savedSelections], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'harpejji_library.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadLibrary() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json';
+  input.onchange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const library = JSON.parse(e.target.result);
+        if (Array.isArray(library)) {
+          localStorage.setItem('harpejjiSelections', JSON.stringify(library));
+          populateLibrary();
+        } else {
+          throw new Error('Invalid library file format');
+        }
+      } catch (error) {
+        alert('Error loading library: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 // ==============================
@@ -579,6 +694,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Open library slideover
   const libraryBtn = document.getElementById("libraryBtn");
   libraryBtn.addEventListener("click", toggleLibrary);
+
+  // Library management buttons
+  document.getElementById("importBtn").addEventListener("click", importFiles);
+  document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
+  document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
+  document.getElementById("clearLibraryBtn").addEventListener("click", () => {
+    if (confirm('Are you sure you want to clear the library? This will hide all selections but not delete them.')) {
+      libraryContent.innerHTML = '<p class="text-gray-500 text-center">No saved selections yet</p>';
+    }
+  });
 });
 </script>
 </body>
