@@ -880,7 +880,8 @@ function startNoteRecording(x, y) {
   if (noteIndex === undefined) return;
 
   const startTime = audioContext.currentTime - audioStartTime;
-  activeNotes.set(fullName, { noteName, octave, noteIndex, startTime });
+  // Store x,y so we can highlight exactly this position
+  activeNotes.set(fullName, { noteName, octave, noteIndex, startTime, x, y });
 }
 
 function stopNoteRecording(x, y) {
@@ -935,8 +936,9 @@ function updatePlayhead() {
         const { osc, gain } = createOscillator(freq);
         osc.start();
         note.oscObj = { osc, gain };
-        // Light up on tablature
-        lightUpKey(note.noteName, note.octave, true);
+        // Light up only this x,y
+        keysState[note.y][note.x].sequencerPlaying = true;
+        drawTablature();
       }
     } else if (currentTime >= noteEndTime && note.isPlaying) {
       // Stop note
@@ -945,8 +947,9 @@ function updatePlayhead() {
         stopOscillator(note.oscObj);
         note.oscObj = null;
       }
-      // Turn off highlight
-      lightUpKey(note.noteName, note.octave, false);
+      // Turn off highlight only for this x,y
+      keysState[note.y][note.x].sequencerPlaying = false;
+      drawTablature();
     }
   });
 
@@ -960,23 +963,6 @@ function updatePlayhead() {
   }
 
   requestAnimationFrame(updatePlayhead);
-}
-
-// Helper: highlight in keysState while sequencer is playing
-function lightUpKey(noteName, octave, on) {
-  // Find all x,y that match this note
-  // Usually there's a single x,y for a unique pitch, but if multiple,
-  // highlight them all
-  for (let y = 0; y < numberOfFrets; y++) {
-    for (let x = 0; x < numberOfStrings; x++) {
-      const n = getNoteName(x, y);
-      const o = getNoteOctave(x, y);
-      if (n === noteName && o === octave) {
-        keysState[y][x].sequencerPlaying = on;
-      }
-    }
-  }
-  drawTablature();
 }
 
 // ==============================
@@ -1014,9 +1000,11 @@ function stopPlayback() {
       stopOscillator(note.oscObj);
       note.oscObj = null;
       note.isPlaying = false;
-      lightUpKey(note.noteName, note.octave, false);
+      // Turn off highlight only for that x,y
+      keysState[note.y][note.x].sequencerPlaying = false;
     }
   });
+  drawTablature();
 }
 
 function toggleRecord() {
