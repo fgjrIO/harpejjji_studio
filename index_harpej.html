@@ -6,7 +6,7 @@
   <!-- Tailwind CSS (via CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
+<body class="bg-gray-100 min-h-screen p-4 pb-[350px]">
 <div class="max-w-5xl mx-auto bg-white rounded shadow p-4">
   <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
 
@@ -95,25 +95,40 @@
   </div>
 </div>
 
-<script>
-/**
- * This is a plain JavaScript + Tailwind CSS demonstration
- * of drawing a simplified Harpejji® tablature grid.
- *
- * No Vue, React, or external frameworks - pure JS.
- * Just open this file in a browser (no server needed).
- *
- * Main features emulated:
- * - Draw "frets" (horizontal lines).
- * - Draw "strings" (vertical lines).
- * - Draw keys in a grid, each key representing a note.
- * - Clicking a key toggles a "marker" (finger placement).
- * - Optional display of note names.
- * - Play note sounds when keys are clicked.
- * - Save and load selections.
- * - Library slideover for saved files.
- */
+<!-- Sequencer -->
+<div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600">
+    <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2">
+        <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+            Play
+        </button>
+        <button id="record-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+            Record
+        </button>
+        <button id="metronome-btn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+            Metronome
+        </button>
+        <button id="save-seq-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+            Save
+        </button>
+        <button id="load-seq-btn" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+            Load
+        </button>
+        <input type="file" id="load-seq-file" class="hidden" accept=".json">
+    </div>
+    
+    <div class="flex h-[calc(100%-68px)]">
+        <!-- Piano Roll -->
+        <div id="piano-keys" class="w-[100px] bg-gray-900 overflow-hidden"></div>
+        
+        <!-- Sequencer Grid -->
+        <div id="sequencer-grid" class="flex-1 relative overflow-x-auto bg-gray-900">
+            <div id="grid-content" class="absolute top-0 left-0 h-full"></div>
+            <div id="playhead" class="absolute top-0 w-px h-full bg-white opacity-50 pointer-events-none"></div>
+        </div>
+    </div>
+</div>
 
+<script>
 // ==============================
 // Configuration
 // ==============================
@@ -144,9 +159,9 @@ const MODELS = {
   }
 };
 
-const fretSpacing     = 30;  // vertical spacing in pixels
-const stringSpacing   = 30;  // horizontal spacing in pixels
-const keyHeight       = 25;  // height of each key rectangle
+const fretSpacing = 30;  // vertical spacing in pixels
+const stringSpacing = 30;  // horizontal spacing in pixels
+const keyHeight = 25;  // height of each key rectangle
 
 // The notes array:
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -159,8 +174,8 @@ let BASE_NOTE = currentModel.startNote;
 let BASE_OCTAVE = currentModel.startOctave;
 
 // The drawing region will be sized accordingly:
-let svgWidth  = stringSpacing * (numberOfStrings + 2);
-let svgHeight = fretSpacing   * (numberOfFrets   + 2);
+let svgWidth = stringSpacing * (numberOfStrings + 2);
+let svgHeight = fretSpacing * (numberOfFrets + 2);
 
 // We keep an array of the "keys" states so we can toggle markers, etc.
 let keysState = [];
@@ -672,68 +687,369 @@ function loadLibrary() {
 }
 
 // ==============================
+// Sequencer Configuration
+// ==============================
+const SEQUENCER_CONFIG = {
+    pixelsPerBeat: 100,
+    beatsPerBar: 4,
+    bpm: 120,
+    totalBars: 16,
+    noteHeight: 20,
+};
+
+// Sequencer State
+let isPlaying = false;
+let isRecording = false;
+let metronomeEnabled = false;
+let currentBeat = 0;
+let recordedNotes = [];
+let playheadPosition = 0;
+let lastFrameTime = 0;
+let audioStartTime = 0;
+let activeNotes = new Map(); // Track currently playing notes for recording
+
+// Initialize Web Audio Context for metronome
+let metronomeContext;
+let metronomeGain;
+
+function initMetronome() {
+    if (!metronomeContext) {
+        metronomeContext = new (window.AudioContext || window.webkitAudioContext)();
+        metronomeGain = metronomeContext.createGain();
+        metronomeGain.gain.value = 0.3;
+        metronomeGain.connect(metronomeContext.destination);
+    }
+}
+
+function playMetronomeSound() {
+    const osc = metronomeContext.createOscillator();
+    const clickGain = metronomeContext.createGain();
+    
+    osc.frequency.value = 1000;
+    clickGain.gain.value = 0;
+    
+    osc.connect(clickGain);
+    clickGain.connect(metronomeGain);
+    
+    osc.start();
+    clickGain.gain.setValueAtTime(1, metronomeContext.currentTime);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, metronomeContext.currentTime + 0.05);
+    
+    osc.stop(metronomeContext.currentTime + 0.05);
+}
+
+// Draw piano roll keys
+function drawPianoRoll() {
+    const pianoKeysContainer = document.getElementById('piano-keys');
+    pianoKeysContainer.innerHTML = '';
+    
+    // Calculate total number of notes based on current model
+    const totalNotes = numberOfStrings * numberOfFrets;
+    
+    for (let i = totalNotes - 1; i >= 0; i--) {
+        const y = Math.floor(i / numberOfStrings);
+        const x = i % numberOfStrings;
+        const noteName = getNoteName(x, y);
+        const octave = getNoteOctave(x, y);
+        const isBlack = isBlackNote(noteName);
+        
+        const key = document.createElement('div');
+        key.className = `h-[${SEQUENCER_CONFIG.noteHeight}px] border-b border-gray-700 flex items-center px-2 text-xs ${isBlack ? 'bg-gray-800' : 'bg-gray-700'} text-white`;
+        key.textContent = `${noteName}${octave}`;
+        pianoKeysContainer.appendChild(key);
+    }
+}
+
+// Draw sequencer grid
+function drawSequencerGrid() {
+    const gridContent = document.getElementById('grid-content');
+    gridContent.innerHTML = '';
+    
+    const totalWidth = SEQUENCER_CONFIG.pixelsPerBeat * SEQUENCER_CONFIG.beatsPerBar * SEQUENCER_CONFIG.totalBars;
+    gridContent.style.width = `${totalWidth}px`;
+    
+    // Draw vertical grid lines
+    for (let i = 0; i <= SEQUENCER_CONFIG.totalBars * SEQUENCER_CONFIG.beatsPerBar; i++) {
+        const line = document.createElement('div');
+        line.className = `absolute top-0 w-px h-full ${i % SEQUENCER_CONFIG.beatsPerBar === 0 ? 'bg-gray-500' : 'bg-gray-700'}`;
+        line.style.left = `${i * SEQUENCER_CONFIG.pixelsPerBeat}px`;
+        gridContent.appendChild(line);
+    }
+    
+    // Draw horizontal grid lines
+    const totalNotes = numberOfStrings * numberOfFrets;
+    for (let i = 0; i <= totalNotes; i++) {
+        const line = document.createElement('div');
+        line.className = 'absolute left-0 right-0 h-px bg-gray-700';
+        line.style.top = `${i * SEQUENCER_CONFIG.noteHeight}px`;
+        gridContent.appendChild(line);
+    }
+    
+    // Draw recorded notes
+    recordedNotes.forEach(note => {
+        const noteElement = document.createElement('div');
+        noteElement.className = 'absolute bg-blue-500 opacity-75 rounded';
+        noteElement.style.left = `${note.startTime * SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60)}px`;
+        noteElement.style.top = `${note.noteIndex * SEQUENCER_CONFIG.noteHeight}px`;
+        noteElement.style.width = `${note.duration * SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60)}px`;
+        noteElement.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
+        gridContent.appendChild(noteElement);
+    });
+}
+
+// Update playhead position
+function updatePlayhead() {
+    if (!isPlaying) return;
+    
+    const currentTime = audioContext.currentTime - audioStartTime;
+    playheadPosition = (currentTime * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
+    
+    const playhead = document.getElementById('playhead');
+    playhead.style.left = `${playheadPosition}px`;
+    
+    // Auto-scroll the grid to follow the playhead
+    const grid = document.getElementById('sequencer-grid');
+    const gridRect = grid.getBoundingClientRect();
+    if (playheadPosition > grid.scrollLeft + gridRect.width * 0.7) {
+        grid.scrollLeft = playheadPosition - gridRect.width * 0.3;
+    }
+    
+    // Play recorded notes
+    recordedNotes.forEach(note => {
+        const noteStartTime = note.startTime;
+        const noteEndTime = noteStartTime + note.duration;
+        
+        if (currentTime >= noteStartTime && currentTime < noteEndTime && !note.isPlaying) {
+            // Start playing the note
+            const frequency = noteToFrequency(note.noteName, note.octave);
+            playNote(frequency);
+            note.isPlaying = true;
+        } else if (currentTime >= noteEndTime && note.isPlaying) {
+            // Stop playing the note
+            note.isPlaying = false;
+        }
+    });
+    
+    // Play metronome if enabled
+    if (metronomeEnabled) {
+        const beatPosition = Math.floor(currentTime * SEQUENCER_CONFIG.bpm / 60);
+        if (beatPosition > currentBeat) {
+            currentBeat = beatPosition;
+            playMetronomeSound();
+        }
+    }
+    
+    requestAnimationFrame(updatePlayhead);
+}
+
+// Handle note recording
+function startNoteRecording(x, y) {
+    if (!isRecording) return;
+    
+    const noteName = getNoteName(x, y);
+    const octave = getNoteOctave(x, y);
+    const noteIndex = y * numberOfStrings + x;
+    const startTime = audioContext.currentTime - audioStartTime;
+    
+    activeNotes.set(noteIndex, {
+        noteName,
+        octave,
+        noteIndex,
+        startTime
+    });
+}
+
+function stopNoteRecording(x, y) {
+    if (!isRecording) return;
+    
+    const noteIndex = y * numberOfStrings + x;
+    const note = activeNotes.get(noteIndex);
+    if (note) {
+        const endTime = audioContext.currentTime - audioStartTime;
+        const duration = endTime - note.startTime;
+        
+        recordedNotes.push({
+            ...note,
+            duration,
+            isPlaying: false
+        });
+        
+        activeNotes.delete(noteIndex);
+        drawSequencerGrid();
+    }
+}
+
+// Sequencer controls
+function togglePlay() {
+    if (!audioContext) initAudio();
+    if (!metronomeContext) initMetronome();
+    
+    isPlaying = !isPlaying;
+    const playBtn = document.getElementById('play-btn');
+    playBtn.classList.toggle('bg-green-600');
+    
+    if (isPlaying) {
+        audioStartTime = audioContext.currentTime;
+        currentBeat = 0;
+        updatePlayhead();
+    }
+}
+
+function toggleRecord() {
+    isRecording = !isRecording;
+    const recordBtn = document.getElementById('record-btn');
+    recordBtn.classList.toggle('bg-red-600');
+    
+    if (isRecording && !isPlaying) {
+        togglePlay();
+    }
+}
+
+function toggleMetronome() {
+    metronomeEnabled = !metronomeEnabled;
+    const metronomeBtn = document.getElementById('metronome-btn');
+    metronomeBtn.classList.toggle('bg-blue-600');
+}
+
+function saveSequence() {
+    const fileName = prompt('Enter a name for your sequence:', 'My Sequence');
+    if (!fileName) return;
+    
+    const data = {
+        name: fileName,
+        bpm: SEQUENCER_CONFIG.bpm,
+        notes: recordedNotes,
+        timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function loadSequence() {
+    const input = document.getElementById('load-seq-file');
+    input.onchange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    SEQUENCER_CONFIG.bpm = data.bpm;
+                    recordedNotes = data.notes;
+                    drawSequencerGrid();
+                } catch (error) {
+                    console.error('Error loading sequence:', error);
+                    alert('Error loading sequence file');
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+    input.click();
+}
+
+// ==============================
 // Event handlers
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
-  drawTablature();
-
-  // Model selection change
-  const modelSelect = document.getElementById("modelSelect");
-  modelSelect.addEventListener("change", () => {
-    const selectedModel = MODELS[modelSelect.value];
-    currentModel = selectedModel;
-    numberOfStrings = selectedModel.numberOfStrings;
-    numberOfFrets = selectedModel.numberOfFrets;
-    BASE_NOTE = selectedModel.startNote;
-    BASE_OCTAVE = selectedModel.startOctave;
+    // Initialize sequencer
+    drawPianoRoll();
+    drawSequencerGrid();
     
-    // Reset markers for new model
-    initKeysState();
+    // Add sequencer control event listeners
+    document.getElementById('play-btn').addEventListener('click', togglePlay);
+    document.getElementById('record-btn').addEventListener('click', toggleRecord);
+    document.getElementById('metronome-btn').addEventListener('click', toggleMetronome);
+    document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
+    document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
     
-    // Redraw with new configuration
+    // Modify the existing key click handler to include recording
+    const keyGroups = document.querySelectorAll('#tablature g g');
+    keyGroups.forEach((keyGroup, index) => {
+        const y = Math.floor(index / numberOfStrings);
+        const x = index % numberOfStrings;
+        
+        keyGroup.addEventListener('mousedown', () => {
+            startNoteRecording(x, y);
+        });
+        
+        keyGroup.addEventListener('mouseup', () => {
+            stopNoteRecording(x, y);
+        });
+        
+        keyGroup.addEventListener('mouseleave', () => {
+            stopNoteRecording(x, y);
+        });
+    });
+    
+    // Previous event handlers
     drawTablature();
-  });
 
-  // Toggle note-name display
-  const toggleNotesBtn = document.getElementById("toggleNotesBtn");
-  toggleNotesBtn.addEventListener("click", () => {
-    showNotes = !showNotes;
-    drawTablature();
-  });
+    // Model selection change
+    const modelSelect = document.getElementById("modelSelect");
+    modelSelect.addEventListener("change", () => {
+        const selectedModel = MODELS[modelSelect.value];
+        currentModel = selectedModel;
+        numberOfStrings = selectedModel.numberOfStrings;
+        numberOfFrets = selectedModel.numberOfFrets;
+        BASE_NOTE = selectedModel.startNote;
+        BASE_OCTAVE = selectedModel.startOctave;
+        
+        // Reset markers for new model
+        initKeysState();
+        
+        // Redraw with new configuration
+        drawTablature();
+        drawPianoRoll();
+        drawSequencerGrid();
+    });
 
-  // Clear all markers
-  const resetMarkersBtn = document.getElementById("resetMarkersBtn");
-  resetMarkersBtn.addEventListener("click", () => {
-    initKeysState();
-    drawTablature();
-  });
+    // Toggle note-name display
+    const toggleNotesBtn = document.getElementById("toggleNotesBtn");
+    toggleNotesBtn.addEventListener("click", () => {
+        showNotes = !showNotes;
+        drawTablature();
+    });
 
-  // Save selection
-  const saveBtn = document.getElementById("saveBtn");
-  saveBtn.addEventListener("click", saveSelection);
+    // Clear all markers
+    const resetMarkersBtn = document.getElementById("resetMarkersBtn");
+    resetMarkersBtn.addEventListener("click", () => {
+        initKeysState();
+        drawTablature();
+    });
 
-  // Load selection from file
-  const loadBtn = document.getElementById("loadBtn");
-  loadBtn.addEventListener("click", handleFileLoad);
+    // Save selection
+    const saveBtn = document.getElementById("saveBtn");
+    saveBtn.addEventListener("click", saveSelection);
 
-  // Toggle library slideover
-  const closeLibraryBtn = document.getElementById("closeLibraryBtn");
-  closeLibraryBtn.addEventListener("click", toggleLibrary);
-  populateLibrary();
+    // Load selection from file
+    const loadBtn = document.getElementById("loadBtn");
+    loadBtn.addEventListener("click", handleFileLoad);
 
-  // Open library slideover
-  const libraryBtn = document.getElementById("libraryBtn");
-  libraryBtn.addEventListener("click", toggleLibrary);
+    // Toggle library slideover
+    const closeLibraryBtn = document.getElementById("closeLibraryBtn");
+    closeLibraryBtn.addEventListener("click", toggleLibrary);
+    populateLibrary();
 
-  // Library management buttons
-  document.getElementById("importBtn").addEventListener("click", importFiles);
-  document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
-  document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
-  document.getElementById("clearLibraryBtn").addEventListener("click", () => {
-    if (confirm('Are you sure you want to clear the library? This will hide all selections but not delete them.')) {
-      libraryContent.innerHTML = '<p class="text-gray-500 text-center">No saved selections yet</p>';
-    }
-  });
+    // Open library slideover
+    const libraryBtn = document.getElementById("libraryBtn");
+    libraryBtn.addEventListener("click", toggleLibrary);
+
+    // Library management buttons
+    document.getElementById("importBtn").addEventListener("click", importFiles);
+    document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
+    document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
+    document.getElementById("clearLibraryBtn").addEventListener("click", () => {
+        if (confirm('Are you sure you want to clear the library? This will hide all selections but not delete them.')) {
+            libraryContent.innerHTML = '<p class="text-gray-500 text-center">No saved selections yet</p>';
+        }
+    });
 });
 </script>
 </body>
