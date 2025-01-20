@@ -124,9 +124,9 @@
         <div id="piano-keys" class="w-[100px] bg-gray-900 overflow-y-auto"></div>
         
         <!-- Sequencer Grid -->
-        <div id="sequencer-grid" class="flex-1 relative overflow-x-auto bg-gray-900">
-            <div id="grid-content" class="absolute top-0 left-0 h-full"></div>
-            <div id="playhead" class="absolute top-0 w-px h-full bg-white opacity-50 pointer-events-none"></div>
+        <div id="sequencer-grid" class="flex-1 relative overflow-auto bg-gray-900">
+            <div id="grid-content" class="absolute top-0 left-0"></div>
+            <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
         </div>
     </div>
 </div>
@@ -795,10 +795,17 @@ function drawPianoRoll() {
 // Draw sequencer grid
 function drawSequencerGrid() {
     const gridContent = document.getElementById('grid-content');
+    const playhead = document.getElementById('playhead');
     gridContent.innerHTML = '';
+    
+    // Get total height from piano roll
+    const pianoKeysContainer = document.getElementById('piano-keys');
+    const totalHeight = pianoKeysContainer.scrollHeight;
     
     const totalWidth = SEQUENCER_CONFIG.pixelsPerBeat * SEQUENCER_CONFIG.beatsPerBar * SEQUENCER_CONFIG.totalBars;
     gridContent.style.width = `${totalWidth}px`;
+    gridContent.style.height = `${totalHeight}px`;
+    playhead.style.height = `${totalHeight}px`;
     
     // Draw vertical grid lines
     for (let i = 0; i <= SEQUENCER_CONFIG.totalBars * SEQUENCER_CONFIG.beatsPerBar; i++) {
@@ -1018,25 +1025,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('metronome-btn').addEventListener('click', toggleMetronome);
     document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
     document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
-    
-    // Modify the existing key click handler to include recording
-    const keyGroups = document.querySelectorAll('#tablature g g');
-    keyGroups.forEach((keyGroup, index) => {
-        const y = Math.floor(index / numberOfStrings);
-        const x = index % numberOfStrings;
-        
-        keyGroup.addEventListener('mousedown', () => {
-            startNoteRecording(x, y);
-        });
-        
-        keyGroup.addEventListener('mouseup', () => {
-            stopNoteRecording(x, y);
-        });
-        
-        keyGroup.addEventListener('mouseleave', () => {
-            stopNoteRecording(x, y);
-        });
-    });
     
     // Previous event handlers
     drawTablature();
