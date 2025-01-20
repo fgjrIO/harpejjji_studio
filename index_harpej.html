@@ -12,33 +12,47 @@
 
   <!-- Controls -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
-    <!-- NEW: Model dropdown -->
     <div class="flex items-center gap-2">
       <label for="modelSelect" class="text-gray-700">Model:</label>
       <select 
         id="modelSelect"
         class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[200px]"
       >
-        <option value="K24">K24 (A0 → A5, 24 strings)</option>
-        <option value="G16">G16 (E2 → C6, 16 strings)</option>
-        <option value="G12">G12 (C2 → G#5, 12 strings)</option>
+        <option value="K24">K24 (A0-A5, 24 strings)</option>
+        <option value="G16">G16 (E2-C6, 16 strings)</option>
+        <option value="G12">G12 (C2-C#5, 12 strings)</option>
       </select>
     </div>
-
     <button 
       id="toggleNotesBtn"
       class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
     >
       Toggle Note Names
     </button>
-
     <button 
       id="resetMarkersBtn"
       class="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
     >
       Clear All Markers
     </button>
-
+    <button 
+      id="saveBtn"
+      class="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600"
+    >
+      Save Selection
+    </button>
+    <button 
+      id="loadBtn"
+      class="px-4 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600"
+    >
+      Load Selection
+    </button>
+    <button 
+      id="libraryBtn"
+      class="px-4 py-2 rounded bg-purple-500 text-white hover:bg-purple-600"
+    >
+      Open Library
+    </button>
     <span class="text-gray-600 text-sm">
       Click any key to toggle a marker and play its note.
     </span>
@@ -49,73 +63,93 @@
     id="tablature" 
     class="border border-gray-400"
   >
-    <!-- Dynamically drawn via JS -->
+    <!-- Will be drawn dynamically via JavaScript -->
   </svg>
+</div>
+
+<!-- Library Slideover -->
+<div id="librarySlideover" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
+  <div class="absolute left-0 top-0 bottom-0 bg-white w-64 p-4 overflow-y-auto">
+    <h2 class="text-xl font-bold mb-4">Library</h2>
+    <button id="closeLibraryBtn" class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600">
+      Close
+    </button>
+    <div id="libraryContent">
+      <!-- Thumbnails and names of saved files will be dynamically added here -->
+    </div>
+  </div>
 </div>
 
 <script>
 /**
- * Harpejji® Tablature Demo (Plain JS + Tailwind)
+ * This is a plain JavaScript + Tailwind CSS demonstration
+ * of drawing a simplified Harpejji® tablature grid.
  *
- * Key changes from your original code:
- *  1) A dropdown to select K24 / G16 / G12.
- *  2) The bottom row is physically at the bottom (row=0 at bottom),
- *     top row is physically at the top (row=numberOfFrets-1 at top).
- *  3) The bottom-left is labeled "start note," top-right "end note."
- *  4) Everything else (colors, widths, lines) is the same as your snippet.
+ * No Vue, React, or external frameworks - pure JS.
+ * Just open this file in a browser (no server needed).
+ *
+ * Main features emulated:
+ * - Draw "frets" (horizontal lines).
+ * - Draw "strings" (vertical lines).
+ * - Draw keys in a grid, each key representing a note.
+ * - Clicking a key toggles a "marker" (finger placement).
+ * - Optional display of note names.
+ * - Play note sounds when keys are clicked.
+ * - Save and load selections.
+ * - Library slideover for saved files.
  */
 
-// === Models ===
+// ==============================
+// Configuration
+// ==============================
 const MODELS = {
   K24: {
-    numberOfStrings: 24,  // left-to-right
-    numberOfFrets:   15,  // bottom-to-top
-    startNote:  "A",
-    startOctave: 0, // A0
-    endNote:    "A",
-    endOctave:  5  // A5
+    numberOfStrings: 24,
+    numberOfFrets: 15,
+    startNote: "A",
+    startOctave: 0,
+    endNote: "A",
+    endOctave: 5
   },
   G16: {
     numberOfStrings: 16,
-    numberOfFrets:   15,
-    startNote:  "E",
-    startOctave: 2, // E2
-    endNote:    "C",
-    endOctave:  6  // C6
+    numberOfFrets: 15,
+    startNote: "E",
+    startOctave: 2,
+    endNote: "C",
+    endOctave: 6
   },
   G12: {
     numberOfStrings: 12,
-    numberOfFrets:   15,
-    startNote:  "C",
-    startOctave: 2, // C2
-    endNote:    "G#",
-    endOctave:  5  // G#5
+    numberOfFrets: 15,
+    startNote: "C",
+    startOctave: 2,
+    endNote: "C#",
+    endOctave: 5
   }
 };
 
-// Layout constants (same as your original)
-const fretSpacing   = 30; 
-const stringSpacing = 30; 
-const keyHeight     = 25; 
+const fretSpacing     = 30;  // vertical spacing in pixels
+const stringSpacing   = 30;  // horizontal spacing in pixels
+const keyHeight       = 25;  // height of each key rectangle
 
-// Chromatic scale
+// The notes array:
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-// Default: K24
+// Current model and configuration
 let currentModel = MODELS.K24;
+let numberOfFrets = currentModel.numberOfFrets;
 let numberOfStrings = currentModel.numberOfStrings;
-let numberOfFrets   = currentModel.numberOfFrets;
-let BASE_NOTE       = currentModel.startNote;
-let BASE_OCTAVE     = currentModel.startOctave;
+let BASE_NOTE = currentModel.startNote;
+let BASE_OCTAVE = currentModel.startOctave;
 
-// Determine SVG dimension from current model
+// The drawing region will be sized accordingly:
 let svgWidth  = stringSpacing * (numberOfStrings + 2);
 let svgHeight = fretSpacing   * (numberOfFrets   + 2);
 
-// Keep track of markers
+// We keep an array of the "keys" states so we can toggle markers, etc.
 let keysState = [];
 
-// Initialize keysState for the current board
 function initKeysState() {
   keysState = [];
   for (let y = 0; y < numberOfFrets; y++) {
@@ -125,13 +159,14 @@ function initKeysState() {
     }
   }
 }
+
 initKeysState();
 
-// Show/hide note names
+// Whether to show note names or not:
 let showNotes = false;
 
 // ==============================
-// Simple Audio Synthesis
+// Audio Synthesis Setup
 // ==============================
 let audioContext;
 let masterGainNode;
@@ -139,136 +174,141 @@ let masterGainNode;
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   masterGainNode = audioContext.createGain();
-  masterGainNode.gain.value = 0.1; // a bit quieter
+  masterGainNode.gain.value = 0.1; // Lower volume to avoid being too loud
   masterGainNode.connect(audioContext.destination);
 }
 
+// Convert note name and octave to frequency
 function noteToFrequency(noteName, octave) {
   const noteIndex = NOTES.indexOf(noteName);
-  if (noteIndex < 0) return 440; // fallback
+  if (noteIndex === -1) return 440; // Default to A4 if note not found
   
-  // semitones from A4 = 440Hz
-  const A4_INDEX  = NOTES.indexOf("A"); // 9
+  // Calculate semitones from A4 (A4 = 440Hz)
   const A4_OCTAVE = 4;
-  const semitones = (octave - A4_OCTAVE)*12 + (noteIndex - A4_INDEX);
-
+  const A4_INDEX = NOTES.indexOf("A");
+  const semitones = (octave - A4_OCTAVE) * 12 + (noteIndex - A4_INDEX);
+  
+  // Convert semitones to frequency using the formula: freq = 440 * 2^(semitones/12)
   return 440 * Math.pow(2, semitones / 12);
 }
 
-function playNote(freq) {
+// Play a note with the given frequency
+function playNote(frequency) {
   if (!audioContext) initAudio();
   
-  const osc = audioContext.createOscillator();
-  const gain = audioContext.createGain();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
   
-  osc.type = "sine";
-  osc.frequency.value = freq;
+  oscillator.type = 'sine';
+  oscillator.frequency.value = frequency;
   
-  gain.gain.value = 0.5;
+  gainNode.gain.value = 0.5;
   
-  osc.connect(gain);
-  gain.connect(masterGainNode);
-
-  osc.start();
+  oscillator.connect(gainNode);
+  gainNode.connect(masterGainNode);
   
-  // quick envelope
-  gain.gain.setValueAtTime(0.5, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
+  oscillator.start();
+  
+  // Envelope for a nicer sound
+  gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+  
+  // Stop and cleanup after the note is done
   setTimeout(() => {
-    osc.stop();
-    osc.disconnect();
-    gain.disconnect();
+    oscillator.stop();
+    oscillator.disconnect();
+    gainNode.disconnect();
   }, 500);
 }
 
 // ==============================
-// Note Calculation
+// Note Calculation Functions
 // ==============================
 
-// We want the bottom row (y=0) to be "startNote" (e.g., A0 for K24),
-// and the top row (y=numberOfFrets-1) to be near the "endNote" (e.g., A5).
-// We'll assume: each row going UP is +1 semitone, each string going RIGHT is +2 semitones.
+// Calculate the total semitones from the base note for a given position
 function getSemitonesFromBase(x, y) {
-  // y is row from bottom=0 to top=(numberOfFrets-1)
-  // x is string from left=0 to right=(numberOfStrings-1)
-  // So offset in semitones is: y + (2 * x)
-  return y + 2*x;
+  // Each string (x) moves up by 2 semitones
+  // Each fret (y) moves down by 1 semitone
+  return (x * 2) - y;
 }
 
+// Get the note name for a given position
+function getNoteName(x, y) {
+  const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
+  const semitones = getSemitonesFromBase(x, y);
+  
+  // Calculate the new note index, wrapping around the octave
+  const noteIndex = mod(baseNoteIndex + semitones, NOTES.length);
+  
+  return NOTES[noteIndex];
+}
+
+// Get the octave for a given position
+function getNoteOctave(x, y) {
+  const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
+  const semitones = getSemitonesFromBase(x, y);
+  
+  // Calculate how many complete octaves we've moved
+  const totalSemitones = baseNoteIndex + semitones;
+  const octaveShift = Math.floor(totalSemitones / NOTES.length);
+  
+  return BASE_OCTAVE + octaveShift;
+}
+
+// For convenience, black notes are those with "#" in them.
+function isBlackNote(noteName) {
+  return noteName.includes("#");
+}
+
+// Utility: positive mod (for wrapping note indices)
 function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
-function getNoteName(x, y) {
-  const baseIndex = NOTES.indexOf(BASE_NOTE); 
-  const offset = getSemitonesFromBase(x, y);
-  const newIndex = mod(baseIndex + offset, 12);
-  return NOTES[newIndex];
-}
-
-function getNoteOctave(x, y) {
-  const baseIndex = NOTES.indexOf(BASE_NOTE);
-  const offset = getSemitonesFromBase(x, y);
-  // total steps from base note
-  const totalSemitones = baseIndex + offset;
-  // how many 12-step blocks?
-  const octaveShift = Math.floor(totalSemitones / 12);
-  return BASE_OCTAVE + octaveShift;
-}
-
-function isBlackNote(n) {
-  return n.includes("#");
-}
-
 // ==============================
-// Draw the Tablature
+// Main draw function
 // ==============================
 function drawTablature() {
-  // Update dimensions
-  svgWidth  = stringSpacing * (numberOfStrings + 2);
-  svgHeight = fretSpacing   * (numberOfFrets   + 2);
-
+  // Update dimensions based on current model
+  svgWidth = stringSpacing * (numberOfStrings + 2);
+  svgHeight = fretSpacing * (numberOfFrets + 2);
+  
   const svg = document.getElementById("tablature");
-  svg.innerHTML = ""; // clear
+  // Clear previous children
+  svg.innerHTML = "";
 
-  svg.setAttribute("width",  svgWidth);
+  // Set the SVG size
+  svg.setAttribute("width", svgWidth);
   svg.setAttribute("height", svgHeight);
 
-  // White BG
+  // Draw a white background
   const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
   bg.setAttribute("width", "100%");
   bg.setAttribute("height","100%");
   bg.setAttribute("fill", "white");
   svg.appendChild(bg);
 
-  // Main group with offset
+  // Group for everything
   const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+  // We'll shift it a bit so there's some margin
   const offsetX = stringSpacing;
   const offsetY = fretSpacing;
   g.setAttribute("transform", `translate(${offsetX}, ${offsetY})`);
   svg.appendChild(g);
 
-  // 1) Frets (horizontal lines) from bottom to top
-  //    We'll keep the same "look" as your original, but invert the row so
-  //    row=0 is physically at the bottom and row=numberOfFrets is at the top.
-  for (let row = 0; row <= numberOfFrets; row++) {
-    // old code used (row * fretSpacing + something)
-    // now let's invert row to place it from bottom up:
-    const lineY = (numberOfFrets - row) * fretSpacing 
-                  + (row < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight);
-
+  // 1) Draw frets (horizontal lines)
+  for (let y = 0; y <= numberOfFrets; y++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", 0);
-    line.setAttribute("y1", lineY);
-    line.setAttribute("x2", numberOfStrings * stringSpacing);
-    line.setAttribute("y2", lineY);
+    line.setAttribute("y1", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
+    line.setAttribute("x2", (numberOfStrings) * stringSpacing);
+    line.setAttribute("y2", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
     line.setAttribute("stroke", "#000");
     line.setAttribute("stroke-width", "1");
     g.appendChild(line);
   }
 
-  // 2) Strings (vertical lines) left to right
+  // 2) Draw strings (vertical lines)
   for (let x = 0; x < numberOfStrings; x++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", x * stringSpacing + stringSpacing);
@@ -280,40 +320,31 @@ function drawTablature() {
     g.appendChild(line);
   }
 
-  // Optional border
+  // 3) Optional border around the entire zone
   const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
   borderRect.setAttribute("x", 0.5);
   borderRect.setAttribute("y", 0.5);
-  borderRect.setAttribute(
-    "width", 
-    (numberOfStrings * stringSpacing - 1 + stringSpacing)
-  );
-  borderRect.setAttribute(
-    "height", 
-    (numberOfFrets * fretSpacing + keyHeight - 1 + fretSpacing/2)
-  );
+  borderRect.setAttribute("width",  (numberOfStrings) * stringSpacing - 1 + stringSpacing);
+  borderRect.setAttribute("height", numberOfFrets * fretSpacing + keyHeight - 1 + fretSpacing/2);
   borderRect.setAttribute("fill", "transparent");
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // 3) Draw keys (rectangles) for each row/string
-  //    bottom row is y=0, top row is y=numberOfFrets-1
+  // 4) Draw the keys (rectangles) for each fret/string intersection
+  //    plus optional marker if toggled, plus note name if showNotes is true
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
-      const noteName   = getNoteName(x, y);
-      const noteOctave = getNoteOctave(x, y);
-      const blackKey   = isBlackNote(noteName);
+      // We determine the note name to color black/white, etc.
+      const noteName = getNoteName(x, y);
+      const octave   = getNoteOctave(x, y);
+      const blackKey = isBlackNote(noteName);
 
-      // We'll invert the visual coordinate so y=0 is at bottom
-      // The original code placed row y at y*fretSpacing + fretSpacing/2
-      // so let's do lineY = (numberOfFrets - 1 - y)*fretSpacing + fretSpacing/2
-      const visualY = (numberOfFrets - 1 - y)*fretSpacing + fretSpacing/2;
-      const visualX = x*stringSpacing + stringSpacing;
-
-      // A group for the key
+      // The "key" is drawn around (x * stringSpacing + offset, y * fretSpacing + offset)
       const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
-      keyGroup.setAttribute("transform", `translate(${visualX}, ${visualY})`);
-      keyGroup.style.cursor = "pointer";
+      keyGroup.setAttribute(
+        "transform", 
+        `translate(${x * stringSpacing + stringSpacing}, ${y * fretSpacing + fretSpacing/2})`
+      );
 
       // The background rectangle
       const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
@@ -326,8 +357,8 @@ function drawTablature() {
       rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
       keyGroup.appendChild(rect);
 
-      // Marker if toggled
-      if (keysState[y][x].marker) {
+      // If the key is toggled on, draw a circular marker
+      if (keysState[y] && keysState[y][x] && keysState[y][x].marker) {
         const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
         circ.setAttribute("cx", 0);
         circ.setAttribute("cy", 12.5);
@@ -336,23 +367,32 @@ function drawTablature() {
         keyGroup.appendChild(circ);
       }
 
-      // Note label (if showNotes)
+      // If showNotes, place a small label
       if (showNotes) {
         const label = document.createElementNS("http://www.w3.org/2000/svg","text");
-        label.setAttribute("x", 0);
-        label.setAttribute("y", 8);
+        label.setAttribute("x", "0");
+        label.setAttribute("y", blackKey ? "8" : "8");
         label.setAttribute("fill", blackKey ? "#EEE" : "#555");
         label.setAttribute("font-size", "7");
         label.setAttribute("font-family", "Helvetica, Arial, sans-serif");
         label.setAttribute("text-anchor", "middle");
-        label.textContent = noteName + noteOctave;
+        label.textContent = noteName + octave;
         keyGroup.appendChild(label);
       }
 
-      // Click -> toggle marker & play
+      // Attach an event listener to toggle marker when clicked
+      keyGroup.style.cursor = "pointer";
       keyGroup.addEventListener("click", () => {
+        // Toggle marker
+        if (!keysState[y]) keysState[y] = [];
+        if (!keysState[y][x]) keysState[y][x] = { marker: false };
         keysState[y][x].marker = !keysState[y][x].marker;
-        playNote(noteToFrequency(noteName, noteOctave));
+        
+        // Play the note
+        const frequency = noteToFrequency(noteName, octave);
+        playNote(frequency);
+        
+        // Redraw
         drawTablature();
       });
 
@@ -362,26 +402,154 @@ function drawTablature() {
 }
 
 // ==============================
-// Event Listeners
+// Save and Load Functions
+// ==============================
+function saveSelection() {
+  const fileName = prompt("Enter a name for your selection:", "My Selection");
+  if (!fileName) return;
+
+  // Create a canvas to capture the SVG as an image
+  const svg = document.getElementById("tablature");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const img = new Image();
+  
+  img.onload = function() {
+    canvas.width = svg.width.baseVal.value;
+    canvas.height = svg.height.baseVal.value;
+    ctx.drawImage(img, 0, 0);
+    
+    const data = {
+      name: fileName,
+      model: modelSelect.value,
+      keysState: keysState,
+      image: canvas.toDataURL("image/png"),
+      timestamp: new Date().toISOString()
+    };
+
+    // Save to localStorage
+    const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+    savedSelections.push(data);
+    localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
+
+    // Also allow download as file
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fileName}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Refresh library
+    populateLibrary();
+  };
+
+  img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+}
+
+function loadSelection(data) {
+  // Update model select
+  const modelSelect = document.getElementById("modelSelect");
+  modelSelect.value = data.model;
+  
+  // Update model and state
+  const selectedModel = MODELS[data.model];
+  currentModel = selectedModel;
+  numberOfStrings = selectedModel.numberOfStrings;
+  numberOfFrets = selectedModel.numberOfFrets;
+  BASE_NOTE = selectedModel.startNote;
+  BASE_OCTAVE = selectedModel.startOctave;
+  
+  // Update keys state
+  keysState = data.keysState;
+  
+  // Redraw
+  drawTablature();
+  
+  // Close library
+  toggleLibrary();
+}
+
+function handleFileLoad() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+  input.onchange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = JSON.parse(e.target.result);
+        loadSelection(data);
+      };
+      reader.readAsText(file);
+    }
+  };
+  input.click();
+}
+
+// ==============================
+// Library Slideover Functions
+// ==============================
+function toggleLibrary() {
+  const slideover = document.getElementById("librarySlideover");
+  slideover.classList.toggle("hidden");
+}
+
+function populateLibrary() {
+  const libraryContent = document.getElementById("libraryContent");
+  libraryContent.innerHTML = ""; // Clear existing content
+  
+  // Get saved selections from localStorage
+  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  
+  if (savedSelections.length === 0) {
+    libraryContent.innerHTML = '<p class="text-gray-500 text-center">No saved selections yet</p>';
+    return;
+  }
+
+  savedSelections.forEach(selection => {
+    const div = document.createElement("div");
+    div.className = "mb-4 p-2 border rounded hover:bg-gray-100 cursor-pointer";
+    div.innerHTML = `
+      <img src="${selection.image}" alt="${selection.name}" class="w-full h-32 object-contain mb-2 bg-white">
+      <div class="text-sm">
+        <span class="block text-center font-bold">${selection.name}</span>
+        <span class="block text-center text-gray-500">${selection.model}</span>
+        <span class="block text-center text-gray-400 text-xs">${new Date(selection.timestamp).toLocaleDateString()}</span>
+      </div>
+    `;
+    div.addEventListener('click', () => loadSelection(selection));
+    libraryContent.appendChild(div);
+  });
+}
+
+// ==============================
+// Event handlers
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
   drawTablature();
 
-  // Model selection
+  // Model selection change
   const modelSelect = document.getElementById("modelSelect");
   modelSelect.addEventListener("change", () => {
-    const chosen = MODELS[modelSelect.value];
-    currentModel     = chosen;
-    numberOfStrings  = chosen.numberOfStrings;
-    numberOfFrets    = chosen.numberOfFrets;
-    BASE_NOTE        = chosen.startNote;
-    BASE_OCTAVE      = chosen.startOctave;
-
+    const selectedModel = MODELS[modelSelect.value];
+    currentModel = selectedModel;
+    numberOfStrings = selectedModel.numberOfStrings;
+    numberOfFrets = selectedModel.numberOfFrets;
+    BASE_NOTE = selectedModel.startNote;
+    BASE_OCTAVE = selectedModel.startOctave;
+    
+    // Reset markers for new model
     initKeysState();
+    
+    // Redraw with new configuration
     drawTablature();
   });
 
-  // Toggle note names
+  // Toggle note-name display
   const toggleNotesBtn = document.getElementById("toggleNotesBtn");
   toggleNotesBtn.addEventListener("click", () => {
     showNotes = !showNotes;
@@ -394,6 +562,23 @@ document.addEventListener("DOMContentLoaded", () => {
     initKeysState();
     drawTablature();
   });
+
+  // Save selection
+  const saveBtn = document.getElementById("saveBtn");
+  saveBtn.addEventListener("click", saveSelection);
+
+  // Load selection from file
+  const loadBtn = document.getElementById("loadBtn");
+  loadBtn.addEventListener("click", handleFileLoad);
+
+  // Toggle library slideover
+  const closeLibraryBtn = document.getElementById("closeLibraryBtn");
+  closeLibraryBtn.addEventListener("click", toggleLibrary);
+  populateLibrary();
+
+  // Open library slideover
+  const libraryBtn = document.getElementById("libraryBtn");
+  libraryBtn.addEventListener("click", toggleLibrary);
 });
 </script>
 </body>
