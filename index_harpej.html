@@ -435,12 +435,21 @@ function saveSelection() {
     canvas.height = svg.height.baseVal.value;
     ctx.drawImage(img, 0, 0);
     
+    // Create a complete selection object with all necessary data
     const data = {
       name: fileName,
       model: modelSelect.value,
       keysState: keysState,
       image: canvas.toDataURL("image/png"),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      modelData: {
+        numberOfStrings: currentModel.numberOfStrings,
+        numberOfFrets: currentModel.numberOfFrets,
+        startNote: currentModel.startNote,
+        startOctave: currentModel.startOctave,
+        endNote: currentModel.endNote,
+        endOctave: currentModel.endOctave
+      }
     };
 
     // Save to localStorage
@@ -448,7 +457,7 @@ function saveSelection() {
     savedSelections.push(data);
     localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
 
-    // Also allow download as file
+    // Save individual selection file
     const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -469,13 +478,18 @@ function loadSelection(data) {
   const modelSelect = document.getElementById("modelSelect");
   modelSelect.value = data.model;
   
-  // Update model and state
-  const selectedModel = MODELS[data.model];
-  currentModel = selectedModel;
-  numberOfStrings = selectedModel.numberOfStrings;
-  numberOfFrets = selectedModel.numberOfFrets;
-  BASE_NOTE = selectedModel.startNote;
-  BASE_OCTAVE = selectedModel.startOctave;
+  // Use stored model data if available, otherwise fallback to MODELS
+  if (data.modelData) {
+    currentModel = data.modelData;
+  } else {
+    currentModel = MODELS[data.model];
+  }
+  
+  // Update state
+  numberOfStrings = currentModel.numberOfStrings;
+  numberOfFrets = currentModel.numberOfFrets;
+  BASE_NOTE = currentModel.startNote;
+  BASE_OCTAVE = currentModel.startOctave;
   
   // Update keys state
   keysState = data.keysState;
@@ -599,13 +613,29 @@ function importFiles() {
 }
 
 function saveLibrary() {
-  const savedSelections = localStorage.getItem('harpejjiSelections');
-  if (!savedSelections) {
+  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  if (savedSelections.length === 0) {
     alert('No selections to save');
     return;
   }
 
-  const blob = new Blob([savedSelections], { type: 'application/json' });
+  // Ensure each selection has complete model data
+  const completeLibrary = savedSelections.map(selection => {
+    if (!selection.modelData) {
+      const model = MODELS[selection.model];
+      selection.modelData = {
+        numberOfStrings: model.numberOfStrings,
+        numberOfFrets: model.numberOfFrets,
+        startNote: model.startNote,
+        startOctave: model.startOctave,
+        endNote: model.endNote,
+        endOctave: model.endOctave
+      };
+    }
+    return selection;
+  });
+
+  const blob = new Blob([JSON.stringify(completeLibrary)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
