@@ -62,6 +62,7 @@ const numberOfFrets   = 15;  // vertical count
 const numberOfStrings = 24;  // horizontal count
 const fretSpacing     = 30;  // vertical spacing in pixels
 const stringSpacing   = 30;  // horizontal spacing in pixels
+const keyHeight       = 25;  // height of each key rectangle
 
 // The notes array:
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -215,12 +216,12 @@ function drawTablature() {
   svg.appendChild(g);
 
   // 1) Draw frets (horizontal lines)
-  for (let y = 0; y < numberOfFrets; y++) {
+  for (let y = 0; y <= numberOfFrets; y++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", 0);
-    line.setAttribute("y1", y * fretSpacing + fretSpacing/2);
+    line.setAttribute("y1", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
     line.setAttribute("x2", (numberOfStrings) * stringSpacing);
-    line.setAttribute("y2", y * fretSpacing + fretSpacing/2);
+    line.setAttribute("y2", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
     line.setAttribute("stroke", "#000");
     line.setAttribute("stroke-width", "1");
     g.appendChild(line);
@@ -232,7 +233,7 @@ function drawTablature() {
     line.setAttribute("x1", x * stringSpacing + stringSpacing);
     line.setAttribute("y1", 0);
     line.setAttribute("x2", x * stringSpacing + stringSpacing);
-    line.setAttribute("y2", (numberOfFrets - 0.5) * fretSpacing);
+    line.setAttribute("y2", numberOfFrets * fretSpacing + keyHeight);
     line.setAttribute("stroke", "#CCC");
     line.setAttribute("stroke-width", "1");
     g.appendChild(line);
@@ -243,7 +244,7 @@ function drawTablature() {
   borderRect.setAttribute("x", 0.5);
   borderRect.setAttribute("y", 0.5);
   borderRect.setAttribute("width",  (numberOfStrings) * stringSpacing - 1 + stringSpacing);
-  borderRect.setAttribute("height", (numberOfFrets - 0.5) * fretSpacing - 1 + fretSpacing/2);
+  borderRect.setAttribute("height", numberOfFrets * fretSpacing + keyHeight - 1 + fretSpacing/2);
   borderRect.setAttribute("fill", "transparent");
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
@@ -269,7 +270,7 @@ function drawTablature() {
       rect.setAttribute("x", -7.5);
       rect.setAttribute("y", 0);
       rect.setAttribute("width", 15);
-      rect.setAttribute("height", 25);
+      rect.setAttribute("height", keyHeight);
       rect.setAttribute("stroke", "#666");
       rect.setAttribute("stroke-width", "1");
       rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
