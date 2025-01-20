@@ -121,10 +121,14 @@
     
     <div class="flex h-[calc(100%-68px)]">
         <!-- Piano Roll -->
-        <div id="piano-keys" class="w-[100px] bg-gray-900 overflow-y-auto"></div>
+        <div class="w-[100px] bg-gray-900 h-full relative overflow-hidden">
+            <div id="piano-roll-wrapper" class="absolute inset-0">
+                <div id="piano-keys" class="w-full"></div>
+            </div>
+        </div>
         
         <!-- Sequencer Grid -->
-        <div id="sequencer-grid" class="flex-1 relative overflow-auto bg-gray-900">
+        <div id="sequencer-grid" class="flex-1 relative overflow-auto bg-gray-900" onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`">
             <div id="grid-content" class="absolute top-0 left-0"></div>
             <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
         </div>
@@ -1017,6 +1021,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize sequencer
     drawPianoRoll();
     drawSequencerGrid();
+
     
     // Add sequencer control event listeners
     document.getElementById('play-btn').addEventListener('click', togglePlay);
