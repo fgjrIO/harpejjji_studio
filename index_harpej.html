@@ -63,14 +63,12 @@ const numberOfStrings = 24;  // horizontal count
 const fretSpacing     = 30;  // vertical spacing in pixels
 const stringSpacing   = 30;  // horizontal spacing in pixels
 
-// Offsets in the note formula (roughly from the provided code)
-const c1  = 5;   // used in note name formula
-const c2  = 6;   // used in octave formula
-const c2_2= 0;   // used in octave formula
-const c3  = 2;   // base octave offset
-
 // The notes array:
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+// Base note configuration (C2 is the starting note)
+const BASE_NOTE = "C";
+const BASE_OCTAVE = 2;
 
 // The drawing region will be sized accordingly:
 const svgWidth  = stringSpacing * (numberOfStrings + 2);
@@ -146,31 +144,47 @@ function playNote(frequency) {
 }
 
 // ==============================
-// Utility: positive mod
+// Note Calculation Functions
 // ==============================
-function mod(n, m) {
-  return ((n % m) + m) % m;
+
+// Calculate the total semitones from the base note for a given position
+function getSemitonesFromBase(x, y) {
+  // Each string (x) moves up by 2 semitones
+  // Each fret (y) moves down by 1 semitone
+  return (x * 2) - y;
 }
 
-// ==============================
-// Compute note name and octave
-// from a given (x, y) coordinate
-// ==============================
+// Get the note name for a given position
 function getNoteName(x, y) {
-  // from the snippet: notes[ mod(x*2 + c1 - y, 12) ]
-  const index = mod((x * 2) + c1 - y, NOTES.length);
-  return NOTES[index];
+  const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
+  const semitones = getSemitonesFromBase(x, y);
+  
+  // Calculate the new note index, wrapping around the octave
+  const noteIndex = mod(baseNoteIndex + semitones, NOTES.length);
+  
+  return NOTES[noteIndex];
 }
 
+// Get the octave for a given position
 function getNoteOctave(x, y) {
-  // from the snippet: floor((x + c2 - floor((y + c2_2)/2))/6) + c3
-  const val = Math.floor((x + c2 - Math.floor((y + c2_2) / 2)) / 6);
-  return val + c3;
+  const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
+  const semitones = getSemitonesFromBase(x, y);
+  
+  // Calculate how many complete octaves we've moved
+  const totalSemitones = baseNoteIndex + semitones;
+  const octaveShift = Math.floor(totalSemitones / NOTES.length);
+  
+  return BASE_OCTAVE + octaveShift;
 }
 
 // For convenience, black notes are those with "#" in them.
 function isBlackNote(noteName) {
   return noteName.includes("#");
+}
+
+// Utility: positive mod (for wrapping note indices)
+function mod(n, m) {
+  return ((n % m) + m) % m;
 }
 
 // ==============================
@@ -234,7 +248,7 @@ function drawTablature() {
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // 5) Draw the keys (rectangles) for each fret/string intersection
+  // 4) Draw the keys (rectangles) for each fret/string intersection
   //    plus optional marker if toggled, plus note name if showNotes is true
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
