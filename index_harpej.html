@@ -101,6 +101,9 @@
         <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
             Play
         </button>
+        <button id="stop-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+            Stop
+        </button>
         <button id="record-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
             Record
         </button>
@@ -118,7 +121,7 @@
     
     <div class="flex h-[calc(100%-68px)]">
         <!-- Piano Roll -->
-        <div id="piano-keys" class="w-[100px] bg-gray-900 overflow-hidden"></div>
+        <div id="piano-keys" class="w-[100px] bg-gray-900 overflow-y-auto"></div>
         
         <!-- Sequencer Grid -->
         <div id="sequencer-grid" class="flex-1 relative overflow-x-auto bg-gray-900">
@@ -412,7 +415,7 @@ function drawTablature() {
 
       // Attach an event listener to toggle marker when clicked
       keyGroup.style.cursor = "pointer";
-      keyGroup.addEventListener("click", () => {
+      keyGroup.addEventListener("mousedown", () => {
         // Toggle marker
         if (!keysState[y]) keysState[y] = [];
         if (!keysState[y][x]) keysState[y][x] = { marker: false };
@@ -421,9 +424,20 @@ function drawTablature() {
         // Play the note
         const frequency = noteToFrequency(noteName, octave);
         playNote(frequency);
+
+        // Record note if recording is active
+        startNoteRecording(x, y);
         
         // Redraw
         drawTablature();
+      });
+
+      keyGroup.addEventListener("mouseup", () => {
+        stopNoteRecording(x, y);
+      });
+
+      keyGroup.addEventListener("mouseleave", () => {
+        stopNoteRecording(x, y);
       });
 
       g.appendChild(keyGroup);
@@ -743,21 +757,39 @@ function drawPianoRoll() {
     const pianoKeysContainer = document.getElementById('piano-keys');
     pianoKeysContainer.innerHTML = '';
     
-    // Calculate total number of notes based on current model
-    const totalNotes = numberOfStrings * numberOfFrets;
+    // Get all possible notes from the model
+    const notes = new Set();
+    for (let y = 0; y < numberOfFrets; y++) {
+        for (let x = 0; x < numberOfStrings; x++) {
+            const noteName = getNoteName(x, y);
+            const octave = getNoteOctave(x, y);
+            notes.add(`${noteName}${octave}`);
+        }
+    }
     
-    for (let i = totalNotes - 1; i >= 0; i--) {
-        const y = Math.floor(i / numberOfStrings);
-        const x = i % numberOfStrings;
-        const noteName = getNoteName(x, y);
-        const octave = getNoteOctave(x, y);
+    // Sort notes by pitch (descending)
+    const sortedNotes = Array.from(notes).sort((a, b) => {
+        const [nameA, octaveA] = [a.slice(0, -1), parseInt(a.slice(-1))];
+        const [nameB, octaveB] = [b.slice(0, -1), parseInt(b.slice(-1))];
+        const pitchA = octaveA * 12 + NOTES.indexOf(nameA);
+        const pitchB = octaveB * 12 + NOTES.indexOf(nameB);
+        return pitchB - pitchA;
+    });
+    
+    // Create keys for each unique note
+    sortedNotes.forEach(note => {
+        const noteName = note.slice(0, -1);
+        const octave = note.slice(-1);
         const isBlack = isBlackNote(noteName);
         
         const key = document.createElement('div');
         key.className = `h-[${SEQUENCER_CONFIG.noteHeight}px] border-b border-gray-700 flex items-center px-2 text-xs ${isBlack ? 'bg-gray-800' : 'bg-gray-700'} text-white`;
-        key.textContent = `${noteName}${octave}`;
+        key.textContent = note;
         pianoKeysContainer.appendChild(key);
-    }
+    });
+
+    // Set container height to match grid
+    pianoKeysContainer.style.height = `${sortedNotes.length * SEQUENCER_CONFIG.noteHeight}px`;
 }
 
 // Draw sequencer grid
@@ -884,15 +916,32 @@ function togglePlay() {
     if (!audioContext) initAudio();
     if (!metronomeContext) initMetronome();
     
-    isPlaying = !isPlaying;
+    isPlaying = true;
     const playBtn = document.getElementById('play-btn');
-    playBtn.classList.toggle('bg-green-600');
+    playBtn.classList.add('bg-green-600');
     
-    if (isPlaying) {
-        audioStartTime = audioContext.currentTime;
-        currentBeat = 0;
-        updatePlayhead();
-    }
+    audioStartTime = audioContext.currentTime;
+    currentBeat = 0;
+    updatePlayhead();
+}
+
+function stopPlayback() {
+    isPlaying = false;
+    isRecording = false;
+    const playBtn = document.getElementById('play-btn');
+    const recordBtn = document.getElementById('record-btn');
+    playBtn.classList.remove('bg-green-600');
+    recordBtn.classList.remove('bg-red-600');
+    
+    // Reset playhead position
+    const playhead = document.getElementById('playhead');
+    playhead.style.left = '0';
+    playheadPosition = 0;
+    
+    // Reset all playing notes
+    recordedNotes.forEach(note => {
+        note.isPlaying = false;
+    });
 }
 
 function toggleRecord() {
@@ -964,6 +1013,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Add sequencer control event listeners
     document.getElementById('play-btn').addEventListener('click', togglePlay);
+    document.getElementById('stop-btn').addEventListener('click', stopPlayback);
     document.getElementById('record-btn').addEventListener('click', toggleRecord);
     document.getElementById('metronome-btn').addEventListener('click', toggleMetronome);
     document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
