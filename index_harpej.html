@@ -53,6 +53,21 @@
     >
       Open Library
     </button>
+
+    <!-- NEW Buttons: Sequencer Mode + Key Mode -->
+    <button
+      id="toggleSequencerModeBtn"
+      class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+    >
+      Sequencer Mode
+    </button>
+    <button
+      id="toggleKeyModeBtn"
+      class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+    >
+      Key Mode: Toggle
+    </button>
+
     <span class="text-gray-600 text-sm">
       Click any key to toggle a marker and play its note.
     </span>
@@ -95,8 +110,8 @@
   </div>
 </div>
 
-<!-- Sequencer -->
-<div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600">
+<!-- Sequencer (hidden by default; toggled by "Sequencer Mode" button) -->
+<div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600 hidden">
     <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2">
         <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
             Play
@@ -181,26 +196,30 @@ let numberOfStrings = currentModel.numberOfStrings;
 let BASE_NOTE = currentModel.startNote;
 let BASE_OCTAVE = currentModel.startOctave;
 
-// The drawing region will be sized accordingly:
 let svgWidth = stringSpacing * (numberOfStrings + 2);
 let svgHeight = fretSpacing * (numberOfFrets + 2);
 
-// We keep an array of the "keys" states so we can toggle markers, etc.
+// We keep an array for each fret/string with multiple flags:
+// { marker: bool, pressing: bool, sequencerPlaying: bool }
 let keysState = [];
 
+// Initialize keysState
 function initKeysState() {
   keysState = [];
   for (let y = 0; y < numberOfFrets; y++) {
     keysState[y] = [];
     for (let x = 0; x < numberOfStrings; x++) {
-      keysState[y][x] = { marker: false };
+      keysState[y][x] = {
+        marker: false,
+        pressing: false,
+        sequencerPlaying: false
+      };
     }
   }
 }
-
 initKeysState();
 
-// Whether to show note names or not:
+// Show/hide note names
 let showNotes = false;
 
 // ==============================
@@ -212,136 +231,120 @@ let masterGainNode;
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   masterGainNode = audioContext.createGain();
-  masterGainNode.gain.value = 0.1; // Lower volume to avoid being too loud
+  masterGainNode.gain.value = 0.1; // Lower volume
   masterGainNode.connect(audioContext.destination);
+}
+
+// We will manage user‐played oscillators in a map (key = "x_y"):
+let activeUserOscillators = new Map();
+
+// Create an oscillator + gain node for a given frequency
+function createOscillator(frequency) {
+  if (!audioContext) initAudio();
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = frequency;
+  gain.gain.value = 0.5;
+  osc.connect(gain);
+  gain.connect(masterGainNode);
+  return { osc, gain };
+}
+
+// Stop with a quick fade out
+function stopOscillator({ osc, gain }) {
+  const now = audioContext.currentTime;
+  gain.gain.setValueAtTime(gain.gain.value, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  setTimeout(() => {
+    osc.stop();
+    osc.disconnect();
+    gain.disconnect();
+  }, 150);
 }
 
 // Convert note name and octave to frequency
 function noteToFrequency(noteName, octave) {
   const noteIndex = NOTES.indexOf(noteName);
-  if (noteIndex === -1) return 440; // Default to A4 if note not found
-  
-  // Calculate semitones from A4 (A4 = 440Hz)
+  if (noteIndex === -1) return 440; // fallback
+  // semitones from A4
   const A4_OCTAVE = 4;
   const A4_INDEX = NOTES.indexOf("A");
   const semitones = (octave - A4_OCTAVE) * 12 + (noteIndex - A4_INDEX);
-  
   return 440 * Math.pow(2, semitones / 12);
 }
 
-// Play a note with the given frequency
-function playNote(frequency) {
-  if (!audioContext) initAudio();
-  
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  
-  oscillator.type = 'sine';
-  oscillator.frequency.value = frequency;
-  
-  gainNode.gain.value = 0.5;
-  
-  oscillator.connect(gainNode);
-  gainNode.connect(masterGainNode);
-  
-  oscillator.start();
-  
-  // Envelope for a nicer sound
-  gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-  
-  // Stop and cleanup after the note is done
-  setTimeout(() => {
-    oscillator.stop();
-    oscillator.disconnect();
-    gainNode.disconnect();
-  }, 500);
-}
-
 // ==============================
-// Note Calculation Functions
+// Note Calculation
 // ==============================
-
-// Calculate the total semitones from the base note for a given position
 function getSemitonesFromBase(x, y) {
-  // Each string (x) moves up by 2 semitones
-  // Each fret (y) moves up by 1 semitone
+  // Each string (x) +2 semitones, each fret (y) +1 semitone
   return (x * 2) + y;
 }
 
-// Get the note name for a given position
 function getNoteName(x, y) {
   const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
   const semitones = getSemitonesFromBase(x, y);
-  
   const noteIndex = mod(baseNoteIndex + semitones, NOTES.length);
   return NOTES[noteIndex];
 }
 
-// Get the octave for a given position
 function getNoteOctave(x, y) {
   const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
   const semitones = getSemitonesFromBase(x, y);
   const totalSemitones = baseNoteIndex + semitones;
-  
   const octaveShift = Math.floor(totalSemitones / NOTES.length);
   return BASE_OCTAVE + octaveShift;
 }
 
-// For convenience, black notes are those with "#" in them.
 function isBlackNote(noteName) {
   return noteName.includes("#");
 }
 
-// Utility: positive mod (for wrapping note indices)
 function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
 // ==============================
-// Main draw function for Harpejji Tablature
+// Tablature Drawing
 // ==============================
 function drawTablature() {
-  // Update dimensions based on current model
+  // Update dimensions
   svgWidth = stringSpacing * (numberOfStrings + 2);
   svgHeight = fretSpacing * (numberOfFrets + 2);
   
   const svg = document.getElementById("tablature");
-  // Clear previous children
   svg.innerHTML = "";
-
-  // Set the SVG size
   svg.setAttribute("width", svgWidth);
   svg.setAttribute("height", svgHeight);
 
-  // Draw a white background
+  // White background
   const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
   bg.setAttribute("width", "100%");
-  bg.setAttribute("height","100%");
+  bg.setAttribute("height", "100%");
   bg.setAttribute("fill", "white");
   svg.appendChild(bg);
 
-  // Group for everything
+  // Main group
   const g = document.createElementNS("http://www.w3.org/2000/svg","g");
-  // We'll shift it a bit so there's some margin
   const offsetX = stringSpacing;
   const offsetY = fretSpacing;
   g.setAttribute("transform", `translate(${offsetX}, ${offsetY})`);
   svg.appendChild(g);
 
-  // 1) Draw frets (horizontal lines)
+  // Frets (horizontal lines)
   for (let y = 0; y <= numberOfFrets; y++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", 0);
     line.setAttribute("y1", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
-    line.setAttribute("x2", (numberOfStrings) * stringSpacing);
+    line.setAttribute("x2", numberOfStrings * stringSpacing);
     line.setAttribute("y2", y * fretSpacing + (y < numberOfFrets ? fretSpacing/2 : fretSpacing/2 + keyHeight));
     line.setAttribute("stroke", "#000");
     line.setAttribute("stroke-width", "1");
     g.appendChild(line);
   }
 
-  // 2) Draw strings (vertical lines)
+  // Strings (vertical lines)
   for (let x = 0; x < numberOfStrings; x++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", x * stringSpacing + stringSpacing);
@@ -353,17 +356,17 @@ function drawTablature() {
     g.appendChild(line);
   }
 
-  // 3) Optional border around the entire zone
+  // Border
   const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
   borderRect.setAttribute("x", 0.5);
   borderRect.setAttribute("y", 0.5);
-  borderRect.setAttribute("width",  (numberOfStrings) * stringSpacing - 1 + stringSpacing);
+  borderRect.setAttribute("width", (numberOfStrings) * stringSpacing - 1 + stringSpacing);
   borderRect.setAttribute("height", numberOfFrets * fretSpacing + keyHeight - 1 + fretSpacing/2);
   borderRect.setAttribute("fill", "transparent");
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // 4) Draw the keys (rectangles) for each fret/string intersection
+  // Keys (rectangles)
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       const noteName = getNoteName(x, y);
@@ -371,12 +374,9 @@ function drawTablature() {
       const blackKey = isBlackNote(noteName);
 
       const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
-      keyGroup.setAttribute(
-        "transform", 
-        `translate(${x * stringSpacing + stringSpacing}, ${y * fretSpacing + fretSpacing/2})`
-      );
+      keyGroup.setAttribute("transform", `translate(${x * stringSpacing + stringSpacing}, ${y * fretSpacing + fretSpacing/2})`);
 
-      // The background rectangle
+      // Rectangle
       const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
       rect.setAttribute("x", -7.5);
       rect.setAttribute("y", 0);
@@ -387,8 +387,9 @@ function drawTablature() {
       rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
       keyGroup.appendChild(rect);
 
-      // Marker if toggled on
-      if (keysState[y] && keysState[y][x] && keysState[y][x].marker) {
+      // If marker/pressing/sequencerPlaying => circle
+      const stateObj = keysState[y][x];
+      if (stateObj.marker || stateObj.pressing || stateObj.sequencerPlaying) {
         const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
         circ.setAttribute("cx", 0);
         circ.setAttribute("cy", 12.5);
@@ -397,7 +398,7 @@ function drawTablature() {
         keyGroup.appendChild(circ);
       }
 
-      // If showNotes, place a small label
+      // Note label if showNotes
       if (showNotes) {
         const label = document.createElementNS("http://www.w3.org/2000/svg","text");
         label.setAttribute("x", "0");
@@ -410,32 +411,11 @@ function drawTablature() {
         keyGroup.appendChild(label);
       }
 
-      // Click events
+      // Mouse handlers
       keyGroup.style.cursor = "pointer";
-      keyGroup.addEventListener("mousedown", () => {
-        // Toggle marker
-        if (!keysState[y]) keysState[y] = [];
-        if (!keysState[y][x]) keysState[y][x] = { marker: false };
-        keysState[y][x].marker = !keysState[y][x].marker;
-        
-        // Play the note
-        const frequency = noteToFrequency(noteName, octave);
-        playNote(frequency);
-
-        // Record note if recording is active
-        startNoteRecording(x, y);
-        
-        // Redraw
-        drawTablature();
-      });
-
-      keyGroup.addEventListener("mouseup", () => {
-        stopNoteRecording(x, y);
-      });
-
-      keyGroup.addEventListener("mouseleave", () => {
-        stopNoteRecording(x, y);
-      });
+      keyGroup.addEventListener("mousedown", () => handleKeyDown(x, y));
+      keyGroup.addEventListener("mouseup",   () => handleKeyUp(x, y));
+      keyGroup.addEventListener("mouseleave",() => handleKeyUp(x, y));
 
       g.appendChild(keyGroup);
     }
@@ -443,13 +423,64 @@ function drawTablature() {
 }
 
 // ==============================
-// Save and Load Functions (Tablature)
+// Press vs Toggle Mode
+// ==============================
+let keyMode = 'toggle'; // 'toggle' or 'press'
+
+// On key down
+function handleKeyDown(x, y) {
+  const noteName = getNoteName(x, y);
+  const octave = getNoteOctave(x, y);
+  const freq = noteToFrequency(noteName, octave);
+
+  // Start audio
+  const { osc, gain } = createOscillator(freq);
+  osc.start();
+  activeUserOscillators.set(`${x}_${y}`, { osc, gain });
+
+  if (keyMode === 'toggle') {
+    // Toggle the marker
+    keysState[y][x].marker = !keysState[y][x].marker;
+  } else if (keyMode === 'press') {
+    // Mark as pressing
+    keysState[y][x].pressing = true;
+  }
+
+  // If recording, record note start
+  startNoteRecording(x, y);
+
+  drawTablature();
+}
+
+// On key up
+function handleKeyUp(x, y) {
+  // Only stop oscillator if it exists
+  const keyStr = `${x}_${y}`;
+  if (activeUserOscillators.has(keyStr)) {
+    const oscObj = activeUserOscillators.get(keyStr);
+    stopOscillator(oscObj);
+    activeUserOscillators.delete(keyStr);
+  }
+
+  if (keyMode === 'press') {
+    // Release press
+    keysState[y][x].pressing = false;
+  }
+  // If keyMode === 'toggle', we do nothing extra for marker on release
+
+  // If recording, record note stop
+  stopNoteRecording(x, y);
+
+  drawTablature();
+}
+
+// ==============================
+// Save/Load Tablature
 // ==============================
 function saveSelection() {
   const fileName = prompt("Enter a name for your selection:", "My Selection");
   if (!fileName) return;
 
-  // Create a canvas to capture the SVG as an image
   const svg = document.getElementById("tablature");
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -461,7 +492,6 @@ function saveSelection() {
     canvas.height = svg.height.baseVal.value;
     ctx.drawImage(img, 0, 0);
     
-    // Create a complete selection object with all necessary data
     const data = {
       name: fileName,
       model: modelSelect.value,
@@ -478,12 +508,11 @@ function saveSelection() {
       }
     };
 
-    // Save to localStorage
     const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
     savedSelections.push(data);
     localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
 
-    // Save individual selection file
+    // Also download file
     const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -492,7 +521,6 @@ function saveSelection() {
     a.click();
     URL.revokeObjectURL(url);
 
-    // Refresh library
     populateLibrary();
   };
 
@@ -503,7 +531,6 @@ function loadSelection(data) {
   const modelSelect = document.getElementById("modelSelect");
   modelSelect.value = data.model;
   
-  // Use stored model data if available
   if (data.modelData) {
     currentModel = data.modelData;
   } else {
@@ -518,10 +545,9 @@ function loadSelection(data) {
   keysState = data.keysState;
   
   drawTablature();
-  // Also refresh the piano roll for the new range
   drawPianoRoll();
   drawSequencerGrid();
-
+  
   toggleLibrary();
 }
 
@@ -544,7 +570,7 @@ function handleFileLoad() {
 }
 
 // ==============================
-// Library Slideover Functions
+// Library Slideover
 // ==============================
 function toggleLibrary() {
   const slideover = document.getElementById("librarySlideover");
@@ -553,8 +579,8 @@ function toggleLibrary() {
 
 function populateLibrary() {
   const libraryContent = document.getElementById("libraryContent");
-  libraryContent.innerHTML = ""; // Clear existing content
-  
+  libraryContent.innerHTML = "";
+
   const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
   
   if (savedSelections.length === 0) {
@@ -578,15 +604,11 @@ function populateLibrary() {
         </div>
       </div>
     `;
-
-    // Load on click
     div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
-    // Delete
     div.querySelector('.delete-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       deleteSelection(index);
     });
-
     libraryContent.appendChild(div);
   });
 }
@@ -607,10 +629,8 @@ function importFiles() {
   input.onchange = (event) => {
     const files = event.target.files;
     if (files.length === 0) return;
-
     const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
     let processed = 0;
-
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -618,7 +638,6 @@ function importFiles() {
           const data = JSON.parse(e.target.result);
           savedSelections.push(data);
           processed++;
-
           if (processed === files.length) {
             localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
             populateLibrary();
@@ -639,7 +658,6 @@ function saveLibrary() {
     alert('No selections to save');
     return;
   }
-
   // Ensure each selection has complete model data
   const completeLibrary = savedSelections.map(selection => {
     if (!selection.modelData) {
@@ -672,7 +690,6 @@ function loadLibrary() {
   input.onchange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -694,6 +711,7 @@ function loadLibrary() {
 
 // ==============================
 // Sequencer Configuration
+// (Now hidden unless "Sequencer Mode" is on)
 // ==============================
 const SEQUENCER_CONFIG = {
     pixelsPerBeat: 100,
@@ -703,7 +721,7 @@ const SEQUENCER_CONFIG = {
     noteHeight: 20,
 };
 
-// Sequencer State
+let isSequencerModeOn = false;  // We toggle this via button
 let isPlaying = false;
 let isRecording = false;
 let metronomeEnabled = false;
@@ -711,168 +729,129 @@ let currentBeat = 0;
 let recordedNotes = [];
 let playheadPosition = 0;
 let audioStartTime = 0;
-let activeNotes = new Map(); // Track currently pressed notes for recording
 
-// We'll build a global map of note->index and a sorted array, so that
-// the piano roll and recording always match properly.
-let globalSortedNotes = [];         // In descending pitch order
-let globalNoteToIndexMap = new Map(); // Map "G4" -> row index
+// For sequencer playback we build sorted note arrays:
+let globalSortedNotes = [];
+let globalNoteToIndexMap = new Map();
 
-// ==============================
-// Metronome
-// ==============================
 let metronomeContext;
 let metronomeGain;
 
 function initMetronome() {
-    if (!metronomeContext) {
-        metronomeContext = new (window.AudioContext || window.webkitAudioContext)();
-        metronomeGain = metronomeContext.createGain();
-        metronomeGain.gain.value = 0.3;
-        metronomeGain.connect(metronomeContext.destination);
-    }
+  if (!metronomeContext) {
+    metronomeContext = new (window.AudioContext || window.webkitAudioContext)();
+    metronomeGain = metronomeContext.createGain();
+    metronomeGain.gain.value = 0.3;
+    metronomeGain.connect(metronomeContext.destination);
+  }
 }
 
 function playMetronomeSound() {
-    const osc = metronomeContext.createOscillator();
-    const clickGain = metronomeContext.createGain();
-    
-    osc.frequency.value = 1000;
-    clickGain.gain.value = 0;
-    
-    osc.connect(clickGain);
-    clickGain.connect(metronomeGain);
-    
-    osc.start();
-    clickGain.gain.setValueAtTime(1, metronomeContext.currentTime);
-    clickGain.gain.exponentialRampToValueAtTime(0.001, metronomeContext.currentTime + 0.05);
-    
-    osc.stop(metronomeContext.currentTime + 0.05);
+  const osc = metronomeContext.createOscillator();
+  const clickGain = metronomeContext.createGain();
+  osc.frequency.value = 1000;
+  clickGain.gain.value = 0;
+  osc.connect(clickGain);
+  clickGain.connect(metronomeGain);
+  osc.start();
+  clickGain.gain.setValueAtTime(1, metronomeContext.currentTime);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, metronomeContext.currentTime + 0.05);
+  osc.stop(metronomeContext.currentTime + 0.05);
 }
 
-// ==============================
-// Build a sorted list of all possible notes in the current model
-// in descending pitch order, plus a map of note -> row index
-// ==============================
+// Build array of unique notes for piano roll
 function buildSortedNotesMapping() {
-  // Collect every note in an array
   let noteObjects = [];
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       const noteName = getNoteName(x, y);
       const octave   = getNoteOctave(x, y);
-
-      // Convert to a numeric pitch so we can sort reliably
       const pitch = getMIDINumber(noteName, octave);
-      noteObjects.push({ noteName, octave, pitch });
+      noteObjects.push({ noteName, octave, pitch, x, y });
     }
   }
-
-  // Remove duplicates. We'll use a Map keyed by pitch
-  // (If your instrument truly doesn't have duplicates, this is mostly precaution.)
+  // Remove duplicates by pitch
   let pitchMap = new Map();
   noteObjects.forEach(n => {
-    // If two positions yield the same pitch, we only need one row in the piano roll
     if (!pitchMap.has(n.pitch)) {
       pitchMap.set(n.pitch, n);
     }
   });
-
-  // Convert map back to an array
   let uniqueNotes = Array.from(pitchMap.values());
-
-  // Sort in descending pitch
+  // Sort descending
   uniqueNotes.sort((a, b) => b.pitch - a.pitch);
 
-  // Now build global arrays and maps
-  globalSortedNotes = uniqueNotes; 
+  globalSortedNotes = uniqueNotes;
   globalNoteToIndexMap.clear();
-
-  // Assign each note a row index
-  uniqueNotes.forEach((noteObj, index) => {
-    const fullName = noteObj.noteName + noteObj.octave;
+  uniqueNotes.forEach((obj, index) => {
+    const fullName = obj.noteName + obj.octave;
     globalNoteToIndexMap.set(fullName, index);
   });
 }
 
-// Helper to convert "C4" -> MIDI-like number for sorting
+// Convert "C4" to a MIDI-like number
 function getMIDINumber(noteName, octave) {
-  // MIDI for C4 is 60
-  // general formula: midiNumber = (octave + 1) * 12 + noteIndex
   const noteIndex = NOTES.indexOf(noteName);
   return (octave + 1) * 12 + noteIndex;
 }
 
-// ==============================
-// Draw piano roll (left side labels) using globalSortedNotes
-// ==============================
+// Draw piano roll
 function drawPianoRoll() {
-  // Rebuild the note listing in case model changed
   buildSortedNotesMapping();
 
   const pianoKeysContainer = document.getElementById('piano-keys');
   pianoKeysContainer.innerHTML = '';
   
-  // For each unique pitch in descending order:
   globalSortedNotes.forEach((noteObj, index) => {
     const { noteName, octave } = noteObj;
     const isBlack = isBlackNote(noteName);
 
     const key = document.createElement('div');
-    // We fix the height to SEQUENCER_CONFIG.noteHeight
     key.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
     key.className = `border-b border-gray-700 flex items-center px-2 text-xs 
                      ${isBlack ? 'bg-gray-800' : 'bg-gray-700'} 
                      text-white`;
     key.textContent = noteName + octave;
-
     pianoKeysContainer.appendChild(key);
   });
 
-  // Set container height to match the total number of unique notes
   const totalHeight = globalSortedNotes.length * SEQUENCER_CONFIG.noteHeight;
   pianoKeysContainer.style.height = `${totalHeight}px`;
 }
 
-// ==============================
 // Draw sequencer grid
-// ==============================
 function drawSequencerGrid() {
   const gridContent = document.getElementById('grid-content');
   const playhead = document.getElementById('playhead');
   gridContent.innerHTML = '';
-  
-  // The total number of unique notes is globalSortedNotes.length
+
   const totalNotes = globalSortedNotes.length;
-  // The total grid width
   const totalWidth = SEQUENCER_CONFIG.pixelsPerBeat * SEQUENCER_CONFIG.beatsPerBar * SEQUENCER_CONFIG.totalBars;
   const totalHeight = totalNotes * SEQUENCER_CONFIG.noteHeight;
-  
+
   gridContent.style.width = `${totalWidth}px`;
   gridContent.style.height = `${totalHeight}px`;
   playhead.style.height = `${totalHeight}px`;
-  
-  // Draw vertical grid lines (each beat)
+
+  // Vertical lines
   for (let i = 0; i <= SEQUENCER_CONFIG.totalBars * SEQUENCER_CONFIG.beatsPerBar; i++) {
     const line = document.createElement('div');
     line.className = `absolute top-0 w-px h-full ${i % SEQUENCER_CONFIG.beatsPerBar === 0 ? 'bg-gray-500' : 'bg-gray-700'}`;
     line.style.left = `${i * SEQUENCER_CONFIG.pixelsPerBeat}px`;
     gridContent.appendChild(line);
   }
-  
-  // Draw horizontal grid lines for each note row
+  // Horizontal lines
   for (let i = 0; i <= totalNotes; i++) {
     const line = document.createElement('div');
     line.className = 'absolute left-0 right-0 h-px bg-gray-700';
     line.style.top = `${i * SEQUENCER_CONFIG.noteHeight}px`;
     gridContent.appendChild(line);
   }
-  
-  // Draw recorded notes
+  // Recorded notes
   recordedNotes.forEach(note => {
     const noteElement = document.createElement('div');
     noteElement.className = 'absolute bg-blue-500 opacity-75 rounded';
-    // Convert startTime to pixels
+
     const leftPx = note.startTime * (SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
     const widthPx = note.duration * (SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
     const topPx = note.noteIndex * SEQUENCER_CONFIG.noteHeight;
@@ -881,276 +860,314 @@ function drawSequencerGrid() {
     noteElement.style.top = `${topPx}px`;
     noteElement.style.width = `${widthPx}px`;
     noteElement.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
-
     gridContent.appendChild(noteElement);
   });
 }
 
 // ==============================
-// Handle note recording
-// We look up the note's row index via globalNoteToIndexMap
+// Sequencer Recording
 // ==============================
+
+let activeNotes = new Map(); // For in-progress recorded notes (key = fullName)
+
 function startNoteRecording(x, y) {
   if (!isRecording) return;
-  
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
   const fullName = noteName + octave;
   
-  // Which row in the piano roll is this note?
   const noteIndex = globalNoteToIndexMap.get(fullName);
   if (noteIndex === undefined) return;
 
   const startTime = audioContext.currentTime - audioStartTime;
-  
-  activeNotes.set(fullName, {
-    noteName,
-    octave,
-    noteIndex,
-    startTime
-  });
+  activeNotes.set(fullName, { noteName, octave, noteIndex, startTime });
 }
 
 function stopNoteRecording(x, y) {
   if (!isRecording) return;
-  
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
   const fullName = noteName + octave;
-  
+
   if (activeNotes.has(fullName)) {
     const activeNote = activeNotes.get(fullName);
     const endTime = audioContext.currentTime - audioStartTime;
     const duration = endTime - activeNote.startTime;
-
     recordedNotes.push({
       ...activeNote,
       duration,
-      isPlaying: false
+      isPlaying: false,
+      oscObj: null
     });
-    
     activeNotes.delete(fullName);
     drawSequencerGrid();
   }
 }
 
 // ==============================
-// Playhead / Main Sequencer Loop
+// Playback Loop
 // ==============================
 function updatePlayhead() {
-    if (!isPlaying) return;
+  if (!isPlaying) return;
+
+  const currentTime = audioContext.currentTime - audioStartTime;
+  playheadPosition = (currentTime * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
+  
+  const playhead = document.getElementById('playhead');
+  playhead.style.left = `${playheadPosition}px`;
+
+  const grid = document.getElementById('sequencer-grid');
+  const gridRect = grid.getBoundingClientRect();
+  if (playheadPosition > grid.scrollLeft + gridRect.width * 0.7) {
+    grid.scrollLeft = playheadPosition - gridRect.width * 0.3;
+  }
+  
+  // Check notes for playback triggers
+  recordedNotes.forEach(note => {
+    const noteStartTime = note.startTime;
+    const noteEndTime = noteStartTime + note.duration;
     
-    const currentTime = audioContext.currentTime - audioStartTime;
-    playheadPosition = (currentTime * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
-    
-    const playhead = document.getElementById('playhead');
-    playhead.style.left = `${playheadPosition}px`;
-    
-    // Auto-scroll the grid
-    const grid = document.getElementById('sequencer-grid');
-    const gridRect = grid.getBoundingClientRect();
-    if (playheadPosition > grid.scrollLeft + gridRect.width * 0.7) {
-        grid.scrollLeft = playheadPosition - gridRect.width * 0.3;
+    if (currentTime >= noteStartTime && currentTime < noteEndTime) {
+      if (!note.isPlaying) {
+        // Start note
+        note.isPlaying = true;
+        const freq = noteToFrequency(note.noteName, note.octave);
+        const { osc, gain } = createOscillator(freq);
+        osc.start();
+        note.oscObj = { osc, gain };
+        // Light up on tablature
+        lightUpKey(note.noteName, note.octave, true);
+      }
+    } else if (currentTime >= noteEndTime && note.isPlaying) {
+      // Stop note
+      note.isPlaying = false;
+      if (note.oscObj) {
+        stopOscillator(note.oscObj);
+        note.oscObj = null;
+      }
+      // Turn off highlight
+      lightUpKey(note.noteName, note.octave, false);
     }
-    
-    // Play recorded notes
-    recordedNotes.forEach(note => {
-        const noteStartTime = note.startTime;
-        const noteEndTime = noteStartTime + note.duration;
-        
-        if (currentTime >= noteStartTime && currentTime < noteEndTime && !note.isPlaying) {
-            // Start playing the note
-            const frequency = noteToFrequency(note.noteName, note.octave);
-            playNote(frequency);
-            note.isPlaying = true;
-        } else if (currentTime >= noteEndTime && note.isPlaying) {
-            // Stop playing the note
-            note.isPlaying = false;
-        }
-    });
-    
-    // Play metronome if enabled
-    if (metronomeEnabled) {
-        const beatPosition = Math.floor(currentTime * SEQUENCER_CONFIG.bpm / 60);
-        if (beatPosition > currentBeat) {
-            currentBeat = beatPosition;
-            playMetronomeSound();
-        }
+  });
+
+  // Metronome
+  if (metronomeEnabled) {
+    const beatPosition = Math.floor(currentTime * SEQUENCER_CONFIG.bpm / 60);
+    if (beatPosition > currentBeat) {
+      currentBeat = beatPosition;
+      playMetronomeSound();
     }
-    
-    requestAnimationFrame(updatePlayhead);
+  }
+
+  requestAnimationFrame(updatePlayhead);
+}
+
+// Helper: highlight in keysState while sequencer is playing
+function lightUpKey(noteName, octave, on) {
+  // Find all x,y that match this note
+  // Usually there's a single x,y for a unique pitch, but if multiple,
+  // highlight them all
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      const n = getNoteName(x, y);
+      const o = getNoteOctave(x, y);
+      if (n === noteName && o === octave) {
+        keysState[y][x].sequencerPlaying = on;
+      }
+    }
+  }
+  drawTablature();
 }
 
 // ==============================
-// Sequencer Transport Controls
+// Transport Controls
 // ==============================
 function togglePlay() {
-    if (!audioContext) initAudio();
-    if (!metronomeContext) initMetronome();
-    
-    isPlaying = true;
-    const playBtn = document.getElementById('play-btn');
-    playBtn.classList.add('bg-green-600');
-    
-    audioStartTime = audioContext.currentTime;
-    currentBeat = 0;
-    updatePlayhead();
+  if (!audioContext) initAudio();
+  if (!metronomeContext) initMetronome();
+  
+  isPlaying = true;
+  const playBtn = document.getElementById('play-btn');
+  playBtn.classList.add('bg-green-600');
+  
+  audioStartTime = audioContext.currentTime;
+  currentBeat = 0;
+  updatePlayhead();
 }
 
 function stopPlayback() {
-    isPlaying = false;
-    isRecording = false;
-    const playBtn = document.getElementById('play-btn');
-    const recordBtn = document.getElementById('record-btn');
-    playBtn.classList.remove('bg-green-600');
-    recordBtn.classList.remove('bg-red-600');
-    
-    // Reset playhead position
-    const playhead = document.getElementById('playhead');
-    playhead.style.left = '0';
-    playheadPosition = 0;
-    
-    // Reset all playing notes
-    recordedNotes.forEach(note => {
-        note.isPlaying = false;
-    });
+  isPlaying = false;
+  isRecording = false;
+  const playBtn = document.getElementById('play-btn');
+  const recordBtn = document.getElementById('record-btn');
+  playBtn.classList.remove('bg-green-600');
+  recordBtn.classList.remove('bg-red-600');
+
+  // Reset playhead
+  const playhead = document.getElementById('playhead');
+  playhead.style.left = '0';
+  playheadPosition = 0;
+
+  // Stop all sequencer notes
+  recordedNotes.forEach(note => {
+    if (note.isPlaying && note.oscObj) {
+      stopOscillator(note.oscObj);
+      note.oscObj = null;
+      note.isPlaying = false;
+      lightUpKey(note.noteName, note.octave, false);
+    }
+  });
 }
 
 function toggleRecord() {
-    isRecording = !isRecording;
-    const recordBtn = document.getElementById('record-btn');
-    recordBtn.classList.toggle('bg-red-600');
-    
-    if (isRecording && !isPlaying) {
-        togglePlay();
-    }
+  isRecording = !isRecording;
+  const recordBtn = document.getElementById('record-btn');
+  recordBtn.classList.toggle('bg-red-600');
+  
+  if (isRecording && !isPlaying) {
+    togglePlay();
+  }
 }
 
 function toggleMetronome() {
-    metronomeEnabled = !metronomeEnabled;
-    const metronomeBtn = document.getElementById('metronome-btn');
-    metronomeBtn.classList.toggle('bg-blue-600');
+  metronomeEnabled = !metronomeEnabled;
+  const metronomeBtn = document.getElementById('metronome-btn');
+  metronomeBtn.classList.toggle('bg-blue-600');
 }
 
 function saveSequence() {
-    const fileName = prompt('Enter a name for your sequence:', 'My Sequence');
-    if (!fileName) return;
-    
-    const data = {
-        name: fileName,
-        bpm: SEQUENCER_CONFIG.bpm,
-        notes: recordedNotes,
-        timestamp: new Date().toISOString()
-    };
-    
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${fileName}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const fileName = prompt('Enter a name for your sequence:', 'My Sequence');
+  if (!fileName) return;
+  
+  const data = {
+    name: fileName,
+    bpm: SEQUENCER_CONFIG.bpm,
+    notes: recordedNotes,
+    timestamp: new Date().toISOString()
+  };
+  
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${fileName}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function loadSequence() {
-    const input = document.getElementById('load-seq-file');
-    input.onchange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    SEQUENCER_CONFIG.bpm = data.bpm;
-                    recordedNotes = data.notes || [];
-                    
-                    // Stop any current playback/record
-                    stopPlayback();
-                    drawSequencerGrid();
-                } catch (error) {
-                    console.error('Error loading sequence:', error);
-                    alert('Error loading sequence file');
-                }
-            };
-            reader.readAsText(file);
+  const input = document.getElementById('load-seq-file');
+  input.onchange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          SEQUENCER_CONFIG.bpm = data.bpm;
+          recordedNotes = data.notes || [];
+          stopPlayback();
+          drawSequencerGrid();
+        } catch (error) {
+          console.error('Error loading sequence:', error);
+          alert('Error loading sequence file');
         }
-    };
-    input.click();
+      };
+      reader.readAsText(file);
+    }
+  };
+  input.click();
+}
+
+// ==============================
+// Toggle Sequencer Mode
+// ==============================
+function toggleSequencerMode() {
+  isSequencerModeOn = !isSequencerModeOn;
+  const sequencerDiv = document.getElementById("sequencer");
+  if (isSequencerModeOn) {
+    sequencerDiv.classList.remove("hidden");
+  } else {
+    sequencerDiv.classList.add("hidden");
+  }
+}
+
+// Toggle Key Mode
+function toggleKeyMode() {
+  if (keyMode === 'toggle') {
+    keyMode = 'press';
+    document.getElementById('toggleKeyModeBtn').textContent = "Key Mode: Press";
+  } else {
+    keyMode = 'toggle';
+    document.getElementById('toggleKeyModeBtn').textContent = "Key Mode: Toggle";
+  }
 }
 
 // ==============================
 // DOMContentLoaded
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
-    // Initialize the tablature
-    drawTablature();
+  // Initialize Tablature
+  drawTablature();
+  // Initialize Sequencer UI
+  drawPianoRoll();
+  drawSequencerGrid();
+
+  // Model selection
+  const modelSelect = document.getElementById("modelSelect");
+  modelSelect.addEventListener("change", () => {
+    currentModel = MODELS[modelSelect.value];
+    numberOfStrings = currentModel.numberOfStrings;
+    numberOfFrets = currentModel.numberOfFrets;
+    BASE_NOTE = currentModel.startNote;
+    BASE_OCTAVE = currentModel.startOctave;
     
-    // Initialize the piano roll and sequencer grid
+    initKeysState();
+    drawTablature();
     drawPianoRoll();
     drawSequencerGrid();
-    
-    // Sequencer transport event listeners
-    document.getElementById('play-btn').addEventListener('click', togglePlay);
-    document.getElementById('stop-btn').addEventListener('click', stopPlayback);
-    document.getElementById('record-btn').addEventListener('click', toggleRecord);
-    document.getElementById('metronome-btn').addEventListener('click', toggleMetronome);
-    document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
-    document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
+  });
 
-    // Model selection change
-    const modelSelect = document.getElementById("modelSelect");
-    modelSelect.addEventListener("change", () => {
-        currentModel = MODELS[modelSelect.value];
-        numberOfStrings = currentModel.numberOfStrings;
-        numberOfFrets = currentModel.numberOfFrets;
-        BASE_NOTE = currentModel.startNote;
-        BASE_OCTAVE = currentModel.startOctave;
-        
-        initKeysState();
-        drawTablature();
-        drawPianoRoll();
-        drawSequencerGrid();
-    });
+  // Toggle notes
+  document.getElementById("toggleNotesBtn").addEventListener("click", () => {
+    showNotes = !showNotes;
+    drawTablature();
+  });
 
-    // Toggle note-name display
-    const toggleNotesBtn = document.getElementById("toggleNotesBtn");
-    toggleNotesBtn.addEventListener("click", () => {
-        showNotes = !showNotes;
-        drawTablature();
-    });
+  // Clear markers
+  document.getElementById("resetMarkersBtn").addEventListener("click", () => {
+    initKeysState();
+    drawTablature();
+  });
 
-    // Clear all markers
-    const resetMarkersBtn = document.getElementById("resetMarkersBtn");
-    resetMarkersBtn.addEventListener("click", () => {
-        initKeysState();
-        drawTablature();
-    });
+  // Save/Load selection
+  document.getElementById("saveBtn").addEventListener("click", saveSelection);
+  document.getElementById("loadBtn").addEventListener("click", handleFileLoad);
 
-    // Save selection
-    const saveBtn = document.getElementById("saveBtn");
-    saveBtn.addEventListener("click", saveSelection);
+  // Library
+  document.getElementById("libraryBtn").addEventListener("click", toggleLibrary);
+  document.getElementById("closeLibraryBtn").addEventListener("click", toggleLibrary);
+  populateLibrary();
+  document.getElementById("importBtn").addEventListener("click", importFiles);
+  document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
+  document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
+  document.getElementById("clearLibraryBtn").addEventListener("click", () => {
+    if (confirm('Are you sure you want to clear the library? This will hide all selections but not delete them.')) {
+      libraryContent.innerHTML = '<p class="text-gray-500 text-center">No saved selections yet</p>';
+    }
+  });
 
-    // Load selection from file
-    const loadBtn = document.getElementById("loadBtn");
-    loadBtn.addEventListener("click", handleFileLoad);
+  // Sequencer controls
+  document.getElementById('play-btn').addEventListener('click', togglePlay);
+  document.getElementById('stop-btn').addEventListener('click', stopPlayback);
+  document.getElementById('record-btn').addEventListener('click', toggleRecord);
+  document.getElementById('metronome-btn').addEventListener('click', toggleMetronome);
+  document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
+  document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
 
-    // Library Slideover
-    const closeLibraryBtn = document.getElementById("closeLibraryBtn");
-    closeLibraryBtn.addEventListener("click", toggleLibrary);
-    populateLibrary();
-    
-    const libraryBtn = document.getElementById("libraryBtn");
-    libraryBtn.addEventListener("click", toggleLibrary);
-
-    // Library management buttons
-    document.getElementById("importBtn").addEventListener("click", importFiles);
-    document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
-    document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
-    document.getElementById("clearLibraryBtn").addEventListener("click", () => {
-        if (confirm('Are you sure you want to clear the library? This will hide all selections but not delete them.')) {
-            libraryContent.innerHTML = '<p class="text-gray-500 text-center">No saved selections yet</p>';
-        }
-    });
+  // NEW Buttons
+  document.getElementById('toggleSequencerModeBtn').addEventListener('click', toggleSequencerMode);
+  document.getElementById('toggleKeyModeBtn').addEventListener('click', toggleKeyMode);
 });
 </script>
 </body>
