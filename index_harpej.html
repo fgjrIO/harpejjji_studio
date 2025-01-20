@@ -12,6 +12,7 @@
 
   <!-- Controls -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
+    <!-- Model Selector -->
     <div class="flex items-center gap-2">
       <label for="modelSelect" class="text-gray-700">Model:</label>
       <select 
@@ -23,6 +24,21 @@
         <option value="G12">G12 (C2-C#5, 12 strings)</option>
       </select>
     </div>
+
+    <!-- NEW Instrument Selector -->
+    <div class="flex items-center gap-2">
+      <label for="instrumentSelect" class="text-gray-700">Instrument:</label>
+      <select 
+        id="instrumentSelect"
+        class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+      >
+        <option value="piano">Piano</option>
+        <option value="guitar">Guitar</option>
+        <option value="ukulele">Ukulele</option>
+        <option value="harp">Harp</option>
+      </select>
+    </div>
+
     <button 
       id="toggleNotesBtn"
       class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
@@ -54,7 +70,7 @@
       Open Library
     </button>
 
-    <!-- NEW Buttons: Sequencer Mode + Key Mode -->
+    <!-- Sequencer Mode + Key Mode Buttons -->
     <button
       id="toggleSequencerModeBtn"
       class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
@@ -199,11 +215,8 @@ let BASE_OCTAVE = currentModel.startOctave;
 let svgWidth = stringSpacing * (numberOfStrings + 2);
 let svgHeight = fretSpacing * (numberOfFrets + 2);
 
-// We keep an array for each fret/string with multiple flags:
-// { marker: bool, pressing: bool, sequencerPlaying: bool }
+// Manage key states
 let keysState = [];
-
-// Initialize keysState
 function initKeysState() {
   keysState = [];
   for (let y = 0; y < numberOfFrets; y++) {
@@ -219,8 +232,20 @@ function initKeysState() {
 }
 initKeysState();
 
-// Show/hide note names
 let showNotes = false;
+
+// ==============================
+// Instrument Selection
+// ==============================
+// We'll map the "Instrument" strings to oscillator wave types
+const instrumentMap = {
+  piano: "sine",
+  guitar: "triangle",
+  ukulele: "square",
+  harp: "sawtooth"
+};
+// Default instrument
+let currentInstrument = "piano";
 
 // ==============================
 // Audio Synthesis Setup
@@ -242,10 +267,14 @@ let activeUserOscillators = new Map();
 function createOscillator(frequency) {
   if (!audioContext) initAudio();
   const osc = audioContext.createOscillator();
+  // Determine wave type from currentInstrument
+  const waveType = instrumentMap[currentInstrument] || "sine";
+  osc.type = waveType;
+
   const gain = audioContext.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = frequency;
   gain.gain.value = 0.5;
+
+  osc.frequency.value = frequency;
   osc.connect(gain);
   gain.connect(masterGainNode);
   return { osc, gain };
@@ -427,7 +456,6 @@ function drawTablature() {
 // ==============================
 let keyMode = 'toggle'; // 'toggle' or 'press'
 
-// On key down
 function handleKeyDown(x, y) {
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
@@ -452,9 +480,7 @@ function handleKeyDown(x, y) {
   drawTablature();
 }
 
-// On key up
 function handleKeyUp(x, y) {
-  // Only stop oscillator if it exists
   const keyStr = `${x}_${y}`;
   if (activeUserOscillators.has(keyStr)) {
     const oscObj = activeUserOscillators.get(keyStr);
@@ -463,10 +489,8 @@ function handleKeyUp(x, y) {
   }
 
   if (keyMode === 'press') {
-    // Release press
     keysState[y][x].pressing = false;
   }
-  // If keyMode === 'toggle', we do nothing extra for marker on release
 
   // If recording, record note stop
   stopNoteRecording(x, y);
@@ -711,7 +735,6 @@ function loadLibrary() {
 
 // ==============================
 // Sequencer Configuration
-// (Now hidden unless "Sequencer Mode" is on)
 // ==============================
 const SEQUENCER_CONFIG = {
     pixelsPerBeat: 100,
@@ -721,7 +744,7 @@ const SEQUENCER_CONFIG = {
     noteHeight: 20,
 };
 
-let isSequencerModeOn = false;  // We toggle this via button
+let isSequencerModeOn = false;
 let isPlaying = false;
 let isRecording = false;
 let metronomeEnabled = false;
@@ -730,7 +753,6 @@ let recordedNotes = [];
 let playheadPosition = 0;
 let audioStartTime = 0;
 
-// For sequencer playback we build sorted note arrays:
 let globalSortedNotes = [];
 let globalNoteToIndexMap = new Map();
 
@@ -778,7 +800,7 @@ function buildSortedNotesMapping() {
     }
   });
   let uniqueNotes = Array.from(pitchMap.values());
-  // Sort descending
+  // Sort descending by pitch
   uniqueNotes.sort((a, b) => b.pitch - a.pitch);
 
   globalSortedNotes = uniqueNotes;
@@ -867,7 +889,6 @@ function drawSequencerGrid() {
 // ==============================
 // Sequencer Recording
 // ==============================
-
 let activeNotes = new Map(); // For in-progress recorded notes (key = fullName)
 
 function startNoteRecording(x, y) {
@@ -880,7 +901,6 @@ function startNoteRecording(x, y) {
   if (noteIndex === undefined) return;
 
   const startTime = audioContext.currentTime - audioStartTime;
-  // Store x,y so we can highlight exactly this position
   activeNotes.set(fullName, { noteName, octave, noteIndex, startTime, x, y });
 }
 
@@ -923,31 +943,26 @@ function updatePlayhead() {
     grid.scrollLeft = playheadPosition - gridRect.width * 0.3;
   }
   
-  // Check notes for playback triggers
   recordedNotes.forEach(note => {
     const noteStartTime = note.startTime;
     const noteEndTime = noteStartTime + note.duration;
     
     if (currentTime >= noteStartTime && currentTime < noteEndTime) {
       if (!note.isPlaying) {
-        // Start note
         note.isPlaying = true;
         const freq = noteToFrequency(note.noteName, note.octave);
         const { osc, gain } = createOscillator(freq);
         osc.start();
         note.oscObj = { osc, gain };
-        // Light up only this x,y
         keysState[note.y][note.x].sequencerPlaying = true;
         drawTablature();
       }
     } else if (currentTime >= noteEndTime && note.isPlaying) {
-      // Stop note
       note.isPlaying = false;
       if (note.oscObj) {
         stopOscillator(note.oscObj);
         note.oscObj = null;
       }
-      // Turn off highlight only for this x,y
       keysState[note.y][note.x].sequencerPlaying = false;
       drawTablature();
     }
@@ -1000,7 +1015,6 @@ function stopPlayback() {
       stopOscillator(note.oscObj);
       note.oscObj = null;
       note.isPlaying = false;
-      // Turn off highlight only for that x,y
       keysState[note.y][note.x].sequencerPlaying = false;
     }
   });
@@ -1116,6 +1130,12 @@ document.addEventListener("DOMContentLoaded", () => {
     drawSequencerGrid();
   });
 
+  // NEW: instrument selection
+  const instrumentSelect = document.getElementById("instrumentSelect");
+  instrumentSelect.addEventListener("change", () => {
+    currentInstrument = instrumentSelect.value;
+  });
+
   // Toggle notes
   document.getElementById("toggleNotesBtn").addEventListener("click", () => {
     showNotes = !showNotes;
@@ -1153,7 +1173,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
   document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
 
-  // NEW Buttons
+  // Additional Buttons
   document.getElementById('toggleSequencerModeBtn').addEventListener('click', toggleSequencerMode);
   document.getElementById('toggleKeyModeBtn').addEventListener('click', toggleKeyMode);
 });
