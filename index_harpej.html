@@ -128,7 +128,8 @@
         </div>
         
         <!-- Sequencer Grid -->
-        <div id="sequencer-grid" class="flex-1 relative overflow-auto bg-gray-900" onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`">
+        <div id="sequencer-grid" class="flex-1 relative overflow-auto bg-gray-900" 
+             onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`">
             <div id="grid-content" class="absolute top-0 left-0"></div>
             <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
         </div>
@@ -166,9 +167,9 @@ const MODELS = {
   }
 };
 
-const fretSpacing = 30;  // vertical spacing in pixels
-const stringSpacing = 30;  // horizontal spacing in pixels
-const keyHeight = 25;  // height of each key rectangle
+const fretSpacing = 30;   // vertical spacing in pixels
+const stringSpacing = 30; // horizontal spacing in pixels
+const keyHeight = 25;     // height of each key rectangle
 
 // The notes array:
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -225,7 +226,6 @@ function noteToFrequency(noteName, octave) {
   const A4_INDEX = NOTES.indexOf("A");
   const semitones = (octave - A4_OCTAVE) * 12 + (noteIndex - A4_INDEX);
   
-  // Convert semitones to frequency using the formula: freq = 440 * 2^(semitones/12)
   return 440 * Math.pow(2, semitones / 12);
 }
 
@@ -265,8 +265,8 @@ function playNote(frequency) {
 // Calculate the total semitones from the base note for a given position
 function getSemitonesFromBase(x, y) {
   // Each string (x) moves up by 2 semitones
-  // Each fret (y) moves down by 1 semitone
-  return (x * 2) - y;
+  // Each fret (y) moves up by 1 semitone
+  return (x * 2) + y;
 }
 
 // Get the note name for a given position
@@ -274,9 +274,7 @@ function getNoteName(x, y) {
   const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
   const semitones = getSemitonesFromBase(x, y);
   
-  // Calculate the new note index, wrapping around the octave
   const noteIndex = mod(baseNoteIndex + semitones, NOTES.length);
-  
   return NOTES[noteIndex];
 }
 
@@ -284,11 +282,9 @@ function getNoteName(x, y) {
 function getNoteOctave(x, y) {
   const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
   const semitones = getSemitonesFromBase(x, y);
-  
-  // Calculate how many complete octaves we've moved
   const totalSemitones = baseNoteIndex + semitones;
-  const octaveShift = Math.floor(totalSemitones / NOTES.length);
   
+  const octaveShift = Math.floor(totalSemitones / NOTES.length);
   return BASE_OCTAVE + octaveShift;
 }
 
@@ -303,7 +299,7 @@ function mod(n, m) {
 }
 
 // ==============================
-// Main draw function
+// Main draw function for Harpejji Tablature
 // ==============================
 function drawTablature() {
   // Update dimensions based on current model
@@ -368,15 +364,12 @@ function drawTablature() {
   g.appendChild(borderRect);
 
   // 4) Draw the keys (rectangles) for each fret/string intersection
-  //    plus optional marker if toggled, plus note name if showNotes is true
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
-      // We determine the note name to color black/white, etc.
       const noteName = getNoteName(x, y);
       const octave   = getNoteOctave(x, y);
       const blackKey = isBlackNote(noteName);
 
-      // The "key" is drawn around (x * stringSpacing + offset, y * fretSpacing + offset)
       const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
       keyGroup.setAttribute(
         "transform", 
@@ -394,7 +387,7 @@ function drawTablature() {
       rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
       keyGroup.appendChild(rect);
 
-      // If the key is toggled on, draw a circular marker
+      // Marker if toggled on
       if (keysState[y] && keysState[y][x] && keysState[y][x].marker) {
         const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
         circ.setAttribute("cx", 0);
@@ -417,7 +410,7 @@ function drawTablature() {
         keyGroup.appendChild(label);
       }
 
-      // Attach an event listener to toggle marker when clicked
+      // Click events
       keyGroup.style.cursor = "pointer";
       keyGroup.addEventListener("mousedown", () => {
         // Toggle marker
@@ -450,7 +443,7 @@ function drawTablature() {
 }
 
 // ==============================
-// Save and Load Functions
+// Save and Load Functions (Tablature)
 // ==============================
 function saveSelection() {
   const fileName = prompt("Enter a name for your selection:", "My Selection");
@@ -507,30 +500,28 @@ function saveSelection() {
 }
 
 function loadSelection(data) {
-  // Update model select
   const modelSelect = document.getElementById("modelSelect");
   modelSelect.value = data.model;
   
-  // Use stored model data if available, otherwise fallback to MODELS
+  // Use stored model data if available
   if (data.modelData) {
     currentModel = data.modelData;
   } else {
     currentModel = MODELS[data.model];
   }
   
-  // Update state
   numberOfStrings = currentModel.numberOfStrings;
   numberOfFrets = currentModel.numberOfFrets;
   BASE_NOTE = currentModel.startNote;
   BASE_OCTAVE = currentModel.startOctave;
   
-  // Update keys state
   keysState = data.keysState;
   
-  // Redraw
   drawTablature();
-  
-  // Close library
+  // Also refresh the piano roll for the new range
+  drawPianoRoll();
+  drawSequencerGrid();
+
   toggleLibrary();
 }
 
@@ -564,7 +555,6 @@ function populateLibrary() {
   const libraryContent = document.getElementById("libraryContent");
   libraryContent.innerHTML = ""; // Clear existing content
   
-  // Get saved selections from localStorage
   const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
   
   if (savedSelections.length === 0) {
@@ -589,10 +579,9 @@ function populateLibrary() {
       </div>
     `;
 
-    // Add click handler for loading selection
+    // Load on click
     div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
-
-    // Add click handler for delete button
+    // Delete
     div.querySelector('.delete-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       deleteSelection(index);
@@ -604,7 +593,6 @@ function populateLibrary() {
 
 function deleteSelection(index) {
   if (!confirm('Are you sure you want to delete this selection?')) return;
-
   const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
   savedSelections.splice(index, 1);
   localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
@@ -722,11 +710,17 @@ let metronomeEnabled = false;
 let currentBeat = 0;
 let recordedNotes = [];
 let playheadPosition = 0;
-let lastFrameTime = 0;
 let audioStartTime = 0;
-let activeNotes = new Map(); // Track currently playing notes for recording
+let activeNotes = new Map(); // Track currently pressed notes for recording
 
-// Initialize Web Audio Context for metronome
+// We'll build a global map of note->index and a sorted array, so that
+// the piano roll and recording always match properly.
+let globalSortedNotes = [];         // In descending pitch order
+let globalNoteToIndexMap = new Map(); // Map "G4" -> row index
+
+// ==============================
+// Metronome
+// ==============================
 let metronomeContext;
 let metronomeGain;
 
@@ -756,91 +750,193 @@ function playMetronomeSound() {
     osc.stop(metronomeContext.currentTime + 0.05);
 }
 
-// Draw piano roll keys
+// ==============================
+// Build a sorted list of all possible notes in the current model
+// in descending pitch order, plus a map of note -> row index
+// ==============================
+function buildSortedNotesMapping() {
+  // Collect every note in an array
+  let noteObjects = [];
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      const noteName = getNoteName(x, y);
+      const octave   = getNoteOctave(x, y);
+
+      // Convert to a numeric pitch so we can sort reliably
+      const pitch = getMIDINumber(noteName, octave);
+      noteObjects.push({ noteName, octave, pitch });
+    }
+  }
+
+  // Remove duplicates. We'll use a Map keyed by pitch
+  // (If your instrument truly doesn't have duplicates, this is mostly precaution.)
+  let pitchMap = new Map();
+  noteObjects.forEach(n => {
+    // If two positions yield the same pitch, we only need one row in the piano roll
+    if (!pitchMap.has(n.pitch)) {
+      pitchMap.set(n.pitch, n);
+    }
+  });
+
+  // Convert map back to an array
+  let uniqueNotes = Array.from(pitchMap.values());
+
+  // Sort in descending pitch
+  uniqueNotes.sort((a, b) => b.pitch - a.pitch);
+
+  // Now build global arrays and maps
+  globalSortedNotes = uniqueNotes; 
+  globalNoteToIndexMap.clear();
+
+  // Assign each note a row index
+  uniqueNotes.forEach((noteObj, index) => {
+    const fullName = noteObj.noteName + noteObj.octave;
+    globalNoteToIndexMap.set(fullName, index);
+  });
+}
+
+// Helper to convert "C4" -> MIDI-like number for sorting
+function getMIDINumber(noteName, octave) {
+  // MIDI for C4 is 60
+  // general formula: midiNumber = (octave + 1) * 12 + noteIndex
+  const noteIndex = NOTES.indexOf(noteName);
+  return (octave + 1) * 12 + noteIndex;
+}
+
+// ==============================
+// Draw piano roll (left side labels) using globalSortedNotes
+// ==============================
 function drawPianoRoll() {
-    const pianoKeysContainer = document.getElementById('piano-keys');
-    pianoKeysContainer.innerHTML = '';
-    
-    // Get all possible notes from the model
-    const notes = new Set();
-    for (let y = 0; y < numberOfFrets; y++) {
-        for (let x = 0; x < numberOfStrings; x++) {
-            const noteName = getNoteName(x, y);
-            const octave = getNoteOctave(x, y);
-            notes.add(`${noteName}${octave}`);
-        }
-    }
-    
-    // Sort notes by pitch (descending)
-    const sortedNotes = Array.from(notes).sort((a, b) => {
-        const [nameA, octaveA] = [a.slice(0, -1), parseInt(a.slice(-1))];
-        const [nameB, octaveB] = [b.slice(0, -1), parseInt(b.slice(-1))];
-        const pitchA = octaveA * 12 + NOTES.indexOf(nameA);
-        const pitchB = octaveB * 12 + NOTES.indexOf(nameB);
-        return pitchB - pitchA;
-    });
-    
-    // Create keys for each unique note
-    sortedNotes.forEach(note => {
-        const noteName = note.slice(0, -1);
-        const octave = note.slice(-1);
-        const isBlack = isBlackNote(noteName);
-        
-        const key = document.createElement('div');
-        key.className = `h-[${SEQUENCER_CONFIG.noteHeight}px] border-b border-gray-700 flex items-center px-2 text-xs ${isBlack ? 'bg-gray-800' : 'bg-gray-700'} text-white`;
-        key.textContent = note;
-        pianoKeysContainer.appendChild(key);
-    });
+  // Rebuild the note listing in case model changed
+  buildSortedNotesMapping();
 
-    // Set container height to match grid
-    pianoKeysContainer.style.height = `${sortedNotes.length * SEQUENCER_CONFIG.noteHeight}px`;
+  const pianoKeysContainer = document.getElementById('piano-keys');
+  pianoKeysContainer.innerHTML = '';
+  
+  // For each unique pitch in descending order:
+  globalSortedNotes.forEach((noteObj, index) => {
+    const { noteName, octave } = noteObj;
+    const isBlack = isBlackNote(noteName);
+
+    const key = document.createElement('div');
+    // We fix the height to SEQUENCER_CONFIG.noteHeight
+    key.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
+    key.className = `border-b border-gray-700 flex items-center px-2 text-xs 
+                     ${isBlack ? 'bg-gray-800' : 'bg-gray-700'} 
+                     text-white`;
+    key.textContent = noteName + octave;
+
+    pianoKeysContainer.appendChild(key);
+  });
+
+  // Set container height to match the total number of unique notes
+  const totalHeight = globalSortedNotes.length * SEQUENCER_CONFIG.noteHeight;
+  pianoKeysContainer.style.height = `${totalHeight}px`;
 }
 
+// ==============================
 // Draw sequencer grid
+// ==============================
 function drawSequencerGrid() {
-    const gridContent = document.getElementById('grid-content');
-    const playhead = document.getElementById('playhead');
-    gridContent.innerHTML = '';
-    
-    // Get total height from piano roll
-    const pianoKeysContainer = document.getElementById('piano-keys');
-    const totalHeight = pianoKeysContainer.scrollHeight;
-    
-    const totalWidth = SEQUENCER_CONFIG.pixelsPerBeat * SEQUENCER_CONFIG.beatsPerBar * SEQUENCER_CONFIG.totalBars;
-    gridContent.style.width = `${totalWidth}px`;
-    gridContent.style.height = `${totalHeight}px`;
-    playhead.style.height = `${totalHeight}px`;
-    
-    // Draw vertical grid lines
-    for (let i = 0; i <= SEQUENCER_CONFIG.totalBars * SEQUENCER_CONFIG.beatsPerBar; i++) {
-        const line = document.createElement('div');
-        line.className = `absolute top-0 w-px h-full ${i % SEQUENCER_CONFIG.beatsPerBar === 0 ? 'bg-gray-500' : 'bg-gray-700'}`;
-        line.style.left = `${i * SEQUENCER_CONFIG.pixelsPerBeat}px`;
-        gridContent.appendChild(line);
-    }
-    
-    // Draw horizontal grid lines
-    const totalNotes = numberOfStrings * numberOfFrets;
-    for (let i = 0; i <= totalNotes; i++) {
-        const line = document.createElement('div');
-        line.className = 'absolute left-0 right-0 h-px bg-gray-700';
-        line.style.top = `${i * SEQUENCER_CONFIG.noteHeight}px`;
-        gridContent.appendChild(line);
-    }
-    
-    // Draw recorded notes
-    recordedNotes.forEach(note => {
-        const noteElement = document.createElement('div');
-        noteElement.className = 'absolute bg-blue-500 opacity-75 rounded';
-        noteElement.style.left = `${note.startTime * SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60)}px`;
-        noteElement.style.top = `${note.noteIndex * SEQUENCER_CONFIG.noteHeight}px`;
-        noteElement.style.width = `${note.duration * SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60)}px`;
-        noteElement.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
-        gridContent.appendChild(noteElement);
-    });
+  const gridContent = document.getElementById('grid-content');
+  const playhead = document.getElementById('playhead');
+  gridContent.innerHTML = '';
+  
+  // The total number of unique notes is globalSortedNotes.length
+  const totalNotes = globalSortedNotes.length;
+  // The total grid width
+  const totalWidth = SEQUENCER_CONFIG.pixelsPerBeat * SEQUENCER_CONFIG.beatsPerBar * SEQUENCER_CONFIG.totalBars;
+  const totalHeight = totalNotes * SEQUENCER_CONFIG.noteHeight;
+  
+  gridContent.style.width = `${totalWidth}px`;
+  gridContent.style.height = `${totalHeight}px`;
+  playhead.style.height = `${totalHeight}px`;
+  
+  // Draw vertical grid lines (each beat)
+  for (let i = 0; i <= SEQUENCER_CONFIG.totalBars * SEQUENCER_CONFIG.beatsPerBar; i++) {
+    const line = document.createElement('div');
+    line.className = `absolute top-0 w-px h-full ${i % SEQUENCER_CONFIG.beatsPerBar === 0 ? 'bg-gray-500' : 'bg-gray-700'}`;
+    line.style.left = `${i * SEQUENCER_CONFIG.pixelsPerBeat}px`;
+    gridContent.appendChild(line);
+  }
+  
+  // Draw horizontal grid lines for each note row
+  for (let i = 0; i <= totalNotes; i++) {
+    const line = document.createElement('div');
+    line.className = 'absolute left-0 right-0 h-px bg-gray-700';
+    line.style.top = `${i * SEQUENCER_CONFIG.noteHeight}px`;
+    gridContent.appendChild(line);
+  }
+  
+  // Draw recorded notes
+  recordedNotes.forEach(note => {
+    const noteElement = document.createElement('div');
+    noteElement.className = 'absolute bg-blue-500 opacity-75 rounded';
+    // Convert startTime to pixels
+    const leftPx = note.startTime * (SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
+    const widthPx = note.duration * (SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
+    const topPx = note.noteIndex * SEQUENCER_CONFIG.noteHeight;
+
+    noteElement.style.left = `${leftPx}px`;
+    noteElement.style.top = `${topPx}px`;
+    noteElement.style.width = `${widthPx}px`;
+    noteElement.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
+
+    gridContent.appendChild(noteElement);
+  });
 }
 
-// Update playhead position
+// ==============================
+// Handle note recording
+// We look up the note's row index via globalNoteToIndexMap
+// ==============================
+function startNoteRecording(x, y) {
+  if (!isRecording) return;
+  
+  const noteName = getNoteName(x, y);
+  const octave = getNoteOctave(x, y);
+  const fullName = noteName + octave;
+  
+  // Which row in the piano roll is this note?
+  const noteIndex = globalNoteToIndexMap.get(fullName);
+  if (noteIndex === undefined) return;
+
+  const startTime = audioContext.currentTime - audioStartTime;
+  
+  activeNotes.set(fullName, {
+    noteName,
+    octave,
+    noteIndex,
+    startTime
+  });
+}
+
+function stopNoteRecording(x, y) {
+  if (!isRecording) return;
+  
+  const noteName = getNoteName(x, y);
+  const octave = getNoteOctave(x, y);
+  const fullName = noteName + octave;
+  
+  if (activeNotes.has(fullName)) {
+    const activeNote = activeNotes.get(fullName);
+    const endTime = audioContext.currentTime - audioStartTime;
+    const duration = endTime - activeNote.startTime;
+
+    recordedNotes.push({
+      ...activeNote,
+      duration,
+      isPlaying: false
+    });
+    
+    activeNotes.delete(fullName);
+    drawSequencerGrid();
+  }
+}
+
+// ==============================
+// Playhead / Main Sequencer Loop
+// ==============================
 function updatePlayhead() {
     if (!isPlaying) return;
     
@@ -850,7 +946,7 @@ function updatePlayhead() {
     const playhead = document.getElementById('playhead');
     playhead.style.left = `${playheadPosition}px`;
     
-    // Auto-scroll the grid to follow the playhead
+    // Auto-scroll the grid
     const grid = document.getElementById('sequencer-grid');
     const gridRect = grid.getBoundingClientRect();
     if (playheadPosition > grid.scrollLeft + gridRect.width * 0.7) {
@@ -885,44 +981,9 @@ function updatePlayhead() {
     requestAnimationFrame(updatePlayhead);
 }
 
-// Handle note recording
-function startNoteRecording(x, y) {
-    if (!isRecording) return;
-    
-    const noteName = getNoteName(x, y);
-    const octave = getNoteOctave(x, y);
-    const noteIndex = y * numberOfStrings + x;
-    const startTime = audioContext.currentTime - audioStartTime;
-    
-    activeNotes.set(noteIndex, {
-        noteName,
-        octave,
-        noteIndex,
-        startTime
-    });
-}
-
-function stopNoteRecording(x, y) {
-    if (!isRecording) return;
-    
-    const noteIndex = y * numberOfStrings + x;
-    const note = activeNotes.get(noteIndex);
-    if (note) {
-        const endTime = audioContext.currentTime - audioStartTime;
-        const duration = endTime - note.startTime;
-        
-        recordedNotes.push({
-            ...note,
-            duration,
-            isPlaying: false
-        });
-        
-        activeNotes.delete(noteIndex);
-        drawSequencerGrid();
-    }
-}
-
-// Sequencer controls
+// ==============================
+// Sequencer Transport Controls
+// ==============================
 function togglePlay() {
     if (!audioContext) initAudio();
     if (!metronomeContext) initMetronome();
@@ -1001,7 +1062,10 @@ function loadSequence() {
                 try {
                     const data = JSON.parse(e.target.result);
                     SEQUENCER_CONFIG.bpm = data.bpm;
-                    recordedNotes = data.notes;
+                    recordedNotes = data.notes || [];
+                    
+                    // Stop any current playback/record
+                    stopPlayback();
                     drawSequencerGrid();
                 } catch (error) {
                     console.error('Error loading sequence:', error);
@@ -1015,39 +1079,34 @@ function loadSequence() {
 }
 
 // ==============================
-// Event handlers
+// DOMContentLoaded
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
-    // Initialize sequencer
+    // Initialize the tablature
+    drawTablature();
+    
+    // Initialize the piano roll and sequencer grid
     drawPianoRoll();
     drawSequencerGrid();
-
     
-    // Add sequencer control event listeners
+    // Sequencer transport event listeners
     document.getElementById('play-btn').addEventListener('click', togglePlay);
     document.getElementById('stop-btn').addEventListener('click', stopPlayback);
     document.getElementById('record-btn').addEventListener('click', toggleRecord);
     document.getElementById('metronome-btn').addEventListener('click', toggleMetronome);
     document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
     document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
-    
-    // Previous event handlers
-    drawTablature();
 
     // Model selection change
     const modelSelect = document.getElementById("modelSelect");
     modelSelect.addEventListener("change", () => {
-        const selectedModel = MODELS[modelSelect.value];
-        currentModel = selectedModel;
-        numberOfStrings = selectedModel.numberOfStrings;
-        numberOfFrets = selectedModel.numberOfFrets;
-        BASE_NOTE = selectedModel.startNote;
-        BASE_OCTAVE = selectedModel.startOctave;
+        currentModel = MODELS[modelSelect.value];
+        numberOfStrings = currentModel.numberOfStrings;
+        numberOfFrets = currentModel.numberOfFrets;
+        BASE_NOTE = currentModel.startNote;
+        BASE_OCTAVE = currentModel.startOctave;
         
-        // Reset markers for new model
         initKeysState();
-        
-        // Redraw with new configuration
         drawTablature();
         drawPianoRoll();
         drawSequencerGrid();
@@ -1075,12 +1134,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const loadBtn = document.getElementById("loadBtn");
     loadBtn.addEventListener("click", handleFileLoad);
 
-    // Toggle library slideover
+    // Library Slideover
     const closeLibraryBtn = document.getElementById("closeLibraryBtn");
     closeLibraryBtn.addEventListener("click", toggleLibrary);
     populateLibrary();
-
-    // Open library slideover
+    
     const libraryBtn = document.getElementById("libraryBtn");
     libraryBtn.addEventListener("click", toggleLibrary);
 
