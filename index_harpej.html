@@ -303,6 +303,43 @@
         class="w-full h-10 border border-gray-300 rounded"
       />
     </div>
+
+    <!-- NEW: Vertical Row Spacing -->
+    <div class="mb-4">
+      <label for="rowSpacingRange" class="block font-semibold mb-1">Row Spacing:</label>
+      <input 
+        type="range"
+        id="rowSpacingRange"
+        min="20"
+        max="60"
+        step="1"
+        value="30"
+        class="w-full"
+      />
+      <span id="rowSpacingValue" class="text-gray-700 text-sm">30 px</span>
+    </div>
+
+    <!-- NEW: Save Project + Load Project Buttons -->
+    <div class="space-y-2 mt-4">
+      <button
+        id="saveProjectBtn"
+        class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full"
+      >
+        Save Project
+      </button>
+      <button
+        id="loadProjectBtn"
+        class="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 w-full"
+      >
+        Load Project
+      </button>
+      <input 
+        type="file" 
+        id="loadProjectFile" 
+        class="hidden" 
+        accept=".json"
+      />
+    </div>
   </div>
 </div>
 
@@ -448,7 +485,8 @@ function getSemitonesFromBase(x, y) {
   return (x * 2) + (y * 1);
 }
 
-const fretSpacing = 30;   // vertical spacing in pixels
+// Global for fret spacing (vertical separation)
+let fretSpacing = 30;   
 const stringSpacing = 30; // horizontal spacing in pixels
 const keyHeight = 25;     // height of each key rectangle
 
@@ -1714,14 +1752,12 @@ function handleImportMIDI() {
     // build recordedNotes from midiData
     midiData.forEach((evt) => {
       if (evt.type === "note") {
-        const noteIndex = 0; // We'll fix later, or attempt to find the mapped note
-        // We'll store noteName, octave from pitch if we want. For now let's store pitch directly
         const startTime = evt.time - minTime;
         recordedNotes.push({
           noteName: "?", // placeholder
           octave: 4, // placeholder
           pitch: evt.pitch,
-          noteIndex,
+          noteIndex: 0, // placeholder, actual row in piano roll
           startTime,
           duration: evt.duration,
           isPlaying: false,
@@ -1756,9 +1792,7 @@ function parseMIDI(buffer) {
   }
   const formatType = (data[8] << 8) | data[9];
   const trackCount = (data[10] << 8) | data[11];
-  const timeDivision = (data[12] << 8) | data[13];
-
-  // find "MTrk" chunk(s)
+  // timeDivision => data[12], data[13], not fully used here
   let pointer = 14;
   const events = [];
   for (let t = 0; t < trackCount; t++) {
@@ -1791,9 +1825,6 @@ function parseMIDI(buffer) {
         // note off
         const note = data[pointer++];
         const vel = data[pointer++];
-        // We'll find a matching note on
-        // We'll store in some temporary array or something. 
-        // For simplicity, let's just handle in a second pass. 
         events.push({time: currentTime, type: "noteOff", pitch: note});
       } else if ((eventTypeByte & 0xF0) === 0x90) {
         // note on
@@ -1827,7 +1858,6 @@ function parseMIDI(buffer) {
   }
 
   // second pass to form note objects
-  // We'll keep track of noteOns until we see the corresponding noteOff
   let activeMap = {};
   let noteEvents = [];
   events.forEach(evt => {
@@ -1968,6 +1998,101 @@ function loadChords() {
   input.click();
 }
 
+// ==============================
+// PROJECT-WIDE SAVE / LOAD
+// ==============================
+
+function saveProject() {
+  // Gather everything:
+  const advancedOptions = {
+    cursorColor: document.getElementById('cursorColorPicker').value,
+    rowSpacing: fretSpacing
+  };
+  const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  const chordPalette = chordSlots;
+  const sequencerData = {
+    bpm: SEQUENCER_CONFIG.bpm,
+    notes: recordedNotes,
+    pitchMappings: pitchMappings // the user's chosen note mappings in select mode
+  };
+
+  const projectData = {
+    advancedOptions,
+    library,
+    chordPalette,
+    sequencerData
+  };
+
+  const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'harpejji_project.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadProject() {
+  const input = document.getElementById('loadProjectFile');
+  input.onchange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+
+        // advancedOptions
+        if (data.advancedOptions) {
+          if (data.advancedOptions.cursorColor) {
+            document.getElementById('cursorColorPicker').value = data.advancedOptions.cursorColor;
+            document.getElementById("playhead").style.backgroundColor = data.advancedOptions.cursorColor;
+          }
+          if (typeof data.advancedOptions.rowSpacing === 'number') {
+            fretSpacing = data.advancedOptions.rowSpacing;
+            document.getElementById('rowSpacingRange').value = data.advancedOptions.rowSpacing;
+            document.getElementById('rowSpacingValue').textContent = data.advancedOptions.rowSpacing + ' px';
+          }
+          drawTablature();
+        }
+
+        // library
+        if (Array.isArray(data.library)) {
+          localStorage.setItem('harpejjiSelections', JSON.stringify(data.library));
+          populateLibrary();
+        }
+
+        // chordPalette
+        if (Array.isArray(data.chordPalette) && data.chordPalette.length <= chordSlots.length) {
+          chordSlots.forEach((slot, idx) => {
+            if (data.chordPalette[idx]) {
+              slot.name = data.chordPalette[idx].name || slot.name;
+              slot.keys = Array.isArray(data.chordPalette[idx].keys) ? data.chordPalette[idx].keys : [];
+            }
+          });
+          updateChordPaletteUI();
+        }
+
+        // sequencerData
+        if (data.sequencerData) {
+          SEQUENCER_CONFIG.bpm = data.sequencerData.bpm || 120;
+          recordedNotes = data.sequencerData.notes || [];
+          pitchMappings = data.sequencerData.pitchMappings || {};
+          stopPlayback();
+          drawSequencerGrid();
+        }
+
+        alert("Project loaded successfully.");
+      } catch (error) {
+        alert('Error loading project file: ' + error.message);
+      }
+      input.value = ""; // reset
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 // Final DOMContentLoaded
 document.addEventListener("DOMContentLoaded", () => {
   drawTablature();
@@ -2062,6 +2187,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const color = e.target.value;
     document.getElementById("playhead").style.backgroundColor = color;
   });
+
+  // NEW: Handle row spacing changes
+  const rowSpacingRange = document.getElementById("rowSpacingRange");
+  const rowSpacingValue = document.getElementById("rowSpacingValue");
+  rowSpacingRange.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value, 10);
+    fretSpacing = val;
+    rowSpacingValue.textContent = val + " px";
+    drawTablature();
+  });
+
+  // NEW: Save Project / Load Project
+  document.getElementById("saveProjectBtn").addEventListener("click", saveProject);
+  document.getElementById("loadProjectBtn").addEventListener("click", loadProject);
 
   // CHORD PALETTE EVENTS
   const chordRecordButtons = document.querySelectorAll('.chord-record-btn');
