@@ -564,8 +564,6 @@ const MODELS = {
     endOctave: 5
   },
   G16: {
-    // Updated so that the bottom-left is C2
-    // and top-right ends up at C6
     numberOfStrings: 16, 
     numberOfFrets: 19,
     startNote: "C",
@@ -683,7 +681,6 @@ function initAudio() {
 
   // Convolver for reverb
   reverbConvolver = audioContext.createConvolver();
-  // A simple impulse response
   const length = audioContext.sampleRate * 1.0; 
   const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
   for (let c = 0; c < 2; c++) {
@@ -1418,12 +1415,11 @@ function allNotesInCurrentScale(notesArray) {
   if (!scaleSet.size) return true;
 
   for (const noteStr of notesArray) {
-    // e.g. "A#4 (row=2, string=3)"
     const firstSpace = noteStr.indexOf(" ");
     if (firstSpace < 0) {
       return false;
     }
-    const noteNameOct = noteStr.substring(0, firstSpace); // "A#4"
+    const noteNameOct = noteStr.substring(0, firstSpace); 
     let i = noteNameOct.length - 1;
     while (i >= 0 && isDigit(noteNameOct[i])) {
       i--;
@@ -2378,7 +2374,7 @@ document.addEventListener("DOMContentLoaded", () => {
     input.click();
   });
 
-  // Chord Palette events
+  // CHORD PALETTE EVENTS
   document.querySelectorAll('.chord-record-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
@@ -2422,6 +2418,51 @@ document.addEventListener("DOMContentLoaded", () => {
         chordPressUp(idx);
       }
     });
+  });
+
+  // SAVE CHORDS + LOAD CHORDS FIX
+  document.getElementById("saveChordsBtn").addEventListener("click", () => {
+    const fileName = prompt("Enter a file name for chord palette:", "MyChords");
+    if (!fileName) return;
+    const data = JSON.stringify(chordSlots, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("loadChordsBtn").addEventListener("click", () => {
+    const input = document.getElementById("loadChordsFile");
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const loadedChords = JSON.parse(e.target.result);
+          if (Array.isArray(loadedChords) && loadedChords.length <= chordSlots.length) {
+            chordSlots.forEach((slot, idx) => {
+              if (loadedChords[idx]) {
+                slot.name = loadedChords[idx].name || slot.name;
+                slot.keys = Array.isArray(loadedChords[idx].keys) ? loadedChords[idx].keys : [];
+              }
+            });
+            updateChordPaletteUI();
+            alert("Chord palette loaded successfully.");
+          } else {
+            throw new Error("Invalid chord file structure.");
+          }
+        } catch (err) {
+          alert("Error loading chord file: " + err.message);
+        }
+        input.value = "";
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   });
 
   // Reverb/Delay
