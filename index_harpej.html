@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>Harpejji Tablature Emulation (Plain JS + Tailwind)</title>
-  <!-- Tailwind CSS (via CDN) 1-->
+  <!-- Tailwind CSS (via CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 pb-[350px]">
 <div class="max-w-6xl mx-auto bg-white rounded shadow p-4">
   <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
 
-  <!-- NEW: Reverb, Delay, Tempo Sliders, and Transpose Buttons at the top -->
+  <!-- Reverb, Delay, and Tempo Sliders at the top -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
     <!-- Reverb Slider -->
     <div class="flex items-center gap-2">
@@ -53,21 +53,20 @@
       <span id="tempoValue" class="text-gray-700">120 BPM</span>
     </div>
 
-    <!-- NEW: Transpose Up/Down Buttons -->
+    <!-- Transpose Up & Down Buttons -->
     <button 
       id="transposeUpBtn"
-      class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+      class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
     >
       Transpose +1
     </button>
     <button 
       id="transposeDownBtn"
-      class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+      class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
     >
       Transpose -1
     </button>
   </div>
-  <!-- End of new sliders and transpose buttons -->
 
   <!-- Controls -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
@@ -105,7 +104,6 @@
         id="scaleSelect"
         class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
       >
-        <!-- We'll populate this dynamically, but here's a fallback default -->
         <option value="none">None</option>
         <option value="Major">Major</option>
         <option value="Minor">Minor</option>
@@ -179,7 +177,7 @@
       Key Mode: Toggle
     </button>
 
-    <!-- NEW: Kill Notes Button -->
+    <!-- Kill Notes Button -->
     <button
       id="killNotesBtn"
       class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
@@ -187,7 +185,7 @@
       Kill Notes
     </button>
 
-    <!-- NEW: Advanced Config Button -->
+    <!-- Advanced Config Button -->
     <button
       id="advancedConfigBtn"
       class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
@@ -200,7 +198,7 @@
     </span>
   </div>
 
-  <!-- Wrap harpejji board and Chord Palette side by side -->
+  <!-- Harpejji board + Chord Palette side by side -->
   <div class="flex">
     <!-- Our Tablature SVG -->
     <svg 
@@ -243,7 +241,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">N</button>
           </div>
         </div>
@@ -252,7 +249,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">N</button>
           </div>
         </div>
@@ -261,7 +257,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">N</button>
           </div>
         </div>
@@ -270,7 +265,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">N</button>
           </div>
         </div>
@@ -279,7 +273,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">N</button>
           </div>
         </div>
@@ -288,7 +281,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">N</button>
           </div>
         </div>
@@ -297,7 +289,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">N</button>
           </div>
         </div>
@@ -306,7 +297,6 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">C</button>
-            <!-- Rename Button -->
             <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">N</button>
           </div>
         </div>
@@ -330,7 +320,7 @@
       <button id="saveLibraryBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
         Save Library
       </button>
-      <!-- NEW: Save Library As Button -->
+      <!-- Save Library As Button -->
       <button id="saveLibraryAsBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
         Save Library As
       </button>
@@ -342,10 +332,12 @@
       </button>
     </div>
 
-    <!-- NEW: Scale Filter Checkbox -->
-    <div class="mb-4 flex items-center gap-2">
-      <input type="checkbox" id="scaleFilterCheck" />
-      <label for="scaleFilterCheck" class="text-gray-700 text-sm">Filter by Current Scale</label>
+    <!-- Scale Filter Checkbox -->
+    <div class="mb-2">
+      <label for="scaleFilterCheckbox" class="inline-flex items-center space-x-1">
+        <input type="checkbox" id="scaleFilterCheckbox" />
+        <span>Scale Filter</span>
+      </label>
     </div>
 
     <div id="libraryContent" class="space-y-4 overflow-y-auto h-full">
@@ -354,7 +346,7 @@
   </div>
 </div>
 
-<!-- NEW: Advanced Config Slideover -->
+<!-- Advanced Config Slideover -->
 <div id="advancedConfigSlideover" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
   <div class="absolute right-0 top-0 bottom-0 bg-white w-64 p-4 overflow-y-auto">
     <h2 class="text-xl font-bold mb-4">Advanced Config</h2>
@@ -388,13 +380,13 @@
       <span id="rowSpacingValue" class="text-gray-700 text-sm">30 px</span>
     </div>
 
-    <!-- NEW: Scale Highlight Color & Transparency -->
+    <!-- Scale Highlight Color & Transparency -->
     <div class="mb-4">
       <label for="scaleHighlightColor" class="block font-semibold mb-1">Scale Highlight Color:</label>
       <input 
         type="color"
         id="scaleHighlightColor"
-        value="#ffc107"  <!-- Default: a yellowish color -->
+        value="#ffc107"
         class="w-full h-10 border border-gray-300 rounded"
       />
     </div>
@@ -412,7 +404,7 @@
       <span id="scaleHighlightAlphaValue" class="text-gray-700 text-sm">0.3</span>
     </div>
 
-    <!-- NEW: Import Scale File + (Store internally) -->
+    <!-- Import Scale File -->
     <div class="space-y-2 mt-4">
       <button
         id="importScalesBtn"
@@ -480,7 +472,7 @@
             Load
         </button>
         <input type="file" id="load-seq-file" class="hidden" accept=".json">
-        <!-- NEW: Import MIDI Button -->
+        <!-- Import MIDI Button -->
         <button 
           id="import-midi-btn"
           class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
@@ -496,7 +488,7 @@
         >
           Song Mode
         </button>
-        <!-- NEW: Select Mode Toggle -->
+        <!-- Select Mode Toggle -->
         <button
           id="select-mode-btn"
           class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
@@ -555,32 +547,31 @@
 // Some default built-in scales
 // ==============================
 let loadedScales = {
-  "Major": [2, 2, 1, 2, 2, 2, 1],   // (Ionian)
-  "Minor": [2, 1, 2, 2, 1, 2, 2],   // (Natural minor)
-  // Add more if you want...
+  "Major": [2, 2, 1, 2, 2, 2, 1],
+  "Minor": [2, 1, 2, 2, 1, 2, 2],
 };
-// "None" scale means no highlighting
 
 // ==============================
 // Configuration
 // ==============================
 const MODELS = {
   K24: {
-    numberOfStrings: 24,
-    numberOfFrets: 15,
+    numberOfStrings: 24, // x dimension
+    numberOfFrets: 15,   // y dimension
     startNote: "A",
     startOctave: 0,
     endNote: "A",
     endOctave: 5
   },
-  // UPDATED G16
   G16: {
-    numberOfStrings: 16,
-    numberOfFrets: 19, // changed from 15 to 19
-    startNote: "C",    // changed from "E" to "C"
-    startOctave: 2,    // changed from 2 -> still 2, but matching base note
-    endNote: "C",      // changed from "C" (same letter, but was for E2-C6)
-    endOctave: 6       // remains 6
+    // Updated so that the bottom-left is C2
+    // and top-right ends up at C6
+    numberOfStrings: 16, 
+    numberOfFrets: 19,
+    startNote: "C",
+    startOctave: 2,
+    endNote: "C",
+    endOctave: 6
   },
   G12: {
     numberOfStrings: 12,
@@ -598,14 +589,14 @@ function getSemitonesFromBase(x, y) {
   return (x * 2) + (y * 1);
 }
 
-// Global for fret spacing (vertical separation)
+// Global for fret spacing
 let fretSpacing = 30;   
 const stringSpacing = 30; 
 const keyHeight = 25;     
 
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-// Current model
+// Current model defaults to K24
 let currentModel = MODELS.K24;
 let numberOfFrets = currentModel.numberOfFrets;
 let numberOfStrings = currentModel.numberOfStrings;
@@ -658,7 +649,7 @@ let scaleHighlightColor = "#ffc107";
 let scaleHighlightAlpha = 0.3;
 
 /**
- * Generate a set of pitch classes (semitones) for the selected scale, 
+ * Generate a set of pitch classes (0..11) for the selected scale,
  * relative to the chosen root.
  */
 function getScaleSemitones(scaleName, rootNote) {
@@ -666,17 +657,15 @@ function getScaleSemitones(scaleName, rootNote) {
   if (!loadedScales[scaleName]) return new Set();
 
   const intervals = loadedScales[scaleName];
-  // Build scale from root
   const rootIndex = NOTES.indexOf(rootNote);
   if (rootIndex === -1) return new Set();
 
-  // We'll build a full octave set (0..11)
   let semitonesSet = new Set();
   let currentPos = 0;
   semitonesSet.add(rootIndex % 12);
   intervals.forEach(interval => {
     currentPos += interval;
-    semitonesSet.add( (rootIndex + currentPos) % 12 );
+    semitonesSet.add((rootIndex + currentPos) % 12);
   });
   return semitonesSet;
 }
@@ -724,7 +713,7 @@ function createOscillator(frequency) {
 
   osc.frequency.value = frequency;
 
-  // Connect the oscillator's gain to masterGain, delay, reverb
+  // Connect the oscillator's gain to the master chain
   osc.connect(gain);
   gain.connect(masterGainNode);
   gain.connect(delayNode);
@@ -751,7 +740,7 @@ function killAllNotes() {
   }
   activeUserOscillators.clear();
 
-  // Also stop any sequencer notes in mid-play
+  // Also stop any sequencer notes currently sounding
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
       stopOscillator(note.oscObj);
@@ -769,7 +758,7 @@ function mod(n, m) {
 
 function noteToFrequency(noteName, octave) {
   const noteIndex = NOTES.indexOf(noteName);
-  if (noteIndex === -1) return 440;
+  if (noteIndex === -1) return 440; // fallback
   const A4_OCTAVE = 4;
   const A4_INDEX = NOTES.indexOf("A");
   const semitones = (octave - A4_OCTAVE) * 12 + (noteIndex - A4_INDEX);
@@ -815,20 +804,20 @@ function drawTablature() {
   const g = document.createElementNS("http://www.w3.org/2000/svg","g");
   svg.appendChild(g);
 
-  // Draw horizontal fret lines
+  // Horizontal fret lines
   for (let row = 0; row <= numberOfFrets; row++) {
     const lineY = row * fretSpacing + fretSpacing/2;
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", 0);
-    line.setAttribute("y1", (totalHeight - lineY));
+    line.setAttribute("y1", totalHeight - lineY);
     line.setAttribute("x2", numberOfStrings * stringSpacing);
-    line.setAttribute("y2", (totalHeight - lineY));
+    line.setAttribute("y2", totalHeight - lineY);
     line.setAttribute("stroke", "#000");
     line.setAttribute("stroke-width", "1");
     g.appendChild(line);
   }
 
-  // Draw vertical string lines
+  // Vertical string lines
   for (let x = 0; x < numberOfStrings; x++) {
     const lineX = x * stringSpacing + stringSpacing;
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
@@ -841,7 +830,7 @@ function drawTablature() {
     g.appendChild(line);
   }
 
-  // Border
+  // Outer border
   const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
   borderRect.setAttribute("x", 0.5);
   borderRect.setAttribute("y", 0.5);
@@ -851,21 +840,20 @@ function drawTablature() {
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // Get the scale semitones set
+  // Scale highlighting
   const scaleSet = getScaleSemitones(currentScale, currentRoot);
-  // We'll highlight if note's pitch class (mod 12) is in scaleSet
 
+  // Draw keys
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       const noteName = getNoteName(x, y);
-      const octave   = getNoteOctave(x, y);
+      const octave = getNoteOctave(x, y);
       const blackKey = isBlackNote(noteName);
-      
-      // Note's pitch class
+
       const noteIndex = NOTES.indexOf(noteName);
       const inScale = scaleSet.has(noteIndex);
 
-      const yPos = (totalHeight - ((y * fretSpacing) + fretSpacing/2)) - keyHeight;
+      const yPos = totalHeight - ((y * fretSpacing) + fretSpacing/2) - keyHeight;
       const xPos = (x * stringSpacing) + stringSpacing - 7.5;
       const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
       keyGroup.setAttribute("transform", `translate(${xPos}, ${yPos})`);
@@ -878,11 +866,9 @@ function drawTablature() {
       rect.setAttribute("stroke", "#666");
       rect.setAttribute("stroke-width", "1");
       rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
-      // If in scale, apply highlight overlay
+
       if (inScale) {
-        rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
-        rect.setAttribute("fill-opacity", "1");
-        // We'll draw a translucent overlay on top
+        // Overlay a translucent rectangle
         const highlightRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
         highlightRect.setAttribute("x", 0);
         highlightRect.setAttribute("y", 0);
@@ -921,16 +907,15 @@ function drawTablature() {
 
       keyGroup.style.cursor = "pointer";
       keyGroup.addEventListener("mousedown", () => handleKeyDown(x, y));
-      keyGroup.addEventListener("mouseup",   () => handleKeyUp(x, y));
-      keyGroup.addEventListener("mouseleave",() => handleKeyUp(x, y));
+      keyGroup.addEventListener("mouseup", () => handleKeyUp(x, y));
+      keyGroup.addEventListener("mouseleave", () => handleKeyUp(x, y));
 
-      // Check if we're in "select mode" for sequencer pitch mapping
+      // If in select mode for pitch mapping:
       keyGroup.addEventListener("click", () => {
         if (awaitingMappingPitch !== null) {
-          // see if (x,y) is in that pitch's highlight
           if (pitchPossiblePositions[awaitingMappingPitch]) {
             const found = pitchPossiblePositions[awaitingMappingPitch]
-              .find(pos => pos.x===x && pos.y===y);
+              .find(pos => pos.x === x && pos.y === y);
             if (found) {
               pitchMappings[awaitingMappingPitch] = { x, y };
               // Clear highlight
@@ -1079,8 +1064,7 @@ function handleKeyDownProgrammatically(x, y) {
 function handleKeyUpProgrammatically(x, y) {
   const keyStr = `${x}_${y}`;
   if (activeUserOscillators.has(keyStr)) {
-    const oscObj = activeUserOscillators.get(keyStr);
-    stopOscillator(oscObj);
+    stopOscillator(activeUserOscillators.get(keyStr));
     activeUserOscillators.delete(keyStr);
   }
   if (keyMode === 'press') {
@@ -1113,54 +1097,13 @@ function handleKeyDown(x, y) {
 function handleKeyUp(x, y) {
   const keyStr = `${x}_${y}`;
   if (activeUserOscillators.has(keyStr)) {
-    const oscObj = activeUserOscillators.get(keyStr);
-    stopOscillator(oscObj);
+    stopOscillator(activeUserOscillators.get(keyStr));
     activeUserOscillators.delete(keyStr);
   }
   if (keyMode === 'press') {
     keysState[y][x].pressing = false;
   }
   stopNoteRecording(x, y);
-  drawTablature();
-}
-
-// ==============================
-// Transpose Selected
-// ==============================
-function transposeSelected(amount) {
-  let newMarkers = [];
-  for (let yy = 0; yy < numberOfFrets; yy++) {
-    newMarkers[yy] = new Array(numberOfStrings).fill(false);
-  }
-
-  // For each currently marked key, shift by +amount semitones if possible
-  for (let y = 0; y < numberOfFrets; y++) {
-    for (let x = 0; x < numberOfStrings; x++) {
-      if (keysState[y][x].marker) {
-        let oldSemitones = 2*x + y;
-        let newSemitones = oldSemitones + amount;
-        // Check boundaries
-        if (newSemitones < 0) continue;
-        let maxSemitones = 2*(numberOfStrings - 1) + (numberOfFrets - 1);
-        if (newSemitones > maxSemitones) continue;
-        // Find a valid (nx, ny)
-        for (let nx = 0; nx < numberOfStrings; nx++) {
-          let ny = newSemitones - 2*nx;
-          if (ny >= 0 && ny < numberOfFrets) {
-            newMarkers[ny][nx] = true;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // Reset and apply new markers
-  for (let yy = 0; yy < numberOfFrets; yy++) {
-    for (let xx = 0; xx < numberOfStrings; xx++) {
-      keysState[yy][xx].marker = newMarkers[yy][xx];
-    }
-  }
   drawTablature();
 }
 
@@ -1282,39 +1225,6 @@ function toggleLibrary() {
   slideover.classList.toggle("hidden");
 }
 
-// NEW helper to parse "Xn (row=Y, string=Z)" -> returns {noteName, noteOctave}
-function parseNotePlainText(line) {
-  // example: "A0 (row=3, string=2)"
-  // We'll split at space, the first part is note+octave
-  const parts = line.split(" ");
-  if (!parts[0]) return null; 
-  const rawNote = parts[0];
-  let match = rawNote.match(/^([A-G]#?)(-?\d+)/);
-  if (!match) return null;
-  return {
-    noteName: match[1],
-    noteOctave: parseInt(match[2], 10)
-  };
-}
-
-function selectionInCurrentScale(selection) {
-  if (currentScale === "none") return true;
-  const scaleSet = getScaleSemitones(currentScale, currentRoot);
-  if (scaleSet.size === 0) return true; 
-  if (!selection.notesPlainText) return true;
-
-  for (let line of selection.notesPlainText) {
-    const parsed = parseNotePlainText(line);
-    if (!parsed) continue;
-    let noteIndex = NOTES.indexOf(parsed.noteName);
-    if (noteIndex < 0) continue;
-    if (!scaleSet.has(noteIndex)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 function populateLibrary() {
   const libraryContent = document.getElementById("libraryContent");
   libraryContent.innerHTML = "";
@@ -1326,12 +1236,16 @@ function populateLibrary() {
     return;
   }
 
-  const scaleFilterCheck = document.getElementById("scaleFilterCheck");
-  const doScaleFilter = scaleFilterCheck && scaleFilterCheck.checked;
+  const scaleFilterCheckbox = document.getElementById("scaleFilterCheckbox");
+  const filterActive = scaleFilterCheckbox && scaleFilterCheckbox.checked && currentScale !== 'none';
 
-  savedSelections.forEach((selection, index) => {
-    if (doScaleFilter && !selectionInCurrentScale(selection)) {
-      return;
+  for (let index = 0; index < savedSelections.length; index++) {
+    const selection = savedSelections[index];
+
+    if (filterActive) {
+      if (!allNotesInCurrentScale(selection.notesPlainText)) {
+        continue;
+      }
     }
 
     const div = document.createElement("div");
@@ -1362,7 +1276,7 @@ function populateLibrary() {
       deleteSelection(index);
     });
     libraryContent.appendChild(div);
-  });
+  }
 }
 
 function deleteSelection(index) {
@@ -1434,15 +1348,16 @@ function saveLibrary() {
   URL.revokeObjectURL(url);
 }
 
-// NEW: Save Library As
 function saveLibraryAs() {
-  const fileName = prompt("Enter a file name for the library:", "my_library");
+  const fileName = prompt("Enter file name for library:", "harpejji_library");
   if (!fileName) return;
+
   const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
   if (savedSelections.length === 0) {
     alert('No selections to save');
     return;
   }
+
   const completeLibrary = savedSelections.map(selection => {
     if (!selection.modelData) {
       const model = MODELS[selection.model];
@@ -1493,6 +1408,41 @@ function loadLibrary() {
   input.click();
 }
 
+// Scale filter helper
+function isDigit(ch) {
+  return ch >= '0' && ch <= '9';
+}
+
+function allNotesInCurrentScale(notesArray) {
+  const scaleSet = getScaleSemitones(currentScale, currentRoot);
+  if (!scaleSet.size) return true;
+
+  for (const noteStr of notesArray) {
+    // e.g. "A#4 (row=2, string=3)"
+    const firstSpace = noteStr.indexOf(" ");
+    if (firstSpace < 0) {
+      return false;
+    }
+    const noteNameOct = noteStr.substring(0, firstSpace); // "A#4"
+    let i = noteNameOct.length - 1;
+    while (i >= 0 && isDigit(noteNameOct[i])) {
+      i--;
+    }
+    const octaveStr = noteNameOct.substring(i + 1);
+    const rawNoteName = noteNameOct.substring(0, i + 1);
+
+    if (!rawNoteName) return false;
+    const noteIndex = NOTES.indexOf(rawNoteName);
+    if (noteIndex < 0) {
+      return false;
+    }
+    if (!scaleSet.has(noteIndex)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // ==============================
 // Sequencer
 // ==============================
@@ -1511,7 +1461,6 @@ let metronomeEnabled = false;
 let currentBeat = 0;
 let recordedNotes = [];
 
-// We'll store currently-active notes for recording:
 let activeNotes = new Map();
 
 let playheadPosition = 0;
@@ -1530,7 +1479,7 @@ let pitchPossiblePositions = {};
 let pitchMappings = {};
 let awaitingMappingPitch = null;
 
-// For dragging/moving notes in the sequencer
+// For dragging notes
 let draggingNote = null;
 let dragStartX = 0;
 let dragStartY = 0;
@@ -1586,7 +1535,6 @@ function buildSortedNotesMapping() {
     return { noteName: obj.noteName, octave: obj.octave, pitch: pitch, x: obj.x, y: obj.y };
   });
 
-  // Sort descending pitch
   uniqueNotes.sort((a, b) => b.pitch - a.pitch);
 
   globalSortedNotes = uniqueNotes;
@@ -1642,14 +1590,14 @@ function drawSequencerGrid() {
   gridContent.style.height = `${totalHeight}px`;
   playhead.style.height = `${totalHeight}px`;
 
-  // Vertical lines
+  // Vertical lines (each beat)
   for (let i = 0; i <= SEQUENCER_CONFIG.totalBars * SEQUENCER_CONFIG.beatsPerBar; i++) {
     const line = document.createElement('div');
     line.className = `absolute top-0 w-px h-full ${i % SEQUENCER_CONFIG.beatsPerBar === 0 ? 'bg-gray-500' : 'bg-gray-700'}`;
     line.style.left = `${i * SEQUENCER_CONFIG.pixelsPerBeat}px`;
     gridContent.appendChild(line);
   }
-  // Horizontal lines
+  // Horizontal lines (each note)
   for (let i = 0; i <= totalNotes; i++) {
     const line = document.createElement('div');
     line.className = 'absolute left-0 right-0 h-px bg-gray-700';
@@ -1671,9 +1619,9 @@ function drawSequencerGrid() {
     noteElement.style.width = `${widthPx}px`;
     noteElement.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
 
-    noteElement.dataset.noteIdx = idx; // store index in dataset
+    noteElement.dataset.noteIdx = idx; 
 
-    // Add small "handles" for resizing (left & right)
+    // Resize handles
     const leftHandle = document.createElement('div');
     leftHandle.className = 'absolute left-0 top-0 bottom-0 w-2 bg-transparent cursor-w-resize';
     noteElement.appendChild(leftHandle);
@@ -1682,10 +1630,9 @@ function drawSequencerGrid() {
     rightHandle.className = 'absolute right-0 top-0 bottom-0 w-2 bg-transparent cursor-e-resize';
     noteElement.appendChild(rightHandle);
 
-    // Mousedown logic for dragging or resizing
+    // Mouse event for dragging/resizing
     noteElement.addEventListener('mousedown', (e) => {
       e.stopPropagation();
-
       const rect = noteElement.getBoundingClientRect();
       const offsetX = e.clientX - rect.left;
 
@@ -1696,7 +1643,6 @@ function drawSequencerGrid() {
       dragOriginalNoteIndex = note.noteIndex;
       resizingEdge = null;
 
-      // Check if near left or right edge for resizing
       if (offsetX < 5) {
         resizingEdge = 'left';
       } else if (offsetX > rect.width - 5) {
@@ -1708,27 +1654,24 @@ function drawSequencerGrid() {
   });
 }
 
-// Mousemove / mouseup for note dragging
+// Drag handling
 document.addEventListener('mousemove', (e) => {
   if (!draggingNote) return;
 
   const dx = e.clientX - dragStartX;
-  // Convert dx to time
   const timeOffset = dx / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60));
 
   if (resizingEdge) {
-    // Resizing note
+    // Resizing
     if (resizingEdge === 'left') {
-      // new startTime
-      const newStartTime = Math.max(dragOriginalStartTime + timeOffset, 0);
+      const newStart = Math.max(dragOriginalStartTime + timeOffset, 0);
       const oldEnd = draggingNote.startTime + draggingNote.duration;
-      draggingNote.duration = oldEnd - newStartTime;
-      draggingNote.startTime = newStartTime;
+      draggingNote.duration = oldEnd - newStart;
+      draggingNote.startTime = newStart;
       if (draggingNote.duration < 0.05) {
         draggingNote.duration = 0.05;
       }
     } else {
-      // 'right' resizing
       const newDuration = draggingNote.duration + timeOffset;
       if (newDuration > 0.05) {
         draggingNote.duration = newDuration;
@@ -1738,13 +1681,11 @@ document.addEventListener('mousemove', (e) => {
     // Moving entire note
     draggingNote.startTime = Math.max(dragOriginalStartTime + timeOffset, 0);
 
-    // Move in pitch vertically if user moves the mouse
     const dy = e.clientY - dragStartY;
     const noteRowChange = Math.round(dy / SEQUENCER_CONFIG.noteHeight);
     let newIndex = dragOriginalNoteIndex + noteRowChange;
     newIndex = Math.max(0, Math.min(newIndex, globalSortedNotes.length - 1));
     draggingNote.noteIndex = newIndex;
-    // Update (x,y)
     const newPitchObj = globalSortedNotes[newIndex];
     if (newPitchObj) {
       draggingNote.noteName = newPitchObj.noteName;
@@ -1812,9 +1753,9 @@ document.addEventListener("DOMContentLoaded", () => {
   drawSequencerGrid();
 
   // Model selection
-  const modelSelect = document.getElementById("modelSelect");
-  modelSelect.addEventListener("change", () => {
-    currentModel = MODELS[modelSelect.value];
+  const modelSelectEl = document.getElementById("modelSelect");
+  modelSelectEl.addEventListener("change", () => {
+    currentModel = MODELS[modelSelectEl.value];
     numberOfStrings = currentModel.numberOfStrings;
     numberOfFrets = currentModel.numberOfFrets;
     BASE_NOTE = currentModel.startNote;
@@ -1826,13 +1767,13 @@ document.addEventListener("DOMContentLoaded", () => {
     drawSequencerGrid();
   });
 
-  // Instrument selection
+  // Instrument
   const instrumentSelect = document.getElementById("instrumentSelect");
   instrumentSelect.addEventListener("change", () => {
     currentInstrument = instrumentSelect.value;
   });
 
-  // Scale selection
+  // Scale
   const scaleSelect = document.getElementById("scaleSelect");
   function populateScaleDropdown() {
     scaleSelect.innerHTML = `<option value="none">None</option>`;
@@ -1847,15 +1788,13 @@ document.addEventListener("DOMContentLoaded", () => {
   scaleSelect.addEventListener("change", (e) => {
     currentScale = e.target.value;
     drawTablature();
-    populateLibrary(); 
   });
 
-  // Root note
+  // Root
   const rootSelect = document.getElementById("rootSelect");
   rootSelect.addEventListener("change", (e) => {
     currentRoot = e.target.value;
     drawTablature();
-    populateLibrary();
   });
 
   // Toggle note names
@@ -1880,11 +1819,7 @@ document.addEventListener("DOMContentLoaded", () => {
   populateLibrary();
   document.getElementById("importBtn").addEventListener("click", importFiles);
   document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
-
-  // NEW: saveLibraryAs
-  const saveLibraryAsBtn = document.getElementById("saveLibraryAsBtn");
-  saveLibraryAsBtn.addEventListener("click", saveLibraryAs);
-
+  document.getElementById("saveLibraryAsBtn").addEventListener("click", saveLibraryAs);
   document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
   document.getElementById("clearLibraryBtn").addEventListener("click", () => {
     if (confirm('Are you sure you want to clear the library?')) {
@@ -1893,16 +1828,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Scale filter checkbox -> repopulate library on change
-  const scaleFilterCheck = document.getElementById("scaleFilterCheck");
-  scaleFilterCheck.addEventListener("change", populateLibrary);
-
   // Kill Notes
   document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
-
-  // Transpose Buttons
-  document.getElementById("transposeUpBtn").addEventListener("click", () => transposeSelected(1));
-  document.getElementById("transposeDownBtn").addEventListener("click", () => transposeSelected(-1));
 
   // Sequencer
   document.getElementById('play-btn').addEventListener('click', () => {
@@ -1916,6 +1843,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById('stop-btn').addEventListener('click', () => {
+    stopPlayback();
+  });
+
+  function stopPlayback() {
     isPlaying = false;
     isRecording = false;
     document.getElementById('play-btn').classList.remove('bg-green-600');
@@ -1933,7 +1864,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     drawTablature();
     updatePlayhead();
-  });
+  }
 
   document.getElementById('record-btn').addEventListener('click', () => {
     isRecording = !isRecording;
@@ -1989,7 +1920,6 @@ document.addEventListener("DOMContentLoaded", () => {
             stopPlayback();
             drawSequencerGrid();
           } catch (error) {
-            console.error('Error loading sequence:', error);
             alert('Error loading sequence file');
           }
         };
@@ -1999,26 +1929,7 @@ document.addEventListener("DOMContentLoaded", () => {
     input.click();
   });
 
-  function stopPlayback() {
-    isPlaying = false;
-    isRecording = false;
-    document.getElementById('play-btn').classList.remove('bg-green-600');
-    document.getElementById('record-btn').classList.remove('bg-red-600');
-    document.getElementById('record-indicator').classList.add('hidden');
-    document.getElementById('playhead').style.left = '0';
-    playheadPosition = 0;
-    recordedNotes.forEach(note => {
-      if (note.isPlaying && note.oscObj) {
-        stopOscillator(note.oscObj);
-        note.oscObj = null;
-        note.isPlaying = false;
-        keysState[note.y][note.x].sequencerPlaying = false;
-      }
-    });
-    drawTablature();
-    updatePlayhead();
-  }
-
+  // Import MIDI
   document.getElementById('import-midi-btn').addEventListener('click', () => {
     const input = document.getElementById('import-midi-file');
     input.onchange = async (event) => {
@@ -2061,11 +1972,9 @@ document.addEventListener("DOMContentLoaded", () => {
     input.click();
   });
 
-  // A minimal MIDI parser
   function parseMIDI(buffer) {
     const data = new Uint8Array(buffer);
     if (data[0] !== 0x4D || data[1] !== 0x54 || data[2] !== 0x68 || data[3] !== 0x64) {
-      console.error("Not a valid MIDI file");
       return null;
     }
     const trackCount = (data[10] << 8) | data[11];
@@ -2073,7 +1982,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const events = [];
     for (let t = 0; t < trackCount; t++) {
       if (data[pointer] !== 0x4D || data[pointer+1] !== 0x54 || data[pointer+2] !== 0x72 || data[pointer+3] !== 0x6B) {
-        console.error("Missing MTrk header");
         return null;
       }
       const trackLength = (data[pointer+4]<<24) | (data[pointer+5]<<16) | (data[pointer+6]<<8) | data[pointer+7];
@@ -2117,8 +2025,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const lengthMeta = readVarLen(data, pointer);
           pointer += lengthMeta.length;
           pointer += lengthMeta.value;
-        } else {
-          console.warn("Unknown event type: ", eventTypeByte.toString(16));
         }
       }
       pointer = trackEnd;
@@ -2144,6 +2050,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     return noteEvents;
   }
+
   function readVarLen(data, index) {
     let value = 0;
     let offset = 0;
@@ -2199,6 +2106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Bar/Beat + Jump
   document.getElementById('jump-btn').addEventListener('click', () => {
     const barVal = document.getElementById('barInput').value;
     const beatVal = document.getElementById('beatInput').value;
@@ -2209,8 +2117,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const bar = parseFloat(barString) || 1;
     const beat = parseFloat(beatString) || 1;
     const totalBeats = (bar - 1) * SEQUENCER_CONFIG.beatsPerBar + (beat - 1);
-    const seconds = totalBeats * (60 / SEQUENCER_CONFIG.bpm);
-    return seconds;
+    return totalBeats * (60 / SEQUENCER_CONFIG.bpm);
   }
 
   function jumpToPosition(barString, beatString) {
@@ -2298,6 +2205,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       requestAnimationFrame(updatePlayhead);
     } else if (isPlaying) {
+      // step mode => keep updating
       requestAnimationFrame(updatePlayhead);
     }
   }
@@ -2368,6 +2276,7 @@ document.addEventListener("DOMContentLoaded", () => {
     reader.readAsText(file);
   });
 
+  // Save Project
   document.getElementById("saveProjectBtn").addEventListener("click", () => {
     const advancedOptions = {
       cursorColor: cursorColorPicker.value,
@@ -2400,6 +2309,7 @@ document.addEventListener("DOMContentLoaded", () => {
     URL.revokeObjectURL(url);
   });
 
+  // Load Project
   document.getElementById("loadProjectBtn").addEventListener("click", () => {
     const input = document.getElementById('loadProjectFile');
     input.onchange = (event) => {
@@ -2468,7 +2378,7 @@ document.addEventListener("DOMContentLoaded", () => {
     input.click();
   });
 
-  // CHORD PALETTE EVENTS
+  // Chord Palette events
   document.querySelectorAll('.chord-record-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
@@ -2514,6 +2424,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Reverb/Delay
   document.getElementById('delaySlider').addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
     if (delayGain) {
@@ -2526,7 +2437,8 @@ document.addEventListener("DOMContentLoaded", () => {
       reverbGain.gain.value = val;
     }
   });
-  
+
+  // Tempo
   const tempoSlider = document.getElementById('tempoSlider');
   const tempoValue = document.getElementById('tempoValue');
   tempoSlider.addEventListener('input', (e) => {
@@ -2537,6 +2449,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateChordPaletteUI();
 });
+
+// ==============================
+// Transpose Functionality
+// ==============================
+document.getElementById("transposeUpBtn").addEventListener("click", () => {
+  transposeSelection(1);
+});
+document.getElementById("transposeDownBtn").addEventListener("click", () => {
+  transposeSelection(-1);
+});
+
+function transposeSelection(steps) {
+  // steps = +1 or -1
+  const selectedPositions = [];
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      if (keysState[y][x].marker) {
+        selectedPositions.push({ x, y });
+      }
+    }
+  }
+  // Move them by steps in the Y dimension
+  selectedPositions.forEach(pos => {
+    const oldX = pos.x;
+    const oldY = pos.y;
+    const newY = oldY + steps;
+    if (newY >= 0 && newY < numberOfFrets) {
+      keysState[oldY][oldX].marker = false;
+      keysState[newY][oldX].marker = true;
+    }
+  });
+  drawTablature();
+}
 </script>
 </body>
 </html>
