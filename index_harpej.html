@@ -79,7 +79,7 @@
         class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[200px]"
       >
         <option value="K24">K24 (A0-A5, 24 strings)</option>
-        <option value="G16">G16 (E2-C6, 16 strings)</option>
+        <option value="G16">G16 (C2-C6, 16 strings)</option>
         <option value="G12">G12 (C2-C#5, 12 strings)</option>
       </select>
     </div>
@@ -573,13 +573,14 @@ const MODELS = {
     endNote: "A",
     endOctave: 5
   },
+  // UPDATED G16
   G16: {
     numberOfStrings: 16,
-    numberOfFrets: 15,
-    startNote: "E",
-    startOctave: 2,
-    endNote: "C",
-    endOctave: 6
+    numberOfFrets: 19, // changed from 15 to 19
+    startNote: "C",    // changed from "E" to "C"
+    startOctave: 2,    // changed from 2 -> still 2, but matching base note
+    endNote: "C",      // changed from "C" (same letter, but was for E2-C6)
+    endOctave: 6       // remains 6
   },
   G12: {
     numberOfStrings: 12,
@@ -1143,7 +1144,6 @@ function transposeSelected(amount) {
         let maxSemitones = 2*(numberOfStrings - 1) + (numberOfFrets - 1);
         if (newSemitones > maxSemitones) continue;
         // Find a valid (nx, ny)
-        // We'll pick the first that fits
         for (let nx = 0; nx < numberOfStrings; nx++) {
           let ny = newSemitones - 2*nx;
           if (ny >= 0 && ny < numberOfFrets) {
@@ -1288,10 +1288,7 @@ function parseNotePlainText(line) {
   // We'll split at space, the first part is note+octave
   const parts = line.split(" ");
   if (!parts[0]) return null; 
-  // parts[0] is something like "A0" or "C#4"
   const rawNote = parts[0];
-  // separate note name from octave
-  // find last character or digits
   let match = rawNote.match(/^([A-G]#?)(-?\d+)/);
   if (!match) return null;
   return {
@@ -1301,21 +1298,16 @@ function parseNotePlainText(line) {
 }
 
 function selectionInCurrentScale(selection) {
-  // If no scale filter or scale = none => trivially pass
   if (currentScale === "none") return true;
-
   const scaleSet = getScaleSemitones(currentScale, currentRoot);
-  if (scaleSet.size === 0) return true; // no real filter
-
-  // check each line in selection.notesPlainText
+  if (scaleSet.size === 0) return true; 
   if (!selection.notesPlainText) return true;
 
   for (let line of selection.notesPlainText) {
     const parsed = parseNotePlainText(line);
-    if (!parsed) continue; // skip unparseable lines
+    if (!parsed) continue;
     let noteIndex = NOTES.indexOf(parsed.noteName);
-    if (noteIndex < 0) continue; // skip unknown note
-    // check pitch class
+    if (noteIndex < 0) continue;
     if (!scaleSet.has(noteIndex)) {
       return false;
     }
@@ -1339,7 +1331,7 @@ function populateLibrary() {
 
   savedSelections.forEach((selection, index) => {
     if (doScaleFilter && !selectionInCurrentScale(selection)) {
-      return; // skip if not in scale
+      return;
     }
 
     const div = document.createElement("div");
@@ -1519,7 +1511,7 @@ let metronomeEnabled = false;
 let currentBeat = 0;
 let recordedNotes = [];
 
-// FIX ADDED HERE:
+// We'll store currently-active notes for recording:
 let activeNotes = new Map();
 
 let playheadPosition = 0;
@@ -1594,6 +1586,7 @@ function buildSortedNotesMapping() {
     return { noteName: obj.noteName, octave: obj.octave, pitch: pitch, x: obj.x, y: obj.y };
   });
 
+  // Sort descending pitch
   uniqueNotes.sort((a, b) => b.pitch - a.pitch);
 
   globalSortedNotes = uniqueNotes;
@@ -1701,7 +1694,7 @@ function drawSequencerGrid() {
       dragStartY = e.clientY;
       dragOriginalStartTime = note.startTime;
       dragOriginalNoteIndex = note.noteIndex;
-      resizingEdge = null; // default
+      resizingEdge = null;
 
       // Check if near left or right edge for resizing
       if (offsetX < 5) {
@@ -1732,7 +1725,6 @@ document.addEventListener('mousemove', (e) => {
       draggingNote.duration = oldEnd - newStartTime;
       draggingNote.startTime = newStartTime;
       if (draggingNote.duration < 0.05) {
-        // minimal note length
         draggingNote.duration = 0.05;
       }
     } else {
@@ -1744,16 +1736,15 @@ document.addEventListener('mousemove', (e) => {
     }
   } else {
     // Moving entire note
-    // Move in time
     draggingNote.startTime = Math.max(dragOriginalStartTime + timeOffset, 0);
 
-    // Move in pitch vertically if user moves the mouse up/down enough
+    // Move in pitch vertically if user moves the mouse
     const dy = e.clientY - dragStartY;
     const noteRowChange = Math.round(dy / SEQUENCER_CONFIG.noteHeight);
     let newIndex = dragOriginalNoteIndex + noteRowChange;
     newIndex = Math.max(0, Math.min(newIndex, globalSortedNotes.length - 1));
     draggingNote.noteIndex = newIndex;
-    // Update the (x,y) for that note if we haven't mapped it
+    // Update (x,y)
     const newPitchObj = globalSortedNotes[newIndex];
     if (newPitchObj) {
       draggingNote.noteName = newPitchObj.noteName;
@@ -1772,8 +1763,6 @@ document.addEventListener('mouseup', () => {
   }
   resizingEdge = null;
 });
-
-// End of drag
 
 function startNoteRecording(x, y) {
   if (!isRecording) return;
@@ -1803,7 +1792,7 @@ function stopNoteRecording(x, y) {
 
     let duration = effectiveTime - activeNote.startTime;
     if (isStepMode && duration <= 0) {
-      duration = 60 / SEQUENCER_CONFIG.bpm;  // fallback 1 beat
+      duration = 60 / SEQUENCER_CONFIG.bpm;
     }
 
     recordedNotes.push({
@@ -1845,7 +1834,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Scale selection
   const scaleSelect = document.getElementById("scaleSelect");
-  // Populate any existing loadedScales into the dropdown
   function populateScaleDropdown() {
     scaleSelect.innerHTML = `<option value="none">None</option>`;
     Object.keys(loadedScales).forEach(scaleName => {
@@ -1859,7 +1847,7 @@ document.addEventListener("DOMContentLoaded", () => {
   scaleSelect.addEventListener("change", (e) => {
     currentScale = e.target.value;
     drawTablature();
-    populateLibrary(); // refresh library in case filter is on
+    populateLibrary(); 
   });
 
   // Root note
@@ -1867,7 +1855,7 @@ document.addEventListener("DOMContentLoaded", () => {
   rootSelect.addEventListener("change", (e) => {
     currentRoot = e.target.value;
     drawTablature();
-    populateLibrary(); // refresh library in case filter is on
+    populateLibrary();
   });
 
   // Toggle note names
@@ -1944,7 +1932,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     drawTablature();
-    updatePlayhead(); // reset
+    updatePlayhead();
   });
 
   document.getElementById('record-btn').addEventListener('click', () => {
@@ -1955,7 +1943,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isRecording) {
       indicator.classList.remove('hidden');
       if (!isPlaying) {
-        // auto-start
         document.getElementById('play-btn').click();
       }
     } else {
@@ -2311,7 +2298,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       requestAnimationFrame(updatePlayhead);
     } else if (isPlaying) {
-      // step mode => just update cursor
       requestAnimationFrame(updatePlayhead);
     }
   }
@@ -2343,7 +2329,6 @@ document.addEventListener("DOMContentLoaded", () => {
     drawTablature();
   });
 
-  // Scale Highlight Color & Alpha
   const scaleHighlightColorInput = document.getElementById("scaleHighlightColor");
   scaleHighlightColorInput.addEventListener("input", (e) => {
     scaleHighlightColor = e.target.value;
@@ -2358,7 +2343,6 @@ document.addEventListener("DOMContentLoaded", () => {
     drawTablature();
   });
 
-  // Import Scales
   const importScalesBtn = document.getElementById("importScalesBtn");
   const scaleFileInput = document.getElementById("scaleFileInput");
   importScalesBtn.addEventListener("click", () => {
@@ -2371,7 +2355,6 @@ document.addEventListener("DOMContentLoaded", () => {
     reader.onload = (e) => {
       try {
         const imported = JSON.parse(e.target.result);
-        // Merge into loadedScales
         Object.keys(imported).forEach(name => {
           loadedScales[name] = imported[name];
         });
@@ -2385,7 +2368,6 @@ document.addEventListener("DOMContentLoaded", () => {
     reader.readAsText(file);
   });
 
-  // Save Project
   document.getElementById("saveProjectBtn").addEventListener("click", () => {
     const advancedOptions = {
       cursorColor: cursorColorPicker.value,
@@ -2400,7 +2382,7 @@ document.addEventListener("DOMContentLoaded", () => {
       notes: recordedNotes,
       pitchMappings
     };
-    const scalesData = loadedScales; // so they don't need the scale file again
+    const scalesData = loadedScales;
 
     const projectData = {
       advancedOptions,
@@ -2418,7 +2400,6 @@ document.addEventListener("DOMContentLoaded", () => {
     URL.revokeObjectURL(url);
   });
 
-  // Load Project
   document.getElementById("loadProjectBtn").addEventListener("click", () => {
     const input = document.getElementById('loadProjectFile');
     input.onchange = (event) => {
@@ -2533,51 +2514,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Save/Load Chords
-  document.getElementById("saveChordsBtn").addEventListener("click", () => {
-    const fileName = prompt("Enter a file name for chord palette:", "MyChords");
-    if (!fileName) return;
-    const data = JSON.stringify(chordSlots, null, 2);
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName + ".json";
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-  document.getElementById("loadChordsBtn").addEventListener("click", () => {
-    const input = document.getElementById("loadChordsFile");
-    input.onchange = (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const loadedChords = JSON.parse(e.target.result);
-          if (Array.isArray(loadedChords) && loadedChords.length <= chordSlots.length) {
-            chordSlots.forEach((slot, idx) => {
-              if (loadedChords[idx]) {
-                slot.name = loadedChords[idx].name || slot.name;
-                slot.keys = Array.isArray(loadedChords[idx].keys) ? loadedChords[idx].keys : [];
-              }
-            });
-            updateChordPaletteUI();
-            alert("Chord palette loaded successfully.");
-          } else {
-            throw new Error("Invalid chord file structure.");
-          }
-        } catch (err) {
-          alert("Error loading chord file: " + err.message);
-        }
-        input.value = "";
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  });
-
-  // Reverb/Delay
   document.getElementById('delaySlider').addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
     if (delayGain) {
@@ -2590,7 +2526,7 @@ document.addEventListener("DOMContentLoaded", () => {
       reverbGain.gain.value = val;
     }
   });
-  // Tempo
+  
   const tempoSlider = document.getElementById('tempoSlider');
   const tempoValue = document.getElementById('tempoValue');
   tempoSlider.addEventListener('input', (e) => {
