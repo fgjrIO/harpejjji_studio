@@ -97,13 +97,57 @@
     </span>
   </div>
 
-  <!-- Our Tablature SVG -->
-  <svg 
-    id="tablature" 
-    class="border border-gray-400"
-  >
-    <!-- Will be drawn dynamically via JavaScript -->
-  </svg>
+  <!-- We wrap the harpejji board and the chord palette in a flex container so the chord area is to the right -->
+  <div class="flex">
+    <!-- Our Tablature SVG -->
+    <svg 
+      id="tablature" 
+      class="border border-gray-400"
+    >
+      <!-- Will be drawn dynamically via JavaScript -->
+    </svg>
+
+    <!-- Chord Palette -->
+    <div class="ml-4 w-64" id="chordPalette">
+      <h2 class="text-xl font-bold mb-2">Chord Palette</h2>
+      <!-- 2 column, 4 row grid of chord slots -->
+      <div class="grid grid-cols-2 grid-rows-4 gap-4">
+        <!-- Each slot has a chord button and a mini record toggle button -->
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="0">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 1</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">R</button>
+        </div>
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="1">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 2</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">R</button>
+        </div>
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="2">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 3</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">R</button>
+        </div>
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="3">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 4</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">R</button>
+        </div>
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="4">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 5</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">R</button>
+        </div>
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="5">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 6</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">R</button>
+        </div>
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="6">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 7</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">R</button>
+        </div>
+        <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="7">
+          <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 8</button>
+          <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">R</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Library Slideover -->
@@ -231,7 +275,7 @@
         <div 
           id="sequencer-grid" 
           class="flex-1 relative overflow-auto bg-gray-900" 
-          onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`"
+          onscroll="document.querySelector('#piano-roll-wrapper').style.transform = \`translateY(-\${this.scrollTop}px)\`"
         >
             <div id="grid-content" class="absolute top-0 left-0"></div>
             <!-- The playhead - We'll update style.backgroundColor to match cursor color -->
@@ -389,7 +433,9 @@ function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
-// Tablature draw
+// ==============================
+// Draw Tablature
+// ==============================
 function drawTablature() {
   svgWidth = stringSpacing * (numberOfStrings + 2);
   svgHeight = fretSpacing * (numberOfFrets + 2);
@@ -499,6 +545,132 @@ function drawTablature() {
 
 let keyMode = 'toggle';
 
+// ==============================
+// CHORD PALETTE SETUP
+// ==============================
+// We have 8 chord slots. Each slot can record a set of notes.
+let chordSlots = Array(8).fill(null).map(() => ({ notes: [] }));
+let chordRecordIndex = -1; // which chord slot is currently in record mode, -1 if none
+
+function toggleChordRecord(index) {
+  // If we're already recording this chord, turn it off. Otherwise set to this chord.
+  chordRecordIndex = (chordRecordIndex === index) ? -1 : index;
+  updateChordPaletteUI();
+}
+
+function clearChordNotes(index) {
+  chordSlots[index].notes = [];
+}
+
+// Add a note (by name+octave) to a chord if in record mode
+function recordChordNoteIfNeeded(noteName, octave) {
+  if (chordRecordIndex === -1) return;
+  const chord = chordSlots[chordRecordIndex];
+  const key = noteName + octave;
+  // Avoid duplicates
+  if (!chord.notes.includes(key)) {
+    chord.notes.push(key);
+  }
+}
+
+// Replace chord notes (used when loading a file while chord record is on)
+function setChordNotesFromKeysState(index) {
+  const newNotes = [];
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      if (keysState[y][x].marker) {
+        const noteName = getNoteName(x, y);
+        const octave = getNoteOctave(x, y);
+        const full = noteName + octave;
+        if (!newNotes.includes(full)) {
+          newNotes.push(full);
+        }
+      }
+    }
+  }
+  chordSlots[index].notes = newNotes;
+  updateChordPaletteUI();
+}
+
+// Play the chord immediately
+function playChord(index) {
+  const chord = chordSlots[index];
+  chord.notes.forEach(noteNameOctave => {
+    if (!audioContext) initAudio();
+    const parsed = parseNoteNameOctave(noteNameOctave);
+    if (!parsed) return;
+    const freq = noteToFrequency(parsed.noteName, parsed.octave);
+    const { osc, gain } = createOscillator(freq);
+    osc.start();
+    // We'll do a short fade-out so it doesn't ring forever
+    setTimeout(() => {
+      stopOscillator({ osc, gain });
+    }, 1000); 
+  });
+}
+
+// Helper to parse noteName+octave from string like "C#4"
+function parseNoteNameOctave(str) {
+  // possible note names: C C# D D# E F F# G G# A A# B
+  // we'll attempt to separate the octave digits from the note
+  const match = str.match(/^([A-G]#?)(\d+)$/);
+  if (!match) return null;
+  return {
+    noteName: match[1],
+    octave: parseInt(match[2], 10)
+  };
+}
+
+// If in step mode + recording, pressing a chord button should record those chord notes at once
+function recordChordInStepModeIfNeeded(index) {
+  if (isStepMode && isRecording) {
+    const chord = chordSlots[index];
+    const now = audioContext ? audioContext.currentTime - audioStartTime : 0;
+    const effectiveTime = isStepMode ? stepModeTime : now;
+
+    // We'll record each note from the chord in the sequencer at the same time
+    chord.notes.forEach(noteNameOctave => {
+      const parsed = parseNoteNameOctave(noteNameOctave);
+      if (!parsed) return;
+      const fullName = parsed.noteName + parsed.octave;
+      const noteIndex = globalNoteToIndexMap.get(fullName);
+      if (noteIndex !== undefined) {
+        recordedNotes.push({
+          noteName: parsed.noteName,
+          octave: parsed.octave,
+          noteIndex,
+          startTime: effectiveTime,
+          duration: 60 / SEQUENCER_CONFIG.bpm, // 1 beat default
+          isPlaying: false,
+          oscObj: null,
+          x: 0,
+          y: 0 // (x,y not strictly used for chord direct recording, but stored anyway)
+        });
+      }
+    });
+    drawSequencerGrid();
+  }
+}
+
+function updateChordPaletteUI() {
+  // Visually show which chord slot is in record mode (chordRecordIndex)
+  const recordButtons = document.querySelectorAll('.chord-record-btn');
+  recordButtons.forEach(btn => {
+    const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
+    if (idx === chordRecordIndex) {
+      btn.classList.add('ring');
+      btn.classList.add('ring-offset-2');
+      btn.classList.add('ring-red-500');
+    } else {
+      btn.classList.remove('ring');
+      btn.classList.remove('ring-offset-2');
+      btn.classList.remove('ring-red-500');
+    }
+  });
+}
+// ==============================
+
+// Handle Key Pressing
 function handleKeyDown(x, y) {
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
@@ -508,11 +680,15 @@ function handleKeyDown(x, y) {
   osc.start();
   activeUserOscillators.set(`${x}_${y}`, { osc, gain });
 
+  // If in toggle mode, flip marker
   if (keyMode === 'toggle') {
     keysState[y][x].marker = !keysState[y][x].marker;
   } else if (keyMode === 'press') {
     keysState[y][x].pressing = true;
   }
+
+  // Also handle chord record
+  recordChordNoteIfNeeded(noteName, octave);
 
   startNoteRecording(x, y);
   drawTablature();
@@ -605,6 +781,11 @@ function loadSelection(data) {
   drawPianoRoll();
   drawSequencerGrid();
   
+  // If a chord slot is in record mode, use the loaded markers to set that chord's notes
+  if (chordRecordIndex !== -1) {
+    setChordNotesFromKeysState(chordRecordIndex);
+  }
+
   toggleLibrary();
 }
 
@@ -764,7 +945,9 @@ function loadLibrary() {
   input.click();
 }
 
+// ==============================
 // Sequencer
+// ==============================
 const SEQUENCER_CONFIG = {
     pixelsPerBeat: 100,
     beatsPerBar: 4,
@@ -1208,7 +1391,7 @@ function jumpToPosition(barString, beatString) {
   jumpToTime(barBeatToSeconds(barString, beatString));
 }
 
-// Jump to arbitrary time
+// Overwrite jumpToTime again with same function to keep code consistent
 function jumpToTime(timeInSec) {
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
@@ -1231,17 +1414,6 @@ function jumpToTime(timeInSec) {
   updatePlayhead();
 }
 
-function updateBarBeatDisplay(timeInSec) {
-  const totalBeats = timeInSec * (SEQUENCER_CONFIG.bpm / 60);
-  const bar = Math.floor(totalBeats / SEQUENCER_CONFIG.beatsPerBar) + 1;
-  const beat = (totalBeats % SEQUENCER_CONFIG.beatsPerBar) + 1;
-  document.getElementById('barInput').value = bar.toString();
-  document.getElementById('beatInput').value = beat.toFixed(2);
-}
-
-// ==============================
-// DOMContentLoaded
-// ==============================
 document.addEventListener("DOMContentLoaded", () => {
   drawTablature();
   drawPianoRoll();
@@ -1316,9 +1488,7 @@ document.addEventListener("DOMContentLoaded", () => {
     jumpToPosition(barVal, beatVal);
   });
 
-  // ==============================
-  // ADVANCED CONFIG
-  // ==============================
+  // Advanced Config Slideover
   const advancedConfigBtn = document.getElementById("advancedConfigBtn");
   const advancedConfigSlideover = document.getElementById("advancedConfigSlideover");
   const closeAdvancedConfigBtn = document.getElementById("closeAdvancedConfigBtn");
@@ -1338,6 +1508,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const color = e.target.value;
     document.getElementById("playhead").style.backgroundColor = color;
   });
+
+  // CHORD PALETTE EVENTS
+  const chordRecordButtons = document.querySelectorAll('.chord-record-btn');
+  chordRecordButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
+      toggleChordRecord(idx);
+    });
+  });
+
+  const chordButtons = document.querySelectorAll('.chord-button');
+  chordButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const parent = btn.closest('.chord-slot');
+      const idx = parseInt(parent.getAttribute('data-chord-index'), 10);
+      // If we're in step mode + recording, record chord notes
+      recordChordInStepModeIfNeeded(idx);
+      // Otherwise just play it
+      playChord(idx);
+    });
+  });
+
+  updateChordPaletteUI();
 });
 </script>
 </body>
