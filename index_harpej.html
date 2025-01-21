@@ -327,20 +327,23 @@
     
     <div class="flex h-[calc(100%-68px)]">
         <!-- Piano Roll -->
+        <!-- (1) Keep overflow-hidden so keys never spill out -->
         <div class="w-[100px] bg-gray-900 h-full relative overflow-hidden">
+            <!-- #piano-roll-wrapper is absolutely positioned so we can transform it -->
             <div id="piano-roll-wrapper" class="absolute inset-0">
                 <div id="piano-keys" class="w-full"></div>
             </div>
         </div>
         
         <!-- Sequencer Grid -->
+        <!-- (1) onscroll uses the transform approach to move #piano-roll-wrapper -->
         <div 
           id="sequencer-grid" 
           class="flex-1 relative overflow-auto bg-gray-900" 
-          onscroll="document.querySelector('#piano-roll-wrapper').style.transform = \`translateY(-\${this.scrollTop}px)\`"
+          onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`"
         >
             <div id="grid-content" class="absolute top-0 left-0"></div>
-            <!-- The playhead - We'll update style.backgroundColor to match cursor color -->
+            <!-- The playhead -->
             <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
         </div>
     </div>
@@ -1178,6 +1181,10 @@ function drawPianoRoll() {
 
   const totalHeight = globalSortedNotes.length * SEQUENCER_CONFIG.noteHeight;
   pianoKeysContainer.style.height = `${totalHeight}px`;
+
+  // (1) Also set #piano-roll-wrapper height so we can transform it without overflowing
+  const pianoRollWrapper = document.getElementById('piano-roll-wrapper');
+  pianoRollWrapper.style.height = `${totalHeight}px`;
 }
 
 function drawSequencerGrid() {
@@ -1270,7 +1277,7 @@ function stopNoteRecording(x, y) {
   }
 }
 
-// jump by mouse in sequencer
+// (2) Ensure clicking on the grid always moves the cursor, even if not playing/recording
 document.addEventListener("DOMContentLoaded", () => {
   const sequencerGrid = document.getElementById("sequencer-grid");
   sequencerGrid.addEventListener("mousedown", e => {
@@ -1290,7 +1297,9 @@ function updateBarBeatDisplay(timeInSec) {
   document.getElementById('beatInput').value = beat.toFixed(2);
 }
 
+// (3) We must always move the cursor visually + clock whenever jumpToTime is called
 function jumpToTime(timeInSec) {
+  // Stop any actively playing notes
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
       stopOscillator(note.oscObj);
@@ -1309,68 +1318,65 @@ function jumpToTime(timeInSec) {
   }
   
   updateBarBeatDisplay(timeInSec);
-  updatePlayhead();
+  updatePlayhead(); // Force the cursor to update right away
 }
 
 function updatePlayhead() {
-  if (!isPlaying) {
-    updateBarBeatDisplay(isStepMode ? stepModeTime : 0);
-    return;
-  }
+  // Always compute "now" so we can set the cursor even if not playing
+  let now = 0;
   if (isStepMode) {
-    updateBarBeatDisplay(stepModeTime);
-    requestAnimationFrame(updatePlayhead);
-    return;
+    now = stepModeTime;
+  } else if (audioContext) {
+    now = audioContext.currentTime - audioStartTime;
   }
 
-  const now = audioContext.currentTime - audioStartTime;
+  // Reflect bar/beat in transport
   updateBarBeatDisplay(now);
 
+  // Move the playhead visually
   playheadPosition = (now * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
-  
   const playhead = document.getElementById('playhead');
   playhead.style.left = `${playheadPosition}px`;
 
-  const grid = document.getElementById('sequencer-grid');
-  const gridRect = grid.getBoundingClientRect();
-  if (playheadPosition > grid.scrollLeft + gridRect.width * 0.7) {
-    grid.scrollLeft = playheadPosition - gridRect.width * 0.3;
-  }
+  // If playing, do note scanning + animation loop
+  if (isPlaying) {
+    // Check if new beat -> metronome
+    const currentTimeBeat = Math.floor(now * SEQUENCER_CONFIG.bpm / 60);
+    if (currentTimeBeat > currentBeat) {
+      currentBeat = currentTimeBeat;
+      if (metronomeEnabled) {
+        playMetronomeSound();
+      }
+    }
 
-  recordedNotes.forEach(note => {
-    const noteStartTime = note.startTime;
-    const noteEndTime = noteStartTime + note.duration;
-    
-    if (now >= noteStartTime && now < noteEndTime) {
-      if (!note.isPlaying) {
-        note.isPlaying = true;
-        const freq = noteToFrequency(note.noteName, note.octave);
-        const { osc, gain } = createOscillator(freq);
-        osc.start();
-        note.oscObj = { osc, gain };
-        keysState[note.y][note.x].sequencerPlaying = true;
+    // Note on/off scanning
+    recordedNotes.forEach(note => {
+      const noteStartTime = note.startTime;
+      const noteEndTime = noteStartTime + note.duration;
+      
+      if (now >= noteStartTime && now < noteEndTime) {
+        if (!note.isPlaying) {
+          note.isPlaying = true;
+          const freq = noteToFrequency(note.noteName, note.octave);
+          const { osc, gain } = createOscillator(freq);
+          osc.start();
+          note.oscObj = { osc, gain };
+          keysState[note.y][note.x].sequencerPlaying = true;
+          drawTablature();
+        }
+      } else if (now >= noteEndTime && note.isPlaying) {
+        note.isPlaying = false;
+        if (note.oscObj) {
+          stopOscillator(note.oscObj);
+          note.oscObj = null;
+        }
+        keysState[note.y][note.x].sequencerPlaying = false;
         drawTablature();
       }
-    } else if (now >= noteEndTime && note.isPlaying) {
-      note.isPlaying = false;
-      if (note.oscObj) {
-        stopOscillator(note.oscObj);
-        note.oscObj = null;
-      }
-      keysState[note.y][note.x].sequencerPlaying = false;
-      drawTablature();
-    }
-  });
+    });
 
-  if (metronomeEnabled) {
-    const beatPosition = Math.floor(now * SEQUENCER_CONFIG.bpm / 60);
-    if (beatPosition > currentBeat) {
-      currentBeat = beatPosition;
-      playMetronomeSound();
-    }
+    requestAnimationFrame(updatePlayhead);
   }
-
-  requestAnimationFrame(updatePlayhead);
 }
 
 // Transport
@@ -1410,7 +1416,9 @@ function stopPlayback() {
     }
   });
   drawTablature();
-  updateBarBeatDisplay(isStepMode ? stepModeTime : 0);
+
+  // Update the bar/beat display + cursor when we stop
+  updatePlayhead();
 }
 
 function toggleRecord() {
@@ -1547,7 +1555,7 @@ function loadChords() {
     reader.onload = (e) => {
       try {
         const loadedChords = JSON.parse(e.target.result);
-        // Validate structure (array of 8, each has 'name', 'keys')
+        // Validate structure (array of up to 8, each has 'name', 'keys')
         if (Array.isArray(loadedChords) && loadedChords.length <= chordSlots.length) {
           chordSlots.forEach((slot, idx) => {
             if (loadedChords[idx]) {
@@ -1570,32 +1578,7 @@ function loadChords() {
   input.click();
 }
 
-// Overwrite jumpToTime again for consistency (used above)
-function jumpToTime(timeInSec) {
-  recordedNotes.forEach(note => {
-    if (note.isPlaying && note.oscObj) {
-      stopOscillator(note.oscObj);
-      note.oscObj = null;
-      note.isPlaying = false;
-      keysState[note.y][note.x].sequencerPlaying = false;
-    }
-  });
-  drawTablature();
-
-  if (isStepMode) {
-    stepModeTime = timeInSec;
-  } else {
-    const now = audioContext ? audioContext.currentTime : 0;
-    audioStartTime = now - timeInSec;
-  }
-  
-  updateBarBeatDisplay(timeInSec);
-  updatePlayhead();
-}
-
-// ==============================
-// DOMContentLoaded
-// ==============================
+// Final DOMContentLoaded
 document.addEventListener("DOMContentLoaded", () => {
   drawTablature();
   drawPianoRoll();
@@ -1686,7 +1669,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Listen for cursor color changes
   cursorColorPicker.addEventListener("input", (e) => {
-    // Apply the chosen color to the #playhead
     const color = e.target.value;
     document.getElementById("playhead").style.backgroundColor = color;
   });
@@ -1708,7 +1690,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // New: Chord Rename Buttons
   const chordRenameButtons = document.querySelectorAll('.chord-rename-btn');
   chordRenameButtons.forEach(btn => {
     btn.addEventListener('click', () => {
