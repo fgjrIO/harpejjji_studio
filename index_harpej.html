@@ -337,12 +337,29 @@
         </button>
         <input type="file" id="load-seq-file" class="hidden" accept=".json">
 
+        <!-- NEW: Import MIDI Button -->
+        <button 
+          id="import-midi-btn"
+          class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
+        >
+          Import MIDI
+        </button>
+        <input type="file" id="import-midi-file" class="hidden" accept=".mid">
+
         <!-- Song/Step Mode Toggle -->
         <button
           id="mode-toggle-btn"
           class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
         >
           Song Mode
+        </button>
+
+        <!-- NEW: Select Mode Toggle -->
+        <button
+          id="select-mode-btn"
+          class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Select Mode: Off
         </button>
 
         <!-- Bar/Beat + Jump -->
@@ -697,6 +714,28 @@ function drawTablature() {
       keyGroup.addEventListener("mousedown", () => handleKeyDown(x, y));
       keyGroup.addEventListener("mouseup",   () => handleKeyUp(x, y));
       keyGroup.addEventListener("mouseleave",() => handleKeyUp(x, y));
+
+      // If we are in select mode and waiting for a user to pick a harpejji key,
+      // we'll handle it in a global check (highlightPossibleKeys).
+      keyGroup.addEventListener("click", () => {
+        if (awaitingMappingPitch !== null) {
+          // Check if this (x,y) is in the highlight for that pitch
+          const pitch = awaitingMappingPitch;
+          if (pitchPossiblePositions[pitch]) {
+            // find if (x,y) matches
+            const found = pitchPossiblePositions[pitch].find(pos => pos.x===x && pos.y===y);
+            if (found) {
+              pitchMappings[pitch] = { x, y };
+              // Clear highlight
+              pitchPossiblePositions[pitch].forEach(pos => {
+                keysState[pos.y][pos.x].marker = false; // remove highlight marker
+              });
+              drawTablature();
+              awaitingMappingPitch = null;
+            }
+          }
+        }
+      });
 
       g.appendChild(keyGroup);
     }
@@ -1189,6 +1228,15 @@ let metronomeGain;
 let isStepMode = false;
 let stepModeTime = 0.0; 
 
+// NEW: Select Mode
+let isSelectMode = false;
+// For storing multiple possible positions for a given pitch
+let pitchPossiblePositions = {};
+// For storing user's chosen mapping for pitch
+let pitchMappings = {};
+// We'll store the pitch we are currently assigning
+let awaitingMappingPitch = null;
+
 function initMetronome() {
   if (!metronomeContext) {
     metronomeContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1213,22 +1261,37 @@ function playMetronomeSound() {
 
 function buildSortedNotesMapping() {
   let noteObjects = [];
+  // We'll collect *all* pitch positions so we can allow multiple mappings
+  let multiMap = {};
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       const noteName = getNoteName(x, y);
       const octave   = getNoteOctave(x, y);
       const pitch = getMIDINumber(noteName, octave);
-      noteObjects.push({ noteName, octave, pitch, x, y });
+      if (!multiMap[pitch]) {
+        multiMap[pitch] = [];
+      }
+      multiMap[pitch].push({ x, y, noteName, octave });
     }
   }
+
+  // We'll create a "primary" pitch map for the piano roll
+  // using the first found occurrence of that pitch
   let pitchMap = new Map();
-  noteObjects.forEach(n => {
-    if (!pitchMap.has(n.pitch)) {
-      pitchMap.set(n.pitch, n);
-    }
+  Object.keys(multiMap).forEach(p => {
+    const pitch = parseInt(p, 10);
+    // take first as "representative"
+    const rep = multiMap[pitch][0];
+    pitchMap.set(pitch, rep);
   });
-  let uniqueNotes = Array.from(pitchMap.values());
-  // Sort descending so highest pitch is at top
+
+  // Now build an array from the pitchMap
+  let uniqueNotes = Array.from(pitchMap.keys()).map(pitch => {
+    const obj = pitchMap.get(pitch);
+    return { noteName: obj.noteName, octave: obj.octave, pitch: pitch, x: obj.x, y: obj.y };
+  });
+
+  // sort descending so highest pitch is at top
   uniqueNotes.sort((a, b) => b.pitch - a.pitch);
 
   globalSortedNotes = uniqueNotes;
@@ -1236,6 +1299,12 @@ function buildSortedNotesMapping() {
   uniqueNotes.forEach((obj, index) => {
     const fullName = obj.noteName + obj.octave;
     globalNoteToIndexMap.set(fullName, index);
+  });
+
+  // Also store pitchPossiblePositions
+  pitchPossiblePositions = {};
+  Object.keys(multiMap).forEach(strPitch => {
+    pitchPossiblePositions[strPitch] = multiMap[strPitch];
   });
 }
 
@@ -1310,8 +1379,41 @@ function drawSequencerGrid() {
     noteElement.style.top = `${topPx}px`;
     noteElement.style.width = `${widthPx}px`;
     noteElement.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
+
+    // If in select mode, clicking on this note should highlight possible keys
+    noteElement.addEventListener('click', (e) => {
+      if (isSelectMode) {
+        // We want to highlight all possible positions for this note's pitch
+        e.stopPropagation();
+        const pitch = note.pitch;
+        highlightPossibleKeysForPitch(pitch);
+      }
+    });
+
     gridContent.appendChild(noteElement);
   });
+}
+
+// highlight all possible keys for a pitch
+function highlightPossibleKeysForPitch(pitch) {
+  // un-highlight old
+  for (let fy = 0; fy < numberOfFrets; fy++) {
+    for (let fx = 0; fx < numberOfStrings; fx++) {
+      // remove any highlight if present
+      if (keysState[fy][fx].marker) {
+        keysState[fy][fx].marker = false;
+      }
+    }
+  }
+
+  // highlight new
+  if (pitchPossiblePositions[pitch]) {
+    pitchPossiblePositions[pitch].forEach(pos => {
+      keysState[pos.y][pos.x].marker = true;
+    });
+    awaitingMappingPitch = pitch;
+  }
+  drawTablature();
 }
 
 let activeNotes = new Map();
@@ -1440,7 +1542,20 @@ function updatePlayhead() {
       if (now >= noteStartTime && now < noteEndTime) {
         if (!note.isPlaying) {
           note.isPlaying = true;
-          const freq = noteToFrequency(note.noteName, note.octave);
+
+          // If user mapped this pitch, use that x,y for frequency
+          // else use the default frequency from note
+          let freq;
+          const chosenMapping = pitchMappings[note.pitch];
+          if (chosenMapping) {
+            const mappedNoteName = getNoteName(chosenMapping.x, chosenMapping.y);
+            const mappedOct = getNoteOctave(chosenMapping.x, chosenMapping.y);
+            freq = noteToFrequency(mappedNoteName, mappedOct);
+          } else {
+            // fallback to original
+            freq = noteToFrequency(note.noteName, note.octave);
+          }
+
           const { osc, gain } = createOscillator(freq);
           osc.start();
           note.oscObj = { osc, gain };
@@ -1575,6 +1690,177 @@ function loadSequence() {
   input.click();
 }
 
+// NEW: Basic MIDI import
+function handleImportMIDI() {
+  const input = document.getElementById('import-midi-file');
+  input.onchange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const arrayBuffer = await file.arrayBuffer();
+    const midiData = parseMIDI(arrayBuffer); // We'll create a simple parse function
+    if (!midiData) {
+      alert("Unable to parse MIDI file or no note data found.");
+      return;
+    }
+    // Convert midi tracks to recordedNotes
+    // We'll assume the first track for simplicity
+    recordedNotes = [];
+    let minTime = Infinity;
+    midiData.forEach((noteEvent) => {
+      if (noteEvent.type === "note") {
+        minTime = Math.min(minTime, noteEvent.time);
+      }
+    });
+    // build recordedNotes from midiData
+    midiData.forEach((evt) => {
+      if (evt.type === "note") {
+        const noteIndex = 0; // We'll fix later, or attempt to find the mapped note
+        // We'll store noteName, octave from pitch if we want. For now let's store pitch directly
+        const startTime = evt.time - minTime;
+        recordedNotes.push({
+          noteName: "?", // placeholder
+          octave: 4, // placeholder
+          pitch: evt.pitch,
+          noteIndex,
+          startTime,
+          duration: evt.duration,
+          isPlaying: false,
+          oscObj: null,
+          x: 0,
+          y: 0
+        });
+      }
+    });
+    // Sort by startTime
+    recordedNotes.sort((a,b) => a.startTime - b.startTime);
+    stopPlayback();
+    drawSequencerGrid();
+  };
+  input.click();
+}
+
+/**
+ * A very minimal MIDI parser for note events (type 0 or 1).
+ * Returns an array of {type: "note", pitch, time, duration}
+ */
+function parseMIDI(buffer) {
+  // This is a simplified parser that only handles single-track or minimal multi-track,
+  // ignoring many advanced MIDI features. The goal is to extract note on/off events.
+
+  const data = new Uint8Array(buffer);
+
+  // Check "MThd" header
+  if (data[0] !== 0x4D || data[1] !== 0x54 || data[2] !== 0x68 || data[3] !== 0x64) {
+    console.error("Not a valid MIDI file");
+    return null;
+  }
+  const formatType = (data[8] << 8) | data[9];
+  const trackCount = (data[10] << 8) | data[11];
+  const timeDivision = (data[12] << 8) | data[13];
+
+  // find "MTrk" chunk(s)
+  let pointer = 14;
+  const events = [];
+  for (let t = 0; t < trackCount; t++) {
+    // find MTrk
+    if (data[pointer] !== 0x4D || data[pointer+1] !== 0x54 || data[pointer+2] !== 0x72 || data[pointer+3] !== 0x6B) {
+      console.error("Missing MTrk header");
+      return null;
+    }
+    const trackLength = (data[pointer+4]<<24) | (data[pointer+5]<<16) | (data[pointer+6]<<8) | data[pointer+7];
+    pointer += 8;
+    const trackEnd = pointer + trackLength;
+    let currentTime = 0;
+    let lastEventTypeByte = 0;
+    
+    while (pointer < trackEnd) {
+      const delta = readVarLen(data, pointer);
+      pointer += delta.length;
+      currentTime += delta.value; 
+
+      let eventTypeByte = data[pointer++];
+      if (eventTypeByte < 0x80) {
+        // running status
+        pointer--;
+        eventTypeByte = lastEventTypeByte;
+      } else {
+        lastEventTypeByte = eventTypeByte;
+      }
+
+      if ((eventTypeByte & 0xF0) === 0x80) {
+        // note off
+        const note = data[pointer++];
+        const vel = data[pointer++];
+        // We'll find a matching note on
+        // We'll store in some temporary array or something. 
+        // For simplicity, let's just handle in a second pass. 
+        events.push({time: currentTime, type: "noteOff", pitch: note});
+      } else if ((eventTypeByte & 0xF0) === 0x90) {
+        // note on
+        const note = data[pointer++];
+        const vel = data[pointer++];
+        if (vel > 0) {
+          events.push({time: currentTime, type: "noteOn", pitch: note});
+        } else {
+          // note on with velocity=0 is note off
+          events.push({time: currentTime, type: "noteOff", pitch: note});
+        }
+      } else if ((eventTypeByte & 0xF0) === 0xA0 ||
+                 (eventTypeByte & 0xF0) === 0xB0 ||
+                 (eventTypeByte & 0xF0) === 0xE0 ) {
+        pointer += 2; // skip 2 data bytes
+      } else if ((eventTypeByte & 0xF0) === 0xC0 ||
+                 (eventTypeByte & 0xF0) === 0xD0) {
+        pointer += 1; // skip 1 data byte
+      } else if (eventTypeByte === 0xFF) {
+        // meta event
+        const metaType = data[pointer++];
+        const lengthMeta = readVarLen(data, pointer);
+        pointer += lengthMeta.length;
+        pointer += lengthMeta.value;
+      } else {
+        // unknown
+        console.warn("Unknown event type: ", eventTypeByte.toString(16));
+      }
+    }
+    pointer = trackEnd;
+  }
+
+  // second pass to form note objects
+  // We'll keep track of noteOns until we see the corresponding noteOff
+  let activeMap = {};
+  let noteEvents = [];
+  events.forEach(evt => {
+    if (evt.type === "noteOn") {
+      activeMap[evt.pitch] = { pitch: evt.pitch, time: evt.time };
+    } else if (evt.type === "noteOff") {
+      if (activeMap[evt.pitch]) {
+        const onObj = activeMap[evt.pitch];
+        const duration = evt.time - onObj.time;
+        noteEvents.push({ 
+          type: "note",
+          pitch: evt.pitch,
+          time: onObj.time,
+          duration: duration
+        });
+        delete activeMap[evt.pitch];
+      }
+    }
+  });
+  return noteEvents;
+}
+
+function readVarLen(data, index) {
+  let value = 0;
+  let offset = 0;
+  let b;
+  do {
+    b = data[index + offset++];
+    value = (value << 7) + (b & 0x7F);
+  } while (b & 0x80);
+  return { value, length: offset };
+}
+
 // Toggle Sequencer
 function toggleSequencerMode() {
   isSequencerModeOn = !isSequencerModeOn;
@@ -1601,6 +1887,23 @@ function toggleSongStepMode() {
   isStepMode = !isStepMode;
   const modeBtn = document.getElementById('mode-toggle-btn');
   modeBtn.textContent = isStepMode ? 'Step Mode' : 'Song Mode';
+}
+
+// NEW: Toggle Select Mode
+function toggleSelectMode() {
+  isSelectMode = !isSelectMode;
+  const btn = document.getElementById('select-mode-btn');
+  btn.textContent = isSelectMode ? 'Select Mode: On' : 'Select Mode: Off';
+  if (!isSelectMode) {
+    // Clear any partial highlight
+    awaitingMappingPitch = null;
+    for (let fy = 0; fy < numberOfFrets; fy++) {
+      for (let fx = 0; fx < numberOfStrings; fx++) {
+        keysState[fy][fx].marker = false;
+      }
+    }
+    drawTablature();
+  }
 }
 
 function barBeatToSeconds(barString, beatString) {
@@ -1847,6 +2150,12 @@ document.addEventListener("DOMContentLoaded", () => {
     SEQUENCER_CONFIG.bpm = val;
     tempoValue.textContent = `${val} BPM`;
   });
+
+  // NEW: Import MIDI
+  document.getElementById('import-midi-btn').addEventListener('click', handleImportMIDI);
+
+  // NEW: Select Mode
+  document.getElementById('select-mode-btn').addEventListener('click', toggleSelectMode);
 });
 </script>
 </body>
