@@ -10,6 +10,51 @@
 <div class="max-w-5xl mx-auto bg-white rounded shadow p-4">
   <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
 
+  <!-- NEW: Reverb, Delay, and Tempo Sliders at the top -->
+  <div class="flex flex-wrap items-center gap-4 mb-4">
+    <!-- Reverb Slider -->
+    <div class="flex items-center gap-2">
+      <label for="reverbSlider" class="text-gray-700">Reverb:</label>
+      <input 
+        type="range" 
+        id="reverbSlider" 
+        min="0" 
+        max="1" 
+        step="0.01" 
+        value="0" 
+        class="w-24"
+      />
+    </div>
+    <!-- Delay Slider -->
+    <div class="flex items-center gap-2">
+      <label for="delaySlider" class="text-gray-700">Delay:</label>
+      <input 
+        type="range" 
+        id="delaySlider" 
+        min="0" 
+        max="1" 
+        step="0.01" 
+        value="0" 
+        class="w-24"
+      />
+    </div>
+    <!-- Tempo Slider -->
+    <div class="flex items-center gap-2">
+      <label for="tempoSlider" class="text-gray-700">Tempo:</label>
+      <input 
+        type="range" 
+        id="tempoSlider" 
+        min="40" 
+        max="300" 
+        step="1" 
+        value="120" 
+        class="w-24"
+      />
+      <span id="tempoValue" class="text-gray-700">120 BPM</span>
+    </div>
+  </div>
+  <!-- End of new sliders -->
+
   <!-- Controls -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
     <!-- Model Selector -->
@@ -336,11 +381,11 @@
         </div>
         
         <!-- Sequencer Grid -->
-        <!-- (1) onscroll uses the transform approach to move #piano-roll-wrapper -->
+        <!-- (1) Replaced template literal with normal string concatenation to avoid error -->
         <div 
           id="sequencer-grid" 
           class="flex-1 relative overflow-auto bg-gray-900" 
-          onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`"
+          onscroll="document.querySelector('#piano-roll-wrapper').style.transform='translateY(-' + this.scrollTop + 'px)'"
         >
             <div id="grid-content" class="absolute top-0 left-0"></div>
             <!-- The playhead -->
@@ -433,10 +478,44 @@ let currentInstrument = "piano";
 let audioContext;
 let masterGainNode;
 
+// NEW: Delay / Reverb nodes
+let delayNode;
+let delayGain;
+let reverbConvolver;
+let reverbGain;
+
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   masterGainNode = audioContext.createGain();
-  masterGainNode.gain.value = 0.1; 
+  masterGainNode.gain.value = 0.1;
+
+  // Create a Delay node (max delay 5s) and a gain for the delayed signal.
+  delayNode = audioContext.createDelay(5.0);
+  delayGain = audioContext.createGain();
+  delayGain.gain.value = 0; // 0 by default (no delay heard)
+  delayNode.connect(delayGain);
+  delayGain.connect(masterGainNode);
+
+  // Create a Convolver for simple reverb
+  reverbConvolver = audioContext.createConvolver();
+  // Generate a simple impulse response:
+  const length = audioContext.sampleRate * 1.0; 
+  const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    let channel = impulse.getChannelData(c);
+    for (let i = 0; i < length; i++) {
+      channel[i] = (Math.random() * 2 - 1) * (1 - i / length);
+    }
+  }
+  reverbConvolver.buffer = impulse;
+
+  // Gain for reverb
+  reverbGain = audioContext.createGain();
+  reverbGain.gain.value = 0; // 0 by default (no reverb heard)
+  reverbConvolver.connect(reverbGain);
+  reverbGain.connect(masterGainNode);
+
+  // Finally, connect to output
   masterGainNode.connect(audioContext.destination);
 }
 
@@ -453,8 +532,12 @@ function createOscillator(frequency) {
   gain.gain.value = 0.5;
 
   osc.frequency.value = frequency;
+  // Connect the oscillator's gain to masterGain, plus parallel to delay & reverb
   osc.connect(gain);
   gain.connect(masterGainNode);
+  gain.connect(delayNode);
+  gain.connect(reverbConvolver);
+
   return { osc, gain };
 }
 
@@ -1338,8 +1421,8 @@ function updatePlayhead() {
   const playhead = document.getElementById('playhead');
   playhead.style.left = `${playheadPosition}px`;
 
-  // If playing, do note scanning + animation loop
-  if (isPlaying) {
+  // If playing AND not step mode, do note scanning + animation loop
+  if (isPlaying && !isStepMode) {
     // Check if new beat -> metronome
     const currentTimeBeat = Math.floor(now * SEQUENCER_CONFIG.bpm / 60);
     if (currentTimeBeat > currentBeat) {
@@ -1375,6 +1458,10 @@ function updatePlayhead() {
       }
     });
 
+    requestAnimationFrame(updatePlayhead);
+  } else if (isPlaying) {
+    // If isPlaying but in step mode, we still want the playhead to update
+    // but not do the note scanning. Just continue the animation loop.
     requestAnimationFrame(updatePlayhead);
   }
 }
@@ -1734,6 +1821,32 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("loadChordsBtn").addEventListener("click", loadChords);
 
   updateChordPaletteUI();
+
+  // NEW: Handle Reverb/Delay sliders
+  const delaySlider = document.getElementById('delaySlider');
+  delaySlider.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (delayGain) {
+      delayGain.gain.value = val;
+    }
+  });
+
+  const reverbSlider = document.getElementById('reverbSlider');
+  reverbSlider.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (reverbGain) {
+      reverbGain.gain.value = val;
+    }
+  });
+
+  // NEW: Handle Tempo slider
+  const tempoSlider = document.getElementById('tempoSlider');
+  const tempoValue = document.getElementById('tempoValue');
+  tempoSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
+    SEQUENCER_CONFIG.bpm = val;
+    tempoValue.textContent = `${val} BPM`;
+  });
 });
 </script>
 </body>
