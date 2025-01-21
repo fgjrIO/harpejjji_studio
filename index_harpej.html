@@ -631,7 +631,7 @@ let currentRoot = "A";
 let scaleHighlightColor = "#ffc107";
 let scaleHighlightAlpha = 0.3;
 
-/** 
+/**
  * Generate a set of pitch classes (semitones) for the selected scale, 
  * relative to the chosen root.
  */
@@ -1371,6 +1371,10 @@ let isRecording = false;
 let metronomeEnabled = false;
 let currentBeat = 0;
 let recordedNotes = [];
+
+// FIX ADDED HERE:
+let activeNotes = new Map();
+
 let playheadPosition = 0;
 let audioStartTime = 0;
 
@@ -2437,7 +2441,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateChordPaletteUI();
 });
-
 </script>
 </body>
 </html>
