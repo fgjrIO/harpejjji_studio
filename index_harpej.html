@@ -110,14 +110,38 @@
     <!-- Chord Palette -->
     <div class="ml-4 w-64" id="chordPalette">
       <h2 class="text-xl font-bold mb-2">Chord Palette</h2>
+
+      <!-- Buttons to Save/Load the entire chord palette -->
+      <div class="flex gap-2 mb-2">
+        <button 
+          id="saveChordsBtn" 
+          class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+        >
+          Save Chords
+        </button>
+        <button 
+          id="loadChordsBtn"
+          class="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+        >
+          Load Chords
+        </button>
+        <input 
+          type="file" 
+          id="loadChordsFile" 
+          class="hidden" 
+          accept=".json"
+        />
+      </div>
+
       <!-- 2 column, 4 row grid of chord slots -->
       <div class="grid grid-cols-2 grid-rows-4 gap-4">
-        <!-- Each slot has a chord button, a mini record toggle, and a clear button -->
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="0">
           <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 1</button>
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">N</button>
           </div>
         </div>
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="1">
@@ -125,6 +149,8 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">N</button>
           </div>
         </div>
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="2">
@@ -132,6 +158,8 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">N</button>
           </div>
         </div>
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="3">
@@ -139,6 +167,8 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">N</button>
           </div>
         </div>
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="4">
@@ -146,6 +176,8 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">N</button>
           </div>
         </div>
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="5">
@@ -153,6 +185,8 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">N</button>
           </div>
         </div>
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="6">
@@ -160,6 +194,8 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">N</button>
           </div>
         </div>
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="7">
@@ -167,6 +203,8 @@
           <div class="flex space-x-1">
             <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">R</button>
             <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">C</button>
+            <!-- Rename Button -->
+            <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">N</button>
           </div>
         </div>
       </div>
@@ -196,7 +234,7 @@
         Clear Library
       </button>
     </div>
-    <div id="libraryContent" class="space-y-4">
+    <div id="libraryContent" class="space-y-4 overflow-y-auto h-full">
       <!-- Thumbnails and names of saved files will be dynamically added here -->
     </div>
   </div>
@@ -585,10 +623,16 @@ let keyMode = 'toggle';
 // CHORD PALETTE SETUP
 // ==============================
 /**
- * Instead of storing just noteName + octave for chords,
- * we will store the exact (x,y) so playback is accurate.
+ * Store for each chord:
+ * {
+ *   name: "Chord X",
+ *   keys: [{x, y, noteName, octave}, ...]
+ * }
  */
-let chordSlots = Array(8).fill(null).map(() => ({ keys: [] }));
+let chordSlots = Array(8).fill(null).map((_, i) => ({
+  name: `Chord ${i+1}`,
+  keys: []
+}));
 let chordRecordIndex = -1; // which chord slot is currently in record mode, -1 if none
 
 function toggleChordRecord(index) {
@@ -599,6 +643,14 @@ function toggleChordRecord(index) {
 function clearChordNotes(index) {
   chordSlots[index].keys = [];
   updateChordPaletteUI();
+}
+
+function renameChordSlot(index) {
+  const newName = prompt("Enter new name for this chord:", chordSlots[index].name);
+  if (newName) {
+    chordSlots[index].name = newName;
+    updateChordPaletteUI();
+  }
 }
 
 /** Record the exact x,y pressed (plus note name / octave if needed) */
@@ -660,7 +712,7 @@ function chordToggle(chordIndex) {
   });
 }
 
-/** Update chord palette UI to show which chord is in record mode */
+/** Update chord palette UI to show which chord is in record mode and reflect chord names */
 function updateChordPaletteUI() {
   const recordButtons = document.querySelectorAll('.chord-record-btn');
   recordButtons.forEach(btn => {
@@ -674,6 +726,13 @@ function updateChordPaletteUI() {
       btn.classList.remove('ring-offset-2');
       btn.classList.remove('ring-red-500');
     }
+  });
+
+  const chordButtons = document.querySelectorAll('.chord-button');
+  chordButtons.forEach(btn => {
+    const slot = btn.closest('.chord-slot');
+    const idx = parseInt(slot.getAttribute('data-chord-index'), 10);
+    btn.textContent = chordSlots[idx].name;
   });
 }
 
@@ -757,6 +816,21 @@ function saveSelection() {
   const fileName = prompt("Enter a name for your selection:", "My Selection");
   if (!fileName) return;
 
+  // Collect plain-text info of marked notes:
+  const plainTextNotes = [];
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      if (keysState[y][x].marker) {
+        const noteName = getNoteName(x, y);
+        const octave = getNoteOctave(x, y);
+        plainTextNotes.push(`${noteName}${octave} (row=${y}, string=${x})`);
+      }
+    }
+  }
+  const now = new Date();
+  const dateStr = now.toLocaleDateString();
+  const timeStr = now.toLocaleTimeString();
+
   const svg = document.getElementById("tablature");
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -770,6 +844,8 @@ function saveSelection() {
     
     const data = {
       name: fileName,
+      date: dateStr,
+      time: timeStr,
       model: modelSelect.value,
       keysState: keysState,
       image: canvas.toDataURL("image/png"),
@@ -781,7 +857,8 @@ function saveSelection() {
         startOctave: currentModel.startOctave,
         endNote: currentModel.endNote,
         endOctave: currentModel.endOctave
-      }
+      },
+      notesPlainText: plainTextNotes
     };
 
     const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
@@ -880,9 +957,16 @@ function populateLibrary() {
         <div class="text-sm">
           <span class="block text-center font-bold">${selection.name}</span>
           <span class="block text-center text-gray-500">${selection.model}</span>
-          <span class="block text-center text-gray-400 text-xs">${new Date(selection.timestamp).toLocaleDateString()}</span>
+          <span class="block text-center text-gray-400 text-xs">
+            ${selection.date || ""} ${selection.time || ""}
+          </span>
         </div>
       </div>
+      ${
+        selection.notesPlainText && selection.notesPlainText.length
+          ? `<div class="text-xs whitespace-pre-wrap mt-1">${selection.notesPlainText.join("\n")}</div>`
+          : ""
+      }
     `;
     div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
     div.querySelector('.delete-btn').addEventListener('click', (e) => {
@@ -1223,6 +1307,7 @@ function jumpToTime(timeInSec) {
     const now = audioContext ? audioContext.currentTime : 0;
     audioStartTime = now - timeInSec;
   }
+  
   updateBarBeatDisplay(timeInSec);
   updatePlayhead();
 }
@@ -1435,7 +1520,57 @@ function jumpToPosition(barString, beatString) {
   jumpToTime(barBeatToSeconds(barString, beatString));
 }
 
-// Overwrite jumpToTime again for consistency
+// ==============================
+// CHORD PALETTE SAVE/LOAD (Self-contained)
+// ==============================
+function saveChords() {
+  const fileName = prompt("Enter a file name for chord palette:", "MyChords");
+  if (!fileName) return;
+
+  // We'll just store chordSlots as-is
+  const data = JSON.stringify(chordSlots, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadChords() {
+  const input = document.getElementById("loadChordsFile");
+  input.onchange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const loadedChords = JSON.parse(e.target.result);
+        // Validate structure (array of 8, each has 'name', 'keys')
+        if (Array.isArray(loadedChords) && loadedChords.length <= chordSlots.length) {
+          chordSlots.forEach((slot, idx) => {
+            if (loadedChords[idx]) {
+              slot.name = loadedChords[idx].name || slot.name;
+              slot.keys = Array.isArray(loadedChords[idx].keys) ? loadedChords[idx].keys : [];
+            }
+          });
+          updateChordPaletteUI();
+          alert("Chord palette loaded successfully.");
+        } else {
+          throw new Error("Invalid chord file structure.");
+        }
+      } catch (err) {
+        alert("Error loading chord file: " + err.message);
+      }
+      input.value = ""; // reset
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// Overwrite jumpToTime again for consistency (used above)
 function jumpToTime(timeInSec) {
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
@@ -1573,6 +1708,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // New: Chord Rename Buttons
+  const chordRenameButtons = document.querySelectorAll('.chord-rename-btn');
+  chordRenameButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
+      renameChordSlot(idx);
+    });
+  });
+
   const chordButtons = document.querySelectorAll('.chord-button');
   chordButtons.forEach(btn => {
     const slot = btn.closest('.chord-slot');
@@ -1603,6 +1747,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // Chord Palette Save/Load
+  document.getElementById("saveChordsBtn").addEventListener("click", saveChords);
+  document.getElementById("loadChordsBtn").addEventListener("click", loadChords);
 
   updateChordPaletteUI();
 });
