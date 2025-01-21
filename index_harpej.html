@@ -97,7 +97,7 @@
     </span>
   </div>
 
-  <!-- We wrap the harpejji board and the chord palette in a flex container so the chord area is to the right -->
+  <!-- Wrap harpejji board and Chord Palette side by side -->
   <div class="flex">
     <!-- Our Tablature SVG -->
     <svg 
@@ -573,7 +573,7 @@ function recordChordNoteIfNeeded(noteName, octave) {
   }
 }
 
-// Replace chord notes (used when loading a file while chord record is on)
+// If a file is loaded while chord record is on, use the new markers to define the chord:
 function setChordNotesFromKeysState(index) {
   const newNotes = [];
   for (let y = 0; y < numberOfFrets; y++) {
@@ -592,27 +592,8 @@ function setChordNotesFromKeysState(index) {
   updateChordPaletteUI();
 }
 
-// Play the chord immediately
-function playChord(index) {
-  const chord = chordSlots[index];
-  chord.notes.forEach(noteNameOctave => {
-    if (!audioContext) initAudio();
-    const parsed = parseNoteNameOctave(noteNameOctave);
-    if (!parsed) return;
-    const freq = noteToFrequency(parsed.noteName, parsed.octave);
-    const { osc, gain } = createOscillator(freq);
-    osc.start();
-    // We'll do a short fade-out so it doesn't ring forever
-    setTimeout(() => {
-      stopOscillator({ osc, gain });
-    }, 1000); 
-  });
-}
-
 // Helper to parse noteName+octave from string like "C#4"
 function parseNoteNameOctave(str) {
-  // possible note names: C C# D D# E F F# G G# A A# B
-  // we'll attempt to separate the octave digits from the note
   const match = str.match(/^([A-G]#?)(\d+)$/);
   if (!match) return null;
   return {
@@ -621,35 +602,89 @@ function parseNoteNameOctave(str) {
   };
 }
 
-// If in step mode + recording, pressing a chord button should record those chord notes at once
-function recordChordInStepModeIfNeeded(index) {
-  if (isStepMode && isRecording) {
-    const chord = chordSlots[index];
-    const now = audioContext ? audioContext.currentTime - audioStartTime : 0;
-    const effectiveTime = isStepMode ? stepModeTime : now;
-
-    // We'll record each note from the chord in the sequencer at the same time
-    chord.notes.forEach(noteNameOctave => {
-      const parsed = parseNoteNameOctave(noteNameOctave);
-      if (!parsed) return;
-      const fullName = parsed.noteName + parsed.octave;
-      const noteIndex = globalNoteToIndexMap.get(fullName);
-      if (noteIndex !== undefined) {
-        recordedNotes.push({
-          noteName: parsed.noteName,
-          octave: parsed.octave,
-          noteIndex,
-          startTime: effectiveTime,
-          duration: 60 / SEQUENCER_CONFIG.bpm, // 1 beat default
-          isPlaying: false,
-          oscObj: null,
-          x: 0,
-          y: 0 // (x,y not strictly used for chord direct recording, but stored anyway)
-        });
+// Find the x,y location for a given noteName+octave, or null if not found
+function findXYForNote(noteName, octave) {
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      if (getNoteName(x, y) === noteName && getNoteOctave(x, y) === octave) {
+        return { x, y };
       }
-    });
-    drawSequencerGrid();
+    }
   }
+  return null;
+}
+
+// For programmatic "down"/"up" of a key (same logic as the user clicking the tablature)
+function handleKeyDownProgrammatically(x, y) {
+  const noteName = getNoteName(x, y);
+  const octave = getNoteOctave(x, y);
+  const freq = noteToFrequency(noteName, octave);
+
+  const { osc, gain } = createOscillator(freq);
+  osc.start();
+  activeUserOscillators.set(`${x}_${y}`, { osc, gain });
+
+  if (keyMode === 'toggle') {
+    keysState[y][x].marker = !keysState[y][x].marker;
+  } else if (keyMode === 'press') {
+    keysState[y][x].pressing = true;
+  }
+  startNoteRecording(x, y);
+  drawTablature();
+}
+
+function handleKeyUpProgrammatically(x, y) {
+  const keyStr = `${x}_${y}`;
+  if (activeUserOscillators.has(keyStr)) {
+    const oscObj = activeUserOscillators.get(keyStr);
+    stopOscillator(oscObj);
+    activeUserOscillators.delete(keyStr);
+  }
+  if (keyMode === 'press') {
+    keysState[y][x].pressing = false;
+  }
+  stopNoteRecording(x, y);
+  drawTablature();
+}
+
+// Press mode: hold chord button => keys "press" until mouse up
+function chordPressDown(chordIndex) {
+  const chord = chordSlots[chordIndex];
+  chord.notes.forEach(noteNameOctave => {
+    const parsed = parseNoteNameOctave(noteNameOctave);
+    if (!parsed) return;
+    const xy = findXYForNote(parsed.noteName, parsed.octave);
+    if (!xy) return;
+    handleKeyDownProgrammatically(xy.x, xy.y);
+  });
+}
+
+function chordPressUp(chordIndex) {
+  const chord = chordSlots[chordIndex];
+  chord.notes.forEach(noteNameOctave => {
+    const parsed = parseNoteNameOctave(noteNameOctave);
+    if (!parsed) return;
+    const xy = findXYForNote(parsed.noteName, parsed.octave);
+    if (!xy) return;
+    handleKeyUpProgrammatically(xy.x, xy.y);
+  });
+}
+
+// Toggle mode: single click => toggle chord notes
+function chordToggle(chordIndex) {
+  const chord = chordSlots[chordIndex];
+  chord.notes.forEach(noteNameOctave => {
+    const parsed = parseNoteNameOctave(noteNameOctave);
+    if (!parsed) return;
+    const xy = findXYForNote(parsed.noteName, parsed.octave);
+    if (!xy) return;
+    // "KeyDown" toggles, then "KeyUp" stops sound (but does NOT toggle marker again)
+    handleKeyDownProgrammatically(xy.x, xy.y);
+    // We'll let it ring briefly, then call keyUp (short chord beep)
+    setTimeout(() => {
+      handleKeyUpProgrammatically(xy.x, xy.y);
+    }, 300);
+  });
 }
 
 function updateChordPaletteUI() {
@@ -668,9 +703,10 @@ function updateChordPaletteUI() {
     }
   });
 }
-// ==============================
 
+// ==============================
 // Handle Key Pressing
+// ==============================
 function handleKeyDown(x, y) {
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
@@ -680,7 +716,6 @@ function handleKeyDown(x, y) {
   osc.start();
   activeUserOscillators.set(`${x}_${y}`, { osc, gain });
 
-  // If in toggle mode, flip marker
   if (keyMode === 'toggle') {
     keysState[y][x].marker = !keysState[y][x].marker;
   } else if (keyMode === 'press') {
@@ -710,7 +745,9 @@ function handleKeyUp(x, y) {
   drawTablature();
 }
 
+// ==============================
 // Save/Load Tablature
+// ==============================
 function saveSelection() {
   const fileName = prompt("Enter a name for your selection:", "My Selection");
   if (!fileName) return;
@@ -807,7 +844,9 @@ function handleFileLoad() {
   input.click();
 }
 
+// ==============================
 // Library
+// ==============================
 function toggleLibrary() {
   const slideover = document.getElementById("librarySlideover");
   slideover.classList.toggle("hidden");
@@ -1035,7 +1074,7 @@ function drawPianoRoll() {
   const pianoKeysContainer = document.getElementById('piano-keys');
   pianoKeysContainer.innerHTML = '';
   
-  globalSortedNotes.forEach((noteObj, index) => {
+  globalSortedNotes.forEach((noteObj) => {
     const { noteName, octave } = noteObj;
     const isBlack = isBlackNote(noteName);
 
@@ -1351,7 +1390,9 @@ function loadSequence() {
   input.click();
 }
 
+// ==============================
 // Toggle Sequencer
+// ==============================
 function toggleSequencerMode() {
   isSequencerModeOn = !isSequencerModeOn;
   const sequencerDiv = document.getElementById("sequencer");
@@ -1391,7 +1432,7 @@ function jumpToPosition(barString, beatString) {
   jumpToTime(barBeatToSeconds(barString, beatString));
 }
 
-// Overwrite jumpToTime again with same function to keep code consistent
+// Overwrite jumpToTime again (same function body) for consistency
 function jumpToTime(timeInSec) {
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
@@ -1414,6 +1455,9 @@ function jumpToTime(timeInSec) {
   updatePlayhead();
 }
 
+// ==============================
+// DOMContentLoaded
+// ==============================
 document.addEventListener("DOMContentLoaded", () => {
   drawTablature();
   drawPianoRoll();
@@ -1520,13 +1564,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const chordButtons = document.querySelectorAll('.chord-button');
   chordButtons.forEach(btn => {
+    const slot = btn.closest('.chord-slot');
+    const idx = parseInt(slot.getAttribute('data-chord-index'), 10);
+    
+    // For toggle mode, we'll just use "click"
+    // For press mode, we'll use "mousedown" / "mouseup" to hold
     btn.addEventListener('click', () => {
-      const parent = btn.closest('.chord-slot');
-      const idx = parseInt(parent.getAttribute('data-chord-index'), 10);
-      // If we're in step mode + recording, record chord notes
-      recordChordInStepModeIfNeeded(idx);
-      // Otherwise just play it
-      playChord(idx);
+      if (keyMode === 'toggle') {
+        chordToggle(idx);
+      }
+    });
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (keyMode === 'press') {
+        chordPressDown(idx);
+      }
+    });
+    btn.addEventListener('mouseup', (e) => {
+      e.preventDefault();
+      if (keyMode === 'press') {
+        chordPressUp(idx);
+      }
+    });
+    // Optionally handle mouseleave if you'd like chord to release if pointer leaves
+    btn.addEventListener('mouseleave', (e) => {
+      if (keyMode === 'press' && e.buttons === 1) {
+        chordPressUp(idx);
+      }
     });
   });
 
