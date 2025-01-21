@@ -260,6 +260,43 @@
         />
       </div>
 
+      <!-- NEW: Chord Trigger Mode, Strum Pace, Clear Tab on Trigger -->
+      <div class="mb-2">
+        <label for="chordModeSelect" class="text-sm font-semibold mr-1">Chord Mode:</label>
+        <select 
+          id="chordModeSelect"
+          class="px-2 py-1 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        >
+          <option value="press" selected>Press</option>
+          <option value="strum">Strum</option>
+        </select>
+      </div>
+
+      <div class="mb-2 flex items-center">
+        <label for="strumPaceInput" class="text-sm font-semibold mr-2">Strum Pace:</label>
+        <input 
+          type="number"
+          id="strumPaceInput"
+          value="100"
+          class="w-16 text-center border rounded mr-2"
+        />
+        <select 
+          id="strumPaceUnit"
+          class="px-2 py-1 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        >
+          <option value="ms">ms</option>
+          <option value="beats">beats</option>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label for="clearTabOnTrigger" class="inline-flex items-center space-x-1">
+          <input type="checkbox" id="clearTabOnTrigger" />
+          <span>Clear Tab on Trigger</span>
+        </label>
+      </div>
+      <!-- end of NEW UI elements -->
+
       <!-- 2 column, 4 row grid of chord slots -->
       <div class="grid grid-cols-2 grid-rows-4 gap-4">
         <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="0">
@@ -656,8 +693,7 @@ const keyHeight = 25;
 
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-// NEW: Big chord dictionary (extremely comprehensive, but still a sample).
-// Each chord definition has a name and a set of semitone intervals from root.
+// NEW: Big chord dictionary
 const CHORD_DEFINITIONS = [
   { name: "Major", intervals: [0,4,7] },
   { name: "Minor", intervals: [0,3,7] },
@@ -679,7 +715,6 @@ const CHORD_DEFINITIONS = [
   { name: "Min13", intervals: [0,3,7,10,2,5,9] },
   { name: "Add9",  intervals: [0,4,7,2] },
   { name: "mAdd9", intervals: [0,3,7,2] },
-  // ... more could be added here for even more completeness ...
 ];
 
 // Current model defaults to K24
@@ -709,7 +744,7 @@ initKeysState();
 // show/hide note names
 let showNotes = false;
 
-// A basic map, but we will override the actual wave creation for more realistic timbres below
+// A basic map for wave creation
 const instrumentMap = {
   piano: "sine",
   guitar: "triangle",
@@ -790,9 +825,7 @@ function initAudio() {
 
 /**
  * Create a more sophisticated multi-node chain to approximate
- * some realism for each instrument. This is a basic approach
- * using ADSR envelopes and a filter. It's still synthetic,
- * but more "instrument-like" than a plain single-wave oscillator.
+ * some realism for each instrument (ADSR, filter).
  */
 function createInstrumentSound(frequency, instrument) {
   if (!audioContext) initAudio();
@@ -805,7 +838,7 @@ function createInstrumentSound(frequency, instrument) {
   const filter = audioContext.createBiquadFilter();
   filter.type = "lowpass";
 
-  // Envelope parameters for each instrument
+  // Envelope parameters per instrument
   let envelope = { attack: 0.01, decay: 0.3, sustain: 0.2, release: 0.5 };
   let filterFreq = 2000;
 
@@ -833,7 +866,7 @@ function createInstrumentSound(frequency, instrument) {
       break;
   }
 
-  // Create a couple of oscillators slightly detuned for richness
+  // Two detuned oscillators
   const osc1 = audioContext.createOscillator();
   const osc2 = audioContext.createOscillator();
   const waveType = instrumentMap[instrument] || "sine";
@@ -863,8 +896,8 @@ function createInstrumentSound(frequency, instrument) {
 
   noteGain.gain.cancelScheduledValues(now);
   noteGain.gain.setValueAtTime(0, now);
-  noteGain.gain.linearRampToValueAtTime(1.0, attackEnd); // Attack up to full
-  noteGain.gain.linearRampToValueAtTime(envelope.sustain, decayEnd); // Decay to sustain
+  noteGain.gain.linearRampToValueAtTime(1.0, attackEnd); 
+  noteGain.gain.linearRampToValueAtTime(envelope.sustain, decayEnd); 
 
   osc1.start(now);
   osc2.start(now);
@@ -889,10 +922,6 @@ function createInstrumentSound(frequency, instrument) {
 }
 
 function createOscillator(frequency, instrument) {
-  // This function sets up a more realistic "instrument" chain
-  // using the above function.
-  // We'll return an object mimicking { osc, gain } but in practice,
-  // the "osc" is replaced with a custom stop() method.
   const soundObj = createInstrumentSound(frequency, instrument);
   const fakeOscObj = {
     osc: { stop: soundObj.stop },
@@ -912,7 +941,7 @@ function killAllNotes() {
   }
   activeUserOscillators.clear();
 
-  // Also stop any sequencer notes currently sounding
+  // Also stop any sequencer notes
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
       stopOscillator(note.oscObj);
@@ -930,7 +959,7 @@ function mod(n, m) {
 
 function noteToFrequency(noteName, octave) {
   const noteIndex = NOTES.indexOf(noteName);
-  if (noteIndex === -1) return 440; // fallback
+  if (noteIndex === -1) return 440; 
   const A4_OCTAVE = 4;
   const A4_INDEX = NOTES.indexOf("A");
   const semitones = (octave - A4_OCTAVE) * 12 + (noteIndex - A4_INDEX);
@@ -1080,7 +1109,6 @@ function drawTablature() {
       if (showNotes) {
         const label = document.createElementNS("http://www.w3.org/2000/svg","text");
         label.setAttribute("x", 7.5);
-        // Moved label higher to allow room for the rectangle
         label.setAttribute("y", 7);
         label.setAttribute("fill", blackKey ? "#EEE" : "#555");
         label.setAttribute("font-size", "7");
@@ -1179,20 +1207,19 @@ function setChordNotesFromKeysState(index) {
   updateChordPaletteUI();
 }
 
+// Existing chord logic
 function chordPressDown(chordIndex) {
   const chord = chordSlots[chordIndex];
   chord.keys.forEach(keyData => {
     handleKeyDownProgrammatically(keyData.x, keyData.y);
   });
 }
-
 function chordPressUp(chordIndex) {
   const chord = chordSlots[chordIndex];
   chord.keys.forEach(keyData => {
     handleKeyUpProgrammatically(keyData.x, keyData.y);
   });
 }
-
 function chordToggle(chordIndex) {
   const chord = chordSlots[chordIndex];
   chord.keys.forEach(keyData => {
@@ -1201,6 +1228,48 @@ function chordToggle(chordIndex) {
       handleKeyUpProgrammatically(keyData.x, keyData.y);
     }, 300);
   });
+}
+
+// NEW: strum logic
+function chordStrum(chordIndex) {
+  const chord = chordSlots[chordIndex];
+  // Sort left to right: ascending x, then y
+  let sortedKeys = chord.keys.slice().sort((a, b) => (a.x - b.x) || (a.y - b.y));
+
+  // Determine strum delay
+  const strumPaceVal = parseFloat(strumPaceInput.value) || 100;
+  let delayMs = strumPaceVal;
+  if (strumPaceUnit.value === "beats") {
+    // convert beats to ms using current BPM
+    delayMs = (60 / SEQUENCER_CONFIG.bpm) * 1000 * strumPaceVal;
+  }
+
+  let i = 0;
+  function pressNextKey() {
+    if (i >= sortedKeys.length) return;
+    const keyData = sortedKeys[i];
+    // For strum, mimic chordToggle approach:
+    handleKeyDownProgrammatically(keyData.x, keyData.y);
+    setTimeout(() => {
+      handleKeyUpProgrammatically(keyData.x, keyData.y);
+    }, 300);
+    i++;
+    if (i < sortedKeys.length) {
+      setTimeout(pressNextKey, delayMs);
+    }
+  }
+  pressNextKey();
+}
+
+// Utility to clear all markers before chord trigger
+function clearAllTabMarkers() {
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      keysState[y][x].marker = false;
+      keysState[y][x].pressing = false;
+    }
+  }
+  drawTablature();
 }
 
 function updateChordPaletteUI() {
@@ -1654,31 +1723,19 @@ let globalNoteToIndexMap = new Map();
 
 // ADD THESE LINES TO FIX THE PLAY/STOP (metronome) REFS:
 let metronomeContext = null;
-
-/**
- * Minimal “initMetronome” so it won't cause an error.
- */
 function initMetronome() {
-  // We can just reuse the existing audioContext as a "metronome context"
-  // or create any simple placeholder. Here we do:
   metronomeContext = audioContext || null;
 }
-
-/**
- * Minimal “playMetronomeSound” to avoid errors. 
- * It makes a short beep if metronome is enabled.
- */
 function playMetronomeSound() {
   if (!metronomeContext) return;
   const beepOsc = audioContext.createOscillator();
   const beepGain = audioContext.createGain();
-  beepOsc.frequency.value = 880; // beep
+  beepOsc.frequency.value = 880;
   beepGain.gain.setValueAtTime(0.1, audioContext.currentTime);
   beepOsc.connect(beepGain).connect(audioContext.destination);
   beepOsc.start(audioContext.currentTime);
   beepOsc.stop(audioContext.currentTime + 0.05);
 }
-// END OF FIX
 
 let isStepMode = false;
 let stepModeTime = 0.0;
@@ -1699,20 +1756,16 @@ let resizingEdge = null; // 'left' or 'right'
 let undoStack = [];
 let redoStack = [];
 
-// Helper to push current recordedNotes state
 function pushHistory() {
   const snapshot = JSON.parse(JSON.stringify(recordedNotes));
   undoStack.push(snapshot);
-  // Clear redoStack whenever we make a new change
   redoStack = [];
 }
 
 function undo() {
   if (undoStack.length > 0) {
-    // Save current to redo
     const current = JSON.parse(JSON.stringify(recordedNotes));
     redoStack.push(current);
-    // Pop from undo
     const previous = undoStack.pop();
     recordedNotes = previous;
     drawSequencerGrid();
@@ -1721,17 +1774,14 @@ function undo() {
 
 function redo() {
   if (redoStack.length > 0) {
-    // Save current to undo
     const current = JSON.parse(JSON.stringify(recordedNotes));
     undoStack.push(current);
-    // Pop from redo
     const next = redoStack.pop();
     recordedNotes = next;
     drawSequencerGrid();
   }
 }
 
-// Build the mapping from pitch to single reference note
 function buildSortedNotesMapping() {
   let multiMap = {};
   for (let y = 0; y < numberOfFrets; y++) {
@@ -1897,7 +1947,6 @@ document.addEventListener('mousemove', (e) => {
   if (!draggingNote) return;
 
   const dx = e.clientX - dragStartX;
-  // Adjusting timeOffset so that increments are smaller
   const timeOffset = dx / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60)) * 0.25;
 
   if (resizingEdge) {
@@ -1917,7 +1966,7 @@ document.addEventListener('mousemove', (e) => {
       }
     }
   } else {
-    // Moving entire note in time & pitch
+    // Moving entire note
     const newStart = Math.max(dragOriginalStartTime + timeOffset, 0);
     draggingNote.startTime = newStart;
 
@@ -1940,7 +1989,6 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', () => {
   if (draggingNote) {
-    // After letting go, push history so we can undo/redo
     pushHistory();
     draggingNote = null;
   }
@@ -1986,7 +2034,6 @@ function stopNoteRecording(x, y) {
     });
     activeNotes.delete(fullName);
 
-    // Each newly recorded note is a state change
     pushHistory();
     drawSequencerGrid();
   }
@@ -2641,29 +2688,59 @@ document.addEventListener("DOMContentLoaded", () => {
       renameChordSlot(idx);
     });
   });
+
+  // References to new chord-mode UI
+  window.chordModeSelect = document.getElementById("chordModeSelect");
+  window.strumPaceInput = document.getElementById("strumPaceInput");
+  window.strumPaceUnit = document.getElementById("strumPaceUnit");
+  window.clearTabOnTriggerCheckbox = document.getElementById("clearTabOnTrigger");
+
+  // Hook chord button events (click, mousedown, mouseup, etc.)
   document.querySelectorAll('.chord-button').forEach(btn => {
     const slot = btn.closest('.chord-slot');
     const idx = parseInt(slot.getAttribute('data-chord-index'), 10);
+
+    // Click => Either chordToggle or chordStrum, depending on chordMode
     btn.addEventListener('click', () => {
-      if (keyMode === 'toggle') {
-        chordToggle(idx);
+      if (clearTabOnTriggerCheckbox.checked) {
+        clearAllTabMarkers();
+      }
+      if (chordModeSelect.value === 'press') {
+        // use existing logic
+        if (keyMode === 'toggle') {
+          chordToggle(idx);
+        }
+      } else if (chordModeSelect.value === 'strum') {
+        chordStrum(idx);
       }
     });
+
+    // For press mode with mouse hold (only if chordMode=press):
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      if (keyMode === 'press') {
-        chordPressDown(idx);
+      if (chordModeSelect.value === 'press') {
+        if (clearTabOnTriggerCheckbox.checked) {
+          clearAllTabMarkers();
+        }
+        if (keyMode === 'press') {
+          chordPressDown(idx);
+        }
       }
     });
     btn.addEventListener('mouseup', (e) => {
       e.preventDefault();
-      if (keyMode === 'press') {
-        chordPressUp(idx);
+      if (chordModeSelect.value === 'press') {
+        if (keyMode === 'press') {
+          chordPressUp(idx);
+        }
       }
     });
+    // Mouse leave => if we were in "press" mode and still holding, release
     btn.addEventListener('mouseleave', (e) => {
-      if (keyMode === 'press' && e.buttons === 1) {
-        chordPressUp(idx);
+      if (chordModeSelect.value === 'press') {
+        if (keyMode === 'press' && e.buttons === 1) {
+          chordPressUp(idx);
+        }
       }
     });
   });
@@ -2793,19 +2870,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Remove duplicates by pitchClass+octave if desired, but let's just keep pitchClass for chord matching
     const uniquePitchClasses = Array.from(new Set(selectedPositions.map(sp => sp.pitchClass)));
 
-    // Attempt chord detection:
-    // We'll create a list of potential (chordName, matches, rootName).
     let chordResults = [];
 
-    // We consider each uniquePitchClass as a potential root.
     for (let rootPc of uniquePitchClasses) {
-      // Shift everything so rootPc => 0
       const shiftedSet = uniquePitchClasses.map(pc => mod(pc - rootPc, 12));
 
-      // For each chord definition, count how many intervals are in that shiftedSet
       CHORD_DEFINITIONS.forEach(chDef => {
         let matchCount = 0;
         chDef.intervals.forEach(interval => {
@@ -2813,7 +2884,6 @@ document.addEventListener("DOMContentLoaded", () => {
             matchCount++;
           }
         });
-        // We also want to know the chord's "root" note name
         const rootName = NOTES[rootPc];
         chordResults.push({
           chordName: `${rootName} ${chDef.name}`,
@@ -2823,7 +2893,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Sort chordResults by matchedIntervals desc, then totalChordIntervals asc (fewer intervals => easier to match).
     chordResults.sort((a,b) => {
       if (b.matchedIntervals === a.matchedIntervals) {
         return a.totalChordIntervals - b.totalChordIntervals;
@@ -2831,10 +2900,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return b.matchedIntervals - a.matchedIntervals;
     });
 
-    // Take top 8
     const topMatches = chordResults.slice(0, 8);
 
-    // Display in popup
     if (topMatches.length === 0) {
       chordMatchesDiv.innerHTML = "<p class='text-gray-600'>No chord matches found.</p>";
     } else {
@@ -2861,7 +2928,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // NEW: "Play Current Selection" Button
   // ==============================
   document.getElementById("playSelectionBtn").addEventListener("click", () => {
-    // Gather the currently selected keys
+    // Gather selected keys
     const selectedKeys = [];
     for (let y = 0; y < numberOfFrets; y++) {
       for (let x = 0; x < numberOfStrings; x++) {
@@ -2870,7 +2937,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-    // Mimic chordToggle logic for toggle mode, chordPress logic for press mode
+    // Mimic chordToggle logic
     selectedKeys.forEach(pos => {
       handleKeyDownProgrammatically(pos.x, pos.y);
       setTimeout(() => {
@@ -2906,19 +2973,15 @@ function shiftSelection(dx, dy) {
 }
 
 document.getElementById("shiftUpBtn").addEventListener("click", () => {
-  // shift up = y + 1
   shiftSelection(0, +1);
 });
 document.getElementById("shiftDownBtn").addEventListener("click", () => {
-  // shift down = y - 1
   shiftSelection(0, -1);
 });
 document.getElementById("shiftLeftBtn").addEventListener("click", () => {
-  // shift left = x - 1
   shiftSelection(-1, 0);
 });
 document.getElementById("shiftRightBtn").addEventListener("click", () => {
-  // shift right = x + 1
   shiftSelection(+1, 0);
 });
 </script>
