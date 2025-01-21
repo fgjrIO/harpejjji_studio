@@ -199,8 +199,11 @@
         </div>
         
         <!-- Sequencer Grid -->
-        <div id="sequencer-grid" class="flex-1 relative overflow-auto bg-gray-900" 
-             onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`">
+        <div 
+          id="sequencer-grid" 
+          class="flex-1 relative overflow-auto bg-gray-900" 
+          onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`"
+        >
             <div id="grid-content" class="absolute top-0 left-0"></div>
             <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
         </div>
@@ -946,11 +949,71 @@ function stopNoteRecording(x, y) {
   }
 }
 
+// MOUSE CLICK JUMP
+document.addEventListener("DOMContentLoaded", () => {
+  const sequencerGrid = document.getElementById("sequencer-grid");
+  sequencerGrid.addEventListener("mousedown", e => {
+    // find offset x
+    const rect = sequencerGrid.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left + sequencerGrid.scrollLeft;
+    // convert offsetX to time
+    // px / (ppBeat) => beats
+    const beats = offsetX / SEQUENCER_CONFIG.pixelsPerBeat;
+    const timeInSec = beats * (60 / SEQUENCER_CONFIG.bpm);
+    jumpToTime(timeInSec);
+  });
+});
+
+// For updating the bar/beat display in real-time
+function updateBarBeatDisplay(timeInSec) {
+  // totalBeats can be fractional
+  const totalBeats = timeInSec * (SEQUENCER_CONFIG.bpm / 60);
+  const bar = Math.floor(totalBeats / SEQUENCER_CONFIG.beatsPerBar) + 1;
+  const beat = (totalBeats % SEQUENCER_CONFIG.beatsPerBar) + 1;
+
+  // show 2 decimal places for the beat
+  document.getElementById('barInput').value = bar.toString();
+  document.getElementById('beatInput').value = beat.toFixed(2);
+}
+
+function jumpToTime(timeInSec) {
+  // Stop any notes that might be playing
+  recordedNotes.forEach(note => {
+    if (note.isPlaying && note.oscObj) {
+      stopOscillator(note.oscObj);
+      note.oscObj = null;
+      note.isPlaying = false;
+      keysState[note.y][note.x].sequencerPlaying = false;
+    }
+  });
+  drawTablature();
+
+  if (isStepMode) {
+    stepModeTime = timeInSec;
+  } else {
+    const now = audioContext ? audioContext.currentTime : 0;
+    audioStartTime = now - timeInSec;
+  }
+  // update display
+  updateBarBeatDisplay(timeInSec);
+
+  // In step mode, skip playback
+  // In song mode, we continue from new time
+  updatePlayhead();
+}
+
 function updatePlayhead() {
-  if (!isPlaying) return;
+  if (!isPlaying) {
+    // if not playing, just keep bar/beat display in sync
+    const timeToUse = isStepMode ? stepModeTime : 0;
+    updateBarBeatDisplay(isStepMode ? stepModeTime : 0);
+    return;
+  }
 
   // If in Step Mode, do NOT play notes automatically
   if (isStepMode) {
+    // Just update bar/beat display for the stepModeTime
+    updateBarBeatDisplay(stepModeTime);
     requestAnimationFrame(updatePlayhead);
     return;
   }
@@ -958,6 +1021,9 @@ function updatePlayhead() {
   const now = audioContext.currentTime - audioStartTime;
   const timeToUse = now;
   
+  // update bar/beat
+  updateBarBeatDisplay(timeToUse);
+
   playheadPosition = (timeToUse * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
   
   const playhead = document.getElementById('playhead');
@@ -1046,6 +1112,9 @@ function stopPlayback() {
     }
   });
   drawTablature();
+
+  // Also refresh bar/beat display
+  updateBarBeatDisplay(isStepMode ? stepModeTime : 0);
 }
 
 function toggleRecord() {
@@ -1154,14 +1223,19 @@ function barBeatToSeconds(barString, beatString) {
   const bar = parseFloat(barString) || 1;
   const beat = parseFloat(beatString) || 1;
   
-  // totalBeats can be fractional now
   const totalBeats = (bar - 1) * SEQUENCER_CONFIG.beatsPerBar + (beat - 1);
   const seconds = totalBeats * (60 / SEQUENCER_CONFIG.bpm);
   return seconds;
 }
 
-// Jump to a specified bar/beat
 function jumpToPosition(barString, beatString) {
+  // compute time
+  const timeInSec = barBeatToSeconds(barString, beatString);
+  jumpToTime(timeInSec);
+}
+
+// Jump to arbitrary time, used by clock or mouse
+function jumpToTime(timeInSec) {
   // Stop any notes that might be playing
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
@@ -1173,9 +1247,6 @@ function jumpToPosition(barString, beatString) {
   });
   drawTablature();
 
-  // Compute new time
-  const timeInSec = barBeatToSeconds(barString, beatString);
-  
   if (isStepMode) {
     stepModeTime = timeInSec;
   } else {
@@ -1183,9 +1254,17 @@ function jumpToPosition(barString, beatString) {
     audioStartTime = now - timeInSec;
   }
   
-  // In step mode we skip note playback anyway, so no need to start them.
-  // Just update the playhead to show the new position if in song mode
+  updateBarBeatDisplay(timeInSec);
   updatePlayhead();
+}
+
+// For showing bar/beat in the UI
+function updateBarBeatDisplay(timeInSec) {
+  const totalBeats = timeInSec * (SEQUENCER_CONFIG.bpm / 60);
+  const bar = Math.floor(totalBeats / SEQUENCER_CONFIG.beatsPerBar) + 1;
+  const beat = (totalBeats % SEQUENCER_CONFIG.beatsPerBar) + 1;
+  document.getElementById('barInput').value = bar.toString();
+  document.getElementById('beatInput').value = beat.toFixed(2);
 }
 
 // ==============================
@@ -1259,10 +1338,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Key mode
   document.getElementById('toggleKeyModeBtn').addEventListener('click', toggleKeyMode);
 
-  // NEW: Song/Step mode toggle
+  // Song/Step mode toggle
   document.getElementById('mode-toggle-btn').addEventListener('click', toggleSongStepMode);
 
-  // NEW: Jump button
+  // Jump button
   document.getElementById('jump-btn').addEventListener('click', () => {
     const barVal = document.getElementById('barInput').value;
     const beatVal = document.getElementById('beatInput').value;
