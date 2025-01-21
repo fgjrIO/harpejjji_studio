@@ -531,6 +531,26 @@
             Jump
           </button>
         </div>
+
+        <!-- Undo / Redo / Delete Buttons -->
+        <button 
+          id="undo-btn" 
+          class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Undo
+        </button>
+        <button 
+          id="redo-btn" 
+          class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Redo
+        </button>
+        <button 
+          id="delete-notes-btn"
+          class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Delete
+        </button>
     </div>
     
     <div class="flex h-[calc(100%-68px)]">
@@ -1594,28 +1614,43 @@ let dragOriginalStartTime = 0;
 let dragOriginalNoteIndex = 0;
 let resizingEdge = null; // 'left' or 'right'
 
-function initMetronome() {
-  if (!metronomeContext) {
-    metronomeContext = new (window.AudioContext || window.webkitAudioContext)();
-    metronomeGain = metronomeContext.createGain();
-    metronomeGain.gain.value = 0.3;
-    metronomeGain.connect(metronomeContext.destination);
+// Undo/Redo
+let undoStack = [];
+let redoStack = [];
+
+// Helper to push current recordedNotes state
+function pushHistory() {
+  const snapshot = JSON.parse(JSON.stringify(recordedNotes));
+  undoStack.push(snapshot);
+  // Clear redoStack whenever we make a new change
+  redoStack = [];
+}
+
+function undo() {
+  if (undoStack.length > 0) {
+    // Save current to redo
+    const current = JSON.parse(JSON.stringify(recordedNotes));
+    redoStack.push(current);
+    // Pop from undo
+    const previous = undoStack.pop();
+    recordedNotes = previous;
+    drawSequencerGrid();
   }
 }
 
-function playMetronomeSound() {
-  const osc = metronomeContext.createOscillator();
-  const clickGain = metronomeContext.createGain();
-  osc.frequency.value = 1000;
-  clickGain.gain.value = 0;
-  osc.connect(clickGain);
-  clickGain.connect(metronomeGain);
-  osc.start();
-  clickGain.gain.setValueAtTime(1, metronomeContext.currentTime);
-  clickGain.gain.exponentialRampToValueAtTime(0.001, metronomeContext.currentTime + 0.05);
-  osc.stop(metronomeContext.currentTime + 0.05);
+function redo() {
+  if (redoStack.length > 0) {
+    // Save current to undo
+    const current = JSON.parse(JSON.stringify(recordedNotes));
+    undoStack.push(current);
+    // Pop from redo
+    const next = redoStack.pop();
+    recordedNotes = next;
+    drawSequencerGrid();
+  }
 }
 
+// Build the mapping from pitch to single reference note
 function buildSortedNotesMapping() {
   let multiMap = {};
   for (let y = 0; y < numberOfFrets; y++) {
@@ -1728,6 +1763,12 @@ function drawSequencerGrid() {
 
     noteElement.dataset.noteIdx = idx; 
 
+    if (note.selected) {
+      noteElement.classList.add('ring');
+      noteElement.classList.add('ring-offset-2');
+      noteElement.classList.add('ring-yellow-300');
+    }
+
     // Resize handles
     const leftHandle = document.createElement('div');
     leftHandle.className = 'absolute left-0 top-0 bottom-0 w-2 bg-transparent cursor-w-resize';
@@ -1757,6 +1798,15 @@ function drawSequencerGrid() {
       }
     });
 
+    // Toggle selection on click if not dragging/resizing
+    noteElement.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!draggingNote) {
+        note.selected = !note.selected;
+        drawSequencerGrid();
+      }
+    });
+
     gridContent.appendChild(noteElement);
   });
 }
@@ -1766,7 +1816,8 @@ document.addEventListener('mousemove', (e) => {
   if (!draggingNote) return;
 
   const dx = e.clientX - dragStartX;
-  const timeOffset = dx / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60));
+  // Adjusting timeOffset so that increments are smaller
+  const timeOffset = dx / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60)) * 0.25;
 
   if (resizingEdge) {
     // Resizing
@@ -1786,7 +1837,8 @@ document.addEventListener('mousemove', (e) => {
     }
   } else {
     // Moving entire note in time & pitch
-    draggingNote.startTime = Math.max(dragOriginalStartTime + timeOffset, 0);
+    const newStart = Math.max(dragOriginalStartTime + timeOffset, 0);
+    draggingNote.startTime = newStart;
 
     const dy = e.clientY - dragStartY;
     const noteRowChange = Math.round(dy / SEQUENCER_CONFIG.noteHeight);
@@ -1807,6 +1859,8 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', () => {
   if (draggingNote) {
+    // After letting go, push history so we can undo/redo
+    pushHistory();
     draggingNote = null;
   }
   resizingEdge = null;
@@ -1824,7 +1878,7 @@ function startNoteRecording(x, y) {
   const now = audioContext ? audioContext.currentTime - audioStartTime : 0;
   const effectiveTime = isStepMode ? stepModeTime : now;
   
-  activeNotes.set(fullName, { noteName, octave, noteIndex, startTime: effectiveTime, x, y });
+  activeNotes.set(fullName, { noteName, octave, noteIndex, startTime: effectiveTime, x, y, selected: false });
 }
 
 function stopNoteRecording(x, y) {
@@ -1850,6 +1904,9 @@ function stopNoteRecording(x, y) {
       oscObj: null
     });
     activeNotes.delete(fullName);
+
+    // Each newly recorded note is a state change
+    pushHistory();
     drawSequencerGrid();
   }
 }
@@ -2067,12 +2124,14 @@ document.addEventListener("DOMContentLoaded", () => {
             isPlaying: false,
             oscObj: null,
             x: 0,
-            y: 0
+            y: 0,
+            selected: false
           });
         }
       });
       recordedNotes.sort((a,b) => a.startTime - b.startTime);
       stopPlayback();
+      pushHistory();
       drawSequencerGrid();
     };
     input.click();
@@ -2596,9 +2655,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tempoValue.textContent = `${val} BPM`;
   });
 
-  updateChordPaletteUI();
-
-  // Allow clicking anywhere on the sequencer grid to jump the cursor
+  // Clicking on sequencer grid to jump
   const sequencerGridEl = document.getElementById('sequencer-grid');
   sequencerGridEl.addEventListener('click', (e) => {
     const rect = sequencerGridEl.getBoundingClientRect();
@@ -2606,6 +2663,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const timeInSec = x / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60));
     jumpToTime(timeInSec);
   });
+
+  // Undo / Redo
+  document.getElementById('undo-btn').addEventListener('click', () => {
+    undo();
+  });
+  document.getElementById('redo-btn').addEventListener('click', () => {
+    redo();
+  });
+
+  // Delete selected notes
+  document.getElementById('delete-notes-btn').addEventListener('click', () => {
+    const oldLength = recordedNotes.length;
+    recordedNotes = recordedNotes.filter(n => !n.selected);
+    if (recordedNotes.length !== oldLength) {
+      pushHistory();
+      drawSequencerGrid();
+    }
+  });
+
+  updateChordPaletteUI();
 });
 
 // ==============================
