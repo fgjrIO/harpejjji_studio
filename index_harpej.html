@@ -84,6 +84,14 @@
       Key Mode: Toggle
     </button>
 
+    <!-- NEW: Advanced Config Button -->
+    <button
+      id="advancedConfigBtn"
+      class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+    >
+      Advanced Config
+    </button>
+
     <span class="text-gray-600 text-sm">
       Click any key to toggle a marker and play its note.
     </span>
@@ -126,6 +134,27 @@
   </div>
 </div>
 
+<!-- NEW: Advanced Config Slideover -->
+<div id="advancedConfigSlideover" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
+  <div class="absolute right-0 top-0 bottom-0 bg-white w-64 p-4 overflow-y-auto">
+    <h2 class="text-xl font-bold mb-4">Advanced Config</h2>
+    <button id="closeAdvancedConfigBtn" class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600">
+      Close
+    </button>
+
+    <!-- Cursor Color Picker -->
+    <div class="mb-4">
+      <label for="cursorColorPicker" class="block font-semibold mb-1">Cursor Color:</label>
+      <input 
+        type="color" 
+        id="cursorColorPicker"
+        value="#ffffff"
+        class="w-full h-10 border border-gray-300 rounded"
+      />
+    </div>
+  </div>
+</div>
+
 <!-- Sequencer (hidden by default; toggled by "Sequencer Mode" button) -->
 <div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600 hidden">
     <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2 items-center">
@@ -157,7 +186,7 @@
         </button>
         <input type="file" id="load-seq-file" class="hidden" accept=".json">
 
-        <!-- NEW: Song/Step Mode Toggle -->
+        <!-- Song/Step Mode Toggle -->
         <button
           id="mode-toggle-btn"
           class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
@@ -165,7 +194,7 @@
           Song Mode
         </button>
 
-        <!-- NEW: Bar/Beat + Jump -->
+        <!-- Bar/Beat + Jump -->
         <div class="flex items-center gap-2 ml-4">
           <label class="text-white text-sm">Bar:</label>
           <input
@@ -205,6 +234,7 @@
           onscroll="document.querySelector('#piano-roll-wrapper').style.transform = `translateY(-${this.scrollTop}px)`"
         >
             <div id="grid-content" class="absolute top-0 left-0"></div>
+            <!-- The playhead - We'll update style.backgroundColor to match cursor color -->
             <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
         </div>
     </div>
@@ -258,7 +288,7 @@ let BASE_OCTAVE = currentModel.startOctave;
 let svgWidth = stringSpacing * (numberOfStrings + 2);
 let svgHeight = fretSpacing * (numberOfFrets + 2);
 
-// Manage key states
+// We keep an array for each fret/string
 let keysState = [];
 function initKeysState() {
   keysState = [];
@@ -275,11 +305,10 @@ function initKeysState() {
 }
 initKeysState();
 
+// show/hide note names
 let showNotes = false;
 
-// ==============================
-// Instrument Selection
-// ==============================
+// Instrument selection
 const instrumentMap = {
   piano: "sine",
   guitar: "triangle",
@@ -288,27 +317,23 @@ const instrumentMap = {
 };
 let currentInstrument = "piano";
 
-// ==============================
-// Audio Synthesis Setup
-// ==============================
+// Audio
 let audioContext;
 let masterGainNode;
 
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   masterGainNode = audioContext.createGain();
-  masterGainNode.gain.value = 0.1; // Lower volume
+  masterGainNode.gain.value = 0.1; 
   masterGainNode.connect(audioContext.destination);
 }
 
-// We'll manage user‐played oscillators in a map (key = "x_y"):
+// user-played oscillators
 let activeUserOscillators = new Map();
 
 function createOscillator(frequency) {
   if (!audioContext) initAudio();
   const osc = audioContext.createOscillator();
-  
-  // wave type from instrument
   const waveType = instrumentMap[currentInstrument] || "sine";
   osc.type = waveType;
 
@@ -332,7 +357,6 @@ function stopOscillator({ osc, gain }) {
   }, 150);
 }
 
-// Convert note name + octave -> frequency
 function noteToFrequency(noteName, octave) {
   const noteIndex = NOTES.indexOf(noteName);
   if (noteIndex === -1) return 440;
@@ -342,9 +366,6 @@ function noteToFrequency(noteName, octave) {
   return 440 * Math.pow(2, semitones / 12);
 }
 
-// ==============================
-// Note Calculation
-// ==============================
 function getSemitonesFromBase(x, y) {
   return (x * 2) + y;
 }
@@ -368,9 +389,7 @@ function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
-// ==============================
-// Tablature Drawing
-// ==============================
+// Tablature draw
 function drawTablature() {
   svgWidth = stringSpacing * (numberOfStrings + 2);
   svgHeight = fretSpacing * (numberOfFrets + 2);
@@ -392,7 +411,7 @@ function drawTablature() {
   g.setAttribute("transform", `translate(${offsetX}, ${offsetY})`);
   svg.appendChild(g);
 
-  // Frets
+  // frets
   for (let y = 0; y <= numberOfFrets; y++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", 0);
@@ -404,7 +423,7 @@ function drawTablature() {
     g.appendChild(line);
   }
 
-  // Strings
+  // strings
   for (let x = 0; x < numberOfStrings; x++) {
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", x * stringSpacing + stringSpacing);
@@ -416,7 +435,7 @@ function drawTablature() {
     g.appendChild(line);
   }
 
-  // Border
+  // border
   const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
   borderRect.setAttribute("x", 0.5);
   borderRect.setAttribute("y", 0.5);
@@ -426,7 +445,7 @@ function drawTablature() {
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // Keys
+  // keys
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       const noteName = getNoteName(x, y);
@@ -478,9 +497,6 @@ function drawTablature() {
   }
 }
 
-// ==============================
-// Press vs Toggle Mode
-// ==============================
 let keyMode = 'toggle';
 
 function handleKeyDown(x, y) {
@@ -518,9 +534,7 @@ function handleKeyUp(x, y) {
   drawTablature();
 }
 
-// ==============================
 // Save/Load Tablature
-// ==============================
 function saveSelection() {
   const fileName = prompt("Enter a name for your selection:", "My Selection");
   if (!fileName) return;
@@ -612,9 +626,7 @@ function handleFileLoad() {
   input.click();
 }
 
-// ==============================
-// Library Slideover
-// ==============================
+// Library
 function toggleLibrary() {
   const slideover = document.getElementById("librarySlideover");
   slideover.classList.toggle("hidden");
@@ -752,9 +764,7 @@ function loadLibrary() {
   input.click();
 }
 
-// ==============================
-// Sequencer Configuration
-// ==============================
+// Sequencer
 const SEQUENCER_CONFIG = {
     pixelsPerBeat: 100,
     beatsPerBar: 4,
@@ -772,16 +782,15 @@ let recordedNotes = [];
 let playheadPosition = 0;
 let audioStartTime = 0;
 
-// For the piano roll
 let globalSortedNotes = [];
 let globalNoteToIndexMap = new Map();
 
 let metronomeContext;
 let metronomeGain;
 
-// NEW: Song or Step Mode
+// Song or Step Mode
 let isStepMode = false;
-let stepModeTime = 0.0; // in seconds
+let stepModeTime = 0.0; 
 
 function initMetronome() {
   if (!metronomeContext) {
@@ -805,6 +814,7 @@ function playMetronomeSound() {
   osc.stop(metronomeContext.currentTime + 0.05);
 }
 
+// unique notes
 function buildSortedNotesMapping() {
   let noteObjects = [];
   for (let y = 0; y < numberOfFrets; y++) {
@@ -935,7 +945,7 @@ function stopNoteRecording(x, y) {
 
     let duration = effectiveTime - activeNote.startTime;
     if (isStepMode && duration <= 0) {
-      duration = 60 / SEQUENCER_CONFIG.bpm;  // default 1 beat in step mode
+      duration = 60 / SEQUENCER_CONFIG.bpm;  // default 1 beat
     }
 
     recordedNotes.push({
@@ -949,35 +959,27 @@ function stopNoteRecording(x, y) {
   }
 }
 
-// MOUSE CLICK JUMP
+// jump by mouse
 document.addEventListener("DOMContentLoaded", () => {
   const sequencerGrid = document.getElementById("sequencer-grid");
   sequencerGrid.addEventListener("mousedown", e => {
-    // find offset x
     const rect = sequencerGrid.getBoundingClientRect();
     const offsetX = e.clientX - rect.left + sequencerGrid.scrollLeft;
-    // convert offsetX to time
-    // px / (ppBeat) => beats
     const beats = offsetX / SEQUENCER_CONFIG.pixelsPerBeat;
     const timeInSec = beats * (60 / SEQUENCER_CONFIG.bpm);
     jumpToTime(timeInSec);
   });
 });
 
-// For updating the bar/beat display in real-time
 function updateBarBeatDisplay(timeInSec) {
-  // totalBeats can be fractional
   const totalBeats = timeInSec * (SEQUENCER_CONFIG.bpm / 60);
   const bar = Math.floor(totalBeats / SEQUENCER_CONFIG.beatsPerBar) + 1;
   const beat = (totalBeats % SEQUENCER_CONFIG.beatsPerBar) + 1;
-
-  // show 2 decimal places for the beat
   document.getElementById('barInput').value = bar.toString();
   document.getElementById('beatInput').value = beat.toFixed(2);
 }
 
 function jumpToTime(timeInSec) {
-  // Stop any notes that might be playing
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
       stopOscillator(note.oscObj);
@@ -994,37 +996,25 @@ function jumpToTime(timeInSec) {
     const now = audioContext ? audioContext.currentTime : 0;
     audioStartTime = now - timeInSec;
   }
-  // update display
   updateBarBeatDisplay(timeInSec);
-
-  // In step mode, skip playback
-  // In song mode, we continue from new time
   updatePlayhead();
 }
 
 function updatePlayhead() {
   if (!isPlaying) {
-    // if not playing, just keep bar/beat display in sync
-    const timeToUse = isStepMode ? stepModeTime : 0;
     updateBarBeatDisplay(isStepMode ? stepModeTime : 0);
     return;
   }
-
-  // If in Step Mode, do NOT play notes automatically
   if (isStepMode) {
-    // Just update bar/beat display for the stepModeTime
     updateBarBeatDisplay(stepModeTime);
     requestAnimationFrame(updatePlayhead);
     return;
   }
 
   const now = audioContext.currentTime - audioStartTime;
-  const timeToUse = now;
-  
-  // update bar/beat
-  updateBarBeatDisplay(timeToUse);
+  updateBarBeatDisplay(now);
 
-  playheadPosition = (timeToUse * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
+  playheadPosition = (now * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
   
   const playhead = document.getElementById('playhead');
   playhead.style.left = `${playheadPosition}px`;
@@ -1039,7 +1029,7 @@ function updatePlayhead() {
     const noteStartTime = note.startTime;
     const noteEndTime = noteStartTime + note.duration;
     
-    if (timeToUse >= noteStartTime && timeToUse < noteEndTime) {
+    if (now >= noteStartTime && now < noteEndTime) {
       if (!note.isPlaying) {
         note.isPlaying = true;
         const freq = noteToFrequency(note.noteName, note.octave);
@@ -1049,7 +1039,7 @@ function updatePlayhead() {
         keysState[note.y][note.x].sequencerPlaying = true;
         drawTablature();
       }
-    } else if (timeToUse >= noteEndTime && note.isPlaying) {
+    } else if (now >= noteEndTime && note.isPlaying) {
       note.isPlaying = false;
       if (note.oscObj) {
         stopOscillator(note.oscObj);
@@ -1061,7 +1051,7 @@ function updatePlayhead() {
   });
 
   if (metronomeEnabled) {
-    const beatPosition = Math.floor(timeToUse * SEQUENCER_CONFIG.bpm / 60);
+    const beatPosition = Math.floor(now * SEQUENCER_CONFIG.bpm / 60);
     if (beatPosition > currentBeat) {
       currentBeat = beatPosition;
       playMetronomeSound();
@@ -1071,9 +1061,7 @@ function updatePlayhead() {
   requestAnimationFrame(updatePlayhead);
 }
 
-// ==============================
-// Transport Controls
-// ==============================
+// Transport
 function togglePlay() {
   if (!audioContext) initAudio();
   if (!metronomeContext) initMetronome();
@@ -1095,10 +1083,8 @@ function stopPlayback() {
   playBtn.classList.remove('bg-green-600');
   recordBtn.classList.remove('bg-red-600');
 
-  // Hide "Recording" indicator
   document.getElementById('record-indicator').classList.add('hidden');
 
-  // Reset playhead
   const playhead = document.getElementById('playhead');
   playhead.style.left = '0';
   playheadPosition = 0;
@@ -1112,8 +1098,6 @@ function stopPlayback() {
     }
   });
   drawTablature();
-
-  // Also refresh bar/beat display
   updateBarBeatDisplay(isStepMode ? stepModeTime : 0);
 }
 
@@ -1184,9 +1168,7 @@ function loadSequence() {
   input.click();
 }
 
-// ==============================
-// Toggle Sequencer Visibility
-// ==============================
+// Toggle Sequencer
 function toggleSequencerMode() {
   isSequencerModeOn = !isSequencerModeOn;
   const sequencerDiv = document.getElementById("sequencer");
@@ -1208,35 +1190,26 @@ function toggleKeyMode() {
   }
 }
 
-// ==============================
-// NEW: Toggle Song/Step Mode
-// ==============================
 function toggleSongStepMode() {
   isStepMode = !isStepMode;
   const modeBtn = document.getElementById('mode-toggle-btn');
   modeBtn.textContent = isStepMode ? 'Step Mode' : 'Song Mode';
 }
 
-// Convert bar/beat to time in seconds
 function barBeatToSeconds(barString, beatString) {
-  // parse bar/beat as floats
   const bar = parseFloat(barString) || 1;
   const beat = parseFloat(beatString) || 1;
-  
   const totalBeats = (bar - 1) * SEQUENCER_CONFIG.beatsPerBar + (beat - 1);
   const seconds = totalBeats * (60 / SEQUENCER_CONFIG.bpm);
   return seconds;
 }
 
 function jumpToPosition(barString, beatString) {
-  // compute time
-  const timeInSec = barBeatToSeconds(barString, beatString);
-  jumpToTime(timeInSec);
+  jumpToTime(barBeatToSeconds(barString, beatString));
 }
 
-// Jump to arbitrary time, used by clock or mouse
+// Jump to arbitrary time
 function jumpToTime(timeInSec) {
-  // Stop any notes that might be playing
   recordedNotes.forEach(note => {
     if (note.isPlaying && note.oscObj) {
       stopOscillator(note.oscObj);
@@ -1258,7 +1231,6 @@ function jumpToTime(timeInSec) {
   updatePlayhead();
 }
 
-// For showing bar/beat in the UI
 function updateBarBeatDisplay(timeInSec) {
   const totalBeats = timeInSec * (SEQUENCER_CONFIG.bpm / 60);
   const bar = Math.floor(totalBeats / SEQUENCER_CONFIG.beatsPerBar) + 1;
@@ -1308,7 +1280,7 @@ document.addEventListener("DOMContentLoaded", () => {
     drawTablature();
   });
 
-  // Save/Load Tablature
+  // Tablature Save/Load
   document.getElementById("saveBtn").addEventListener("click", saveSelection);
   document.getElementById("loadBtn").addEventListener("click", handleFileLoad);
 
@@ -1325,7 +1297,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Sequencer controls
+  // Sequencer
   document.getElementById('play-btn').addEventListener('click', togglePlay);
   document.getElementById('stop-btn').addEventListener('click', stopPlayback);
   document.getElementById('record-btn').addEventListener('click', toggleRecord);
@@ -1333,19 +1305,38 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
   document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
 
-  // Show/hide the sequencer
   document.getElementById('toggleSequencerModeBtn').addEventListener('click', toggleSequencerMode);
-  // Key mode
   document.getElementById('toggleKeyModeBtn').addEventListener('click', toggleKeyMode);
 
-  // Song/Step mode toggle
   document.getElementById('mode-toggle-btn').addEventListener('click', toggleSongStepMode);
 
-  // Jump button
   document.getElementById('jump-btn').addEventListener('click', () => {
     const barVal = document.getElementById('barInput').value;
     const beatVal = document.getElementById('beatInput').value;
     jumpToPosition(barVal, beatVal);
+  });
+
+  // ==============================
+  // ADVANCED CONFIG
+  // ==============================
+  const advancedConfigBtn = document.getElementById("advancedConfigBtn");
+  const advancedConfigSlideover = document.getElementById("advancedConfigSlideover");
+  const closeAdvancedConfigBtn = document.getElementById("closeAdvancedConfigBtn");
+  const cursorColorPicker = document.getElementById("cursorColorPicker");
+
+  // Toggle the advanced config slideover
+  advancedConfigBtn.addEventListener("click", () => {
+    advancedConfigSlideover.classList.toggle("hidden");
+  });
+  closeAdvancedConfigBtn.addEventListener("click", () => {
+    advancedConfigSlideover.classList.add("hidden");
+  });
+
+  // Listen for cursor color changes
+  cursorColorPicker.addEventListener("input", (e) => {
+    // Apply the chosen color to the #playhead
+    const color = e.target.value;
+    document.getElementById("playhead").style.backgroundColor = color;
   });
 });
 </script>
