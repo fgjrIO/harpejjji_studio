@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <title>Harpejji Tablature Emulation (Plain JS + Tailwind)</title>
-  <!-- Tailwind CSS (via CDN) 1-->
+  <!-- Tailwind CSS (via CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 pb-[350px]">
-<div class="max-w-5xl mx-auto bg-white rounded shadow p-4">
+<div class="max-w-6xl mx-auto bg-white rounded shadow p-4">
   <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
 
   <!-- NEW: Reverb, Delay, and Tempo Sliders at the top -->
@@ -84,6 +84,42 @@
       </select>
     </div>
 
+    <!-- Scale Selector -->
+    <div class="flex items-center gap-2">
+      <label for="scaleSelect" class="text-gray-700">Scale:</label>
+      <select 
+        id="scaleSelect"
+        class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+      >
+        <!-- We'll populate this dynamically, but here's a fallback default -->
+        <option value="none">None</option>
+        <option value="Major">Major</option>
+        <option value="Minor">Minor</option>
+      </select>
+    </div>
+
+    <!-- Root Note Selector -->
+    <div class="flex items-center gap-2">
+      <label for="rootSelect" class="text-gray-700">Root:</label>
+      <select 
+        id="rootSelect"
+        class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      >
+        <option value="C">C</option>
+        <option value="C#">C#</option>
+        <option value="D">D</option>
+        <option value="D#">D#</option>
+        <option value="E">E</option>
+        <option value="F">F</option>
+        <option value="F#">F#</option>
+        <option value="G">G</option>
+        <option value="G#">G#</option>
+        <option value="A" selected>A</option>
+        <option value="A#">A#</option>
+        <option value="B">B</option>
+      </select>
+    </div>
+
     <button 
       id="toggleNotesBtn"
       class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
@@ -127,6 +163,14 @@
       class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
     >
       Key Mode: Toggle
+    </button>
+
+    <!-- NEW: Kill Notes Button -->
+    <button
+      id="killNotesBtn"
+      class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+    >
+      Kill Notes
     </button>
 
     <!-- NEW: Advanced Config Button -->
@@ -304,7 +348,7 @@
       />
     </div>
 
-    <!-- NEW: Vertical Row Spacing -->
+    <!-- Row Spacing -->
     <div class="mb-4">
       <label for="rowSpacingRange" class="block font-semibold mb-1">Row Spacing:</label>
       <input 
@@ -319,7 +363,47 @@
       <span id="rowSpacingValue" class="text-gray-700 text-sm">30 px</span>
     </div>
 
-    <!-- NEW: Save Project + Load Project Buttons -->
+    <!-- NEW: Scale Highlight Color & Transparency -->
+    <div class="mb-4">
+      <label for="scaleHighlightColor" class="block font-semibold mb-1">Scale Highlight Color:</label>
+      <input 
+        type="color"
+        id="scaleHighlightColor"
+        value="#ffc107"  <!-- Default: a yellowish color -->
+        class="w-full h-10 border border-gray-300 rounded"
+      />
+    </div>
+    <div class="mb-4">
+      <label for="scaleHighlightAlpha" class="block font-semibold mb-1">Scale Highlight Alpha:</label>
+      <input 
+        type="range"
+        id="scaleHighlightAlpha"
+        min="0"
+        max="1"
+        step="0.01"
+        value="0.3"
+        class="w-full"
+      />
+      <span id="scaleHighlightAlphaValue" class="text-gray-700 text-sm">0.3</span>
+    </div>
+
+    <!-- NEW: Import Scale File + (Store internally) -->
+    <div class="space-y-2 mt-4">
+      <button
+        id="importScalesBtn"
+        class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 w-full"
+      >
+        Import Scales
+      </button>
+      <input 
+        type="file" 
+        id="scaleFileInput" 
+        class="hidden" 
+        accept=".json"
+      />
+    </div>
+
+    <!-- Save Project + Load Project Buttons -->
     <div class="space-y-2 mt-4">
       <button
         id="saveProjectBtn"
@@ -346,7 +430,6 @@
 <!-- Sequencer (hidden by default; toggled by "Sequencer Mode" button) -->
 <div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600 hidden">
     <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2 items-center">
-
         <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
             Play
         </button>
@@ -362,7 +445,6 @@
         >
           RECORDING
         </span>
-
         <button id="metronome-btn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
             Metronome
         </button>
@@ -373,7 +455,6 @@
             Load
         </button>
         <input type="file" id="load-seq-file" class="hidden" accept=".json">
-
         <!-- NEW: Import MIDI Button -->
         <button 
           id="import-midi-btn"
@@ -390,7 +471,6 @@
         >
           Song Mode
         </button>
-
         <!-- NEW: Select Mode Toggle -->
         <button
           id="select-mode-btn"
@@ -426,16 +506,13 @@
     
     <div class="flex h-[calc(100%-68px)]">
         <!-- Piano Roll -->
-        <!-- (1) Keep overflow-hidden so keys never spill out -->
         <div class="w-[100px] bg-gray-900 h-full relative overflow-hidden">
-            <!-- #piano-roll-wrapper is absolutely positioned so we can transform it -->
             <div id="piano-roll-wrapper" class="absolute inset-0">
                 <div id="piano-keys" class="w-full"></div>
             </div>
         </div>
         
         <!-- Sequencer Grid -->
-        <!-- (1) Replaced template literal with normal string concatenation to avoid error -->
         <div 
           id="sequencer-grid" 
           class="flex-1 relative overflow-auto bg-gray-900" 
@@ -449,6 +526,16 @@
 </div>
 
 <script>
+// ==============================
+// Some default built-in scales
+// ==============================
+let loadedScales = {
+  "Major": [2, 2, 1, 2, 2, 2, 1],   // (Ionian)
+  "Minor": [2, 1, 2, 2, 1, 2, 2],   // (Natural minor)
+  // Add more if you want...
+};
+// "None" scale means no highlighting
+
 // ==============================
 // Configuration
 // ==============================
@@ -479,21 +566,20 @@ const MODELS = {
   }
 };
 
-// Each column (left to right) => +2 semitones
-// Each row (bottom to top) => +1 semitone
+// Each column => +2 semitones
+// Each row => +1 semitone
 function getSemitonesFromBase(x, y) {
   return (x * 2) + (y * 1);
 }
 
 // Global for fret spacing (vertical separation)
 let fretSpacing = 30;   
-const stringSpacing = 30; // horizontal spacing in pixels
-const keyHeight = 25;     // height of each key rectangle
+const stringSpacing = 30; 
+const keyHeight = 25;     
 
-// The notes array:
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-// Current model and configuration
+// Current model
 let currentModel = MODELS.K24;
 let numberOfFrets = currentModel.numberOfFrets;
 let numberOfStrings = currentModel.numberOfStrings;
@@ -519,7 +605,6 @@ initKeysState();
 
 // show/hide note names
 let showNotes = false;
-
 // Instrument selection
 const instrumentMap = {
   piano: "sine",
@@ -532,28 +617,58 @@ let currentInstrument = "piano";
 // Audio
 let audioContext;
 let masterGainNode;
-
-// NEW: Delay / Reverb nodes
 let delayNode;
 let delayGain;
 let reverbConvolver;
 let reverbGain;
+
+// user-played oscillators
+let activeUserOscillators = new Map();
+
+// Scale Mode
+let currentScale = "none";
+let currentRoot = "A";
+let scaleHighlightColor = "#ffc107";
+let scaleHighlightAlpha = 0.3;
+
+/** 
+ * Generate a set of pitch classes (semitones) for the selected scale, 
+ * relative to the chosen root.
+ */
+function getScaleSemitones(scaleName, rootNote) {
+  if (!scaleName || scaleName === "none") return new Set(); 
+  if (!loadedScales[scaleName]) return new Set();
+
+  const intervals = loadedScales[scaleName];
+  // Build scale from root
+  const rootIndex = NOTES.indexOf(rootNote);
+  if (rootIndex === -1) return new Set();
+
+  // We'll build a full octave set (0..11)
+  let semitonesSet = new Set();
+  let currentPos = 0;
+  semitonesSet.add(rootIndex % 12);
+  intervals.forEach(interval => {
+    currentPos += interval;
+    semitonesSet.add( (rootIndex + currentPos) % 12 );
+  });
+  return semitonesSet;
+}
 
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   masterGainNode = audioContext.createGain();
   masterGainNode.gain.value = 0.1;
 
-  // Create a Delay node (max delay 5s) and a gain for the delayed signal.
   delayNode = audioContext.createDelay(5.0);
   delayGain = audioContext.createGain();
-  delayGain.gain.value = 0; // 0 by default (no delay heard)
+  delayGain.gain.value = 0;
   delayNode.connect(delayGain);
   delayGain.connect(masterGainNode);
 
-  // Create a Convolver for simple reverb
+  // Convolver for reverb
   reverbConvolver = audioContext.createConvolver();
-  // Generate a simple impulse response:
+  // A simple impulse response
   const length = audioContext.sampleRate * 1.0; 
   const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
   for (let c = 0; c < 2; c++) {
@@ -564,18 +679,13 @@ function initAudio() {
   }
   reverbConvolver.buffer = impulse;
 
-  // Gain for reverb
   reverbGain = audioContext.createGain();
-  reverbGain.gain.value = 0; // 0 by default (no reverb heard)
+  reverbGain.gain.value = 0;
   reverbConvolver.connect(reverbGain);
   reverbGain.connect(masterGainNode);
 
-  // Finally, connect to output
   masterGainNode.connect(audioContext.destination);
 }
-
-// user-played oscillators
-let activeUserOscillators = new Map();
 
 function createOscillator(frequency) {
   if (!audioContext) initAudio();
@@ -587,7 +697,8 @@ function createOscillator(frequency) {
   gain.gain.value = 0.5;
 
   osc.frequency.value = frequency;
-  // Connect the oscillator's gain to masterGain, plus parallel to delay & reverb
+
+  // Connect the oscillator's gain to masterGain, delay, reverb
   osc.connect(gain);
   gain.connect(masterGainNode);
   gain.connect(delayNode);
@@ -607,11 +718,29 @@ function stopOscillator({ osc, gain }) {
   }, 150);
 }
 
+function killAllNotes() {
+  // Stop user-oscillators
+  for (let [key, oscObj] of activeUserOscillators.entries()) {
+    stopOscillator(oscObj);
+  }
+  activeUserOscillators.clear();
+
+  // Also stop any sequencer notes in mid-play
+  recordedNotes.forEach(note => {
+    if (note.isPlaying && note.oscObj) {
+      stopOscillator(note.oscObj);
+      note.oscObj = null;
+      note.isPlaying = false;
+      keysState[note.y][note.x].sequencerPlaying = false;
+    }
+  });
+  drawTablature();
+}
+
 function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
-// Convert note name + octave to frequency
 function noteToFrequency(noteName, octave) {
   const noteIndex = NOTES.indexOf(noteName);
   if (noteIndex === -1) return 440;
@@ -621,7 +750,6 @@ function noteToFrequency(noteName, octave) {
   return 440 * Math.pow(2, semitones / 12);
 }
 
-// Compute the note name at grid (x,y)
 function getNoteName(x, y) {
   const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
   const semitones = getSemitonesFromBase(x, y);
@@ -629,7 +757,6 @@ function getNoteName(x, y) {
   return NOTES[noteIndex];
 }
 
-// Compute the note octave at grid (x,y)
 function getNoteOctave(x, y) {
   const baseNoteIndex = NOTES.indexOf(BASE_NOTE);
   const semitones = getSemitonesFromBase(x, y);
@@ -638,7 +765,6 @@ function getNoteOctave(x, y) {
   return BASE_OCTAVE + octaveShift;
 }
 
-// Should this note be "black" key color?
 function isBlackNote(noteName) {
   return noteName.includes("#");
 }
@@ -647,16 +773,13 @@ function isBlackNote(noteName) {
 // Draw Tablature
 // ==============================
 function drawTablature() {
-  // We expand slightly so the right side isn't cut off
   const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
   const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
-
   const svg = document.getElementById("tablature");
   svg.setAttribute("width", totalWidth);
   svg.setAttribute("height", totalHeight);
   svg.innerHTML = "";
 
-  // Background
   const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
   bg.setAttribute("width", "100%");
   bg.setAttribute("height", "100%");
@@ -666,7 +789,7 @@ function drawTablature() {
   const g = document.createElementNS("http://www.w3.org/2000/svg","g");
   svg.appendChild(g);
 
-  // Draw horizontal fret lines (bottom to top)
+  // Draw horizontal fret lines
   for (let row = 0; row <= numberOfFrets; row++) {
     const lineY = row * fretSpacing + fretSpacing/2;
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
@@ -692,7 +815,7 @@ function drawTablature() {
     g.appendChild(line);
   }
 
-  // Draw border
+  // Border
   const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
   borderRect.setAttribute("x", 0.5);
   borderRect.setAttribute("y", 0.5);
@@ -702,16 +825,22 @@ function drawTablature() {
   borderRect.setAttribute("stroke", "black");
   g.appendChild(borderRect);
 
-  // Now draw keys
+  // Get the scale semitones set
+  const scaleSet = getScaleSemitones(currentScale, currentRoot);
+  // We'll highlight if note's pitch class (mod 12) is in scaleSet
+
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       const noteName = getNoteName(x, y);
       const octave   = getNoteOctave(x, y);
       const blackKey = isBlackNote(noteName);
+      
+      // Note's pitch class
+      const noteIndex = NOTES.indexOf(noteName);
+      const inScale = scaleSet.has(noteIndex);
 
       const yPos = (totalHeight - ((y * fretSpacing) + fretSpacing/2)) - keyHeight;
       const xPos = (x * stringSpacing) + stringSpacing - 7.5;
-
       const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
       keyGroup.setAttribute("transform", `translate(${xPos}, ${yPos})`);
 
@@ -723,7 +852,23 @@ function drawTablature() {
       rect.setAttribute("stroke", "#666");
       rect.setAttribute("stroke-width", "1");
       rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
-      keyGroup.appendChild(rect);
+      // If in scale, apply highlight overlay
+      if (inScale) {
+        rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
+        rect.setAttribute("fill-opacity", "1");
+        // We'll draw a translucent overlay on top
+        const highlightRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+        highlightRect.setAttribute("x", 0);
+        highlightRect.setAttribute("y", 0);
+        highlightRect.setAttribute("width", 15);
+        highlightRect.setAttribute("height", keyHeight);
+        highlightRect.setAttribute("fill", scaleHighlightColor);
+        highlightRect.setAttribute("fill-opacity", scaleHighlightAlpha.toString());
+        keyGroup.appendChild(rect);
+        keyGroup.appendChild(highlightRect);
+      } else {
+        keyGroup.appendChild(rect);
+      }
 
       const stateObj = keysState[y][x];
       if (stateObj.marker || stateObj.pressing || stateObj.sequencerPlaying) {
@@ -753,20 +898,18 @@ function drawTablature() {
       keyGroup.addEventListener("mouseup",   () => handleKeyUp(x, y));
       keyGroup.addEventListener("mouseleave",() => handleKeyUp(x, y));
 
-      // If we are in select mode and waiting for a user to pick a harpejji key,
-      // we'll handle it in a global check (highlightPossibleKeys).
+      // Check if we're in "select mode" for sequencer pitch mapping
       keyGroup.addEventListener("click", () => {
         if (awaitingMappingPitch !== null) {
-          // Check if this (x,y) is in the highlight for that pitch
-          const pitch = awaitingMappingPitch;
-          if (pitchPossiblePositions[pitch]) {
-            // find if (x,y) matches
-            const found = pitchPossiblePositions[pitch].find(pos => pos.x===x && pos.y===y);
+          // see if (x,y) is in that pitch's highlight
+          if (pitchPossiblePositions[awaitingMappingPitch]) {
+            const found = pitchPossiblePositions[awaitingMappingPitch]
+              .find(pos => pos.x===x && pos.y===y);
             if (found) {
-              pitchMappings[pitch] = { x, y };
+              pitchMappings[awaitingMappingPitch] = { x, y };
               // Clear highlight
-              pitchPossiblePositions[pitch].forEach(pos => {
-                keysState[pos.y][pos.x].marker = false; // remove highlight marker
+              pitchPossiblePositions[awaitingMappingPitch].forEach(pos => {
+                keysState[pos.y][pos.x].marker = false;
               });
               drawTablature();
               awaitingMappingPitch = null;
@@ -783,20 +926,13 @@ function drawTablature() {
 let keyMode = 'toggle';
 
 // ==============================
-// CHORD PALETTE SETUP
+// CHORD PALETTE
 // ==============================
-/**
- * Store for each chord:
- * {
- *   name: "Chord X",
- *   keys: [{x, y, noteName, octave}, ...]
- * }
- */
 let chordSlots = Array(8).fill(null).map((_, i) => ({
   name: `Chord ${i+1}`,
   keys: []
 }));
-let chordRecordIndex = -1; // which chord slot is currently in record mode, -1 if none
+let chordRecordIndex = -1;
 
 function toggleChordRecord(index) {
   chordRecordIndex = (chordRecordIndex === index) ? -1 : index;
@@ -816,21 +952,18 @@ function renameChordSlot(index) {
   }
 }
 
-/** Record the exact x,y pressed (plus note name / octave if needed) */
 function recordChordNoteIfNeeded(x, y) {
   if (chordRecordIndex === -1) return;
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
 
   const chord = chordSlots[chordRecordIndex];
-  // Avoid duplicates
   const existing = chord.keys.find(k => k.x === x && k.y === y);
   if (!existing) {
     chord.keys.push({ x, y, noteName, octave });
   }
 }
 
-/** If a file is loaded while chord record is on, use the newly loaded markers to define the chord. */
 function setChordNotesFromKeysState(index) {
   const chord = chordSlots[index];
   chord.keys = [];
@@ -849,7 +982,6 @@ function setChordNotesFromKeysState(index) {
   updateChordPaletteUI();
 }
 
-/** Press mode: hold chord button => keys "press" until mouse up */
 function chordPressDown(chordIndex) {
   const chord = chordSlots[chordIndex];
   chord.keys.forEach(keyData => {
@@ -864,7 +996,6 @@ function chordPressUp(chordIndex) {
   });
 }
 
-/** Toggle mode: single click => toggle chord notes */
 function chordToggle(chordIndex) {
   const chord = chordSlots[chordIndex];
   chord.keys.forEach(keyData => {
@@ -875,7 +1006,6 @@ function chordToggle(chordIndex) {
   });
 }
 
-/** Update chord palette UI to show which chord is in record mode and reflect chord names */
 function updateChordPaletteUI() {
   const recordButtons = document.querySelectorAll('.chord-record-btn');
   recordButtons.forEach(btn => {
@@ -900,7 +1030,7 @@ function updateChordPaletteUI() {
 }
 
 // ==============================
-// Handle Key Pressing
+// Key Handling
 // ==============================
 function handleKeyDownProgrammatically(x, y) {
   const noteName = getNoteName(x, y);
@@ -949,9 +1079,7 @@ function handleKeyDown(x, y) {
     keysState[y][x].pressing = true;
   }
 
-  // Also record chord note if chordRecordIndex != -1
   recordChordNoteIfNeeded(x, y);
-
   startNoteRecording(x, y);
   drawTablature();
 }
@@ -963,12 +1091,10 @@ function handleKeyUp(x, y) {
     stopOscillator(oscObj);
     activeUserOscillators.delete(keyStr);
   }
-
   if (keyMode === 'press') {
     keysState[y][x].pressing = false;
   }
   stopNoteRecording(x, y);
-
   drawTablature();
 }
 
@@ -979,7 +1105,6 @@ function saveSelection() {
   const fileName = prompt("Enter a name for your selection:", "My Selection");
   if (!fileName) return;
 
-  // Collect plain-text info of marked notes:
   const plainTextNotes = [];
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
@@ -1028,7 +1153,7 @@ function saveSelection() {
     savedSelections.push(data);
     localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
 
-    // Also download file
+    // Also download
     const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1043,31 +1168,25 @@ function saveSelection() {
 }
 
 function loadSelection(data) {
-  const modelSelect = document.getElementById("modelSelect");
   modelSelect.value = data.model;
-  
   if (data.modelData) {
     currentModel = data.modelData;
   } else {
     currentModel = MODELS[data.model];
   }
-  
   numberOfStrings = currentModel.numberOfStrings;
   numberOfFrets = currentModel.numberOfFrets;
   BASE_NOTE = currentModel.startNote;
   BASE_OCTAVE = currentModel.startOctave;
-  
+
   keysState = data.keysState;
-  
   drawTablature();
   drawPianoRoll();
   drawSequencerGrid();
-  
-  // If a chord slot is in record mode, use the loaded markers to set that chord's notes
+
   if (chordRecordIndex !== -1) {
     setChordNotesFromKeysState(chordRecordIndex);
   }
-
   toggleLibrary();
 }
 
@@ -1124,12 +1243,12 @@ function populateLibrary() {
             ${selection.date || ""} ${selection.time || ""}
           </span>
         </div>
+        ${
+          selection.notesPlainText && selection.notesPlainText.length
+            ? `<div class="text-xs whitespace-pre-wrap mt-1">${selection.notesPlainText.join("\n")}</div>`
+            : ""
+        }
       </div>
-      ${
-        selection.notesPlainText && selection.notesPlainText.length
-          ? `<div class="text-xs whitespace-pre-wrap mt-1">${selection.notesPlainText.join("\n")}</div>`
-          : ""
-      }
     `;
     div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
     div.querySelector('.delete-btn').addEventListener('click', (e) => {
@@ -1164,13 +1283,13 @@ function importFiles() {
         try {
           const data = JSON.parse(e.target.result);
           savedSelections.push(data);
-          processed++;
-          if (processed === files.length) {
-            localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
-            populateLibrary();
-          }
         } catch (error) {
           console.error('Error importing file:', error);
+        }
+        processed++;
+        if (processed === files.length) {
+          localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
+          populateLibrary();
         }
       };
       reader.readAsText(file);
@@ -1185,7 +1304,6 @@ function saveLibrary() {
     alert('No selections to save');
     return;
   }
-  // Ensure each selection has complete model data
   const completeLibrary = savedSelections.map(selection => {
     if (!selection.modelData) {
       const model = MODELS[selection.model];
@@ -1240,11 +1358,11 @@ function loadLibrary() {
 // Sequencer
 // ==============================
 const SEQUENCER_CONFIG = {
-    pixelsPerBeat: 100,
-    beatsPerBar: 4,
-    bpm: 120,
-    totalBars: 16,
-    noteHeight: 20,
+  pixelsPerBeat: 100,
+  beatsPerBar: 4,
+  bpm: 120,
+  totalBars: 16,
+  noteHeight: 20,
 };
 
 let isSequencerModeOn = false;
@@ -1262,18 +1380,20 @@ let globalNoteToIndexMap = new Map();
 let metronomeContext;
 let metronomeGain;
 
-// Song or Step Mode
 let isStepMode = false;
-let stepModeTime = 0.0; 
-
-// NEW: Select Mode
+let stepModeTime = 0.0;
 let isSelectMode = false;
-// For storing multiple possible positions for a given pitch
 let pitchPossiblePositions = {};
-// For storing user's chosen mapping for pitch
 let pitchMappings = {};
-// We'll store the pitch we are currently assigning
 let awaitingMappingPitch = null;
+
+// For dragging/moving notes in the sequencer
+let draggingNote = null;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragOriginalStartTime = 0;
+let dragOriginalNoteIndex = 0;
+let resizingEdge = null; // 'left' or 'right'
 
 function initMetronome() {
   if (!metronomeContext) {
@@ -1298,8 +1418,6 @@ function playMetronomeSound() {
 }
 
 function buildSortedNotesMapping() {
-  let noteObjects = [];
-  // We'll collect *all* pitch positions so we can allow multiple mappings
   let multiMap = {};
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
@@ -1313,23 +1431,18 @@ function buildSortedNotesMapping() {
     }
   }
 
-  // We'll create a "primary" pitch map for the piano roll
-  // using the first found occurrence of that pitch
   let pitchMap = new Map();
   Object.keys(multiMap).forEach(p => {
     const pitch = parseInt(p, 10);
-    // take first as "representative"
     const rep = multiMap[pitch][0];
     pitchMap.set(pitch, rep);
   });
 
-  // Now build an array from the pitchMap
   let uniqueNotes = Array.from(pitchMap.keys()).map(pitch => {
     const obj = pitchMap.get(pitch);
     return { noteName: obj.noteName, octave: obj.octave, pitch: pitch, x: obj.x, y: obj.y };
   });
 
-  // sort descending so highest pitch is at top
   uniqueNotes.sort((a, b) => b.pitch - a.pitch);
 
   globalSortedNotes = uniqueNotes;
@@ -1339,11 +1452,7 @@ function buildSortedNotesMapping() {
     globalNoteToIndexMap.set(fullName, index);
   });
 
-  // Also store pitchPossiblePositions
-  pitchPossiblePositions = {};
-  Object.keys(multiMap).forEach(strPitch => {
-    pitchPossiblePositions[strPitch] = multiMap[strPitch];
-  });
+  pitchPossiblePositions = multiMap;
 }
 
 function getMIDINumber(noteName, octave) {
@@ -1372,7 +1481,6 @@ function drawPianoRoll() {
   const totalHeight = globalSortedNotes.length * SEQUENCER_CONFIG.noteHeight;
   pianoKeysContainer.style.height = `${totalHeight}px`;
 
-  // (1) Also set #piano-roll-wrapper height so we can transform it without overflowing
   const pianoRollWrapper = document.getElementById('piano-roll-wrapper');
   pianoRollWrapper.style.height = `${totalHeight}px`;
 }
@@ -1404,10 +1512,11 @@ function drawSequencerGrid() {
     line.style.top = `${i * SEQUENCER_CONFIG.noteHeight}px`;
     gridContent.appendChild(line);
   }
-  // Recorded notes
-  recordedNotes.forEach(note => {
+
+  // Painted notes
+  recordedNotes.forEach((note, idx) => {
     const noteElement = document.createElement('div');
-    noteElement.className = 'absolute bg-blue-500 opacity-75 rounded';
+    noteElement.className = 'absolute bg-blue-500 opacity-75 rounded cursor-pointer note-event';
 
     const leftPx = note.startTime * (SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
     const widthPx = note.duration * (SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
@@ -1418,13 +1527,36 @@ function drawSequencerGrid() {
     noteElement.style.width = `${widthPx}px`;
     noteElement.style.height = `${SEQUENCER_CONFIG.noteHeight}px`;
 
-    // If in select mode, clicking on this note should highlight possible keys
-    noteElement.addEventListener('click', (e) => {
-      if (isSelectMode) {
-        // We want to highlight all possible positions for this note's pitch
-        e.stopPropagation();
-        const pitch = note.pitch;
-        highlightPossibleKeysForPitch(pitch);
+    noteElement.dataset.noteIdx = idx; // store index in dataset
+
+    // Add small "handles" for resizing (left & right)
+    const leftHandle = document.createElement('div');
+    leftHandle.className = 'absolute left-0 top-0 bottom-0 w-2 bg-transparent cursor-w-resize';
+    noteElement.appendChild(leftHandle);
+
+    const rightHandle = document.createElement('div');
+    rightHandle.className = 'absolute right-0 top-0 bottom-0 w-2 bg-transparent cursor-e-resize';
+    noteElement.appendChild(rightHandle);
+
+    // Mousedown logic for dragging or resizing
+    noteElement.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+
+      const rect = noteElement.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+
+      draggingNote = note;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragOriginalStartTime = note.startTime;
+      dragOriginalNoteIndex = note.noteIndex;
+      resizingEdge = null; // default
+
+      // Check if near left or right edge for resizing
+      if (offsetX < 5) {
+        resizingEdge = 'left';
+      } else if (offsetX > rect.width - 5) {
+        resizingEdge = 'right';
       }
     });
 
@@ -1432,33 +1564,70 @@ function drawSequencerGrid() {
   });
 }
 
-// highlight all possible keys for a pitch
-function highlightPossibleKeysForPitch(pitch) {
-  // un-highlight old
-  for (let fy = 0; fy < numberOfFrets; fy++) {
-    for (let fx = 0; fx < numberOfStrings; fx++) {
-      // remove any highlight if present
-      if (keysState[fy][fx].marker) {
-        keysState[fy][fx].marker = false;
+// Mousemove / mouseup for note dragging
+document.addEventListener('mousemove', (e) => {
+  if (!draggingNote) return;
+
+  const dx = e.clientX - dragStartX;
+  // Convert dx to time
+  const timeOffset = dx / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60));
+
+  if (resizingEdge) {
+    // Resizing note
+    if (resizingEdge === 'left') {
+      // new startTime
+      const newStartTime = Math.max(dragOriginalStartTime + timeOffset, 0);
+      const oldEnd = draggingNote.startTime + draggingNote.duration;
+      draggingNote.duration = oldEnd - newStartTime;
+      draggingNote.startTime = newStartTime;
+      if (draggingNote.duration < 0.05) {
+        // minimal note length
+        draggingNote.duration = 0.05;
+      }
+    } else {
+      // 'right' resizing
+      const newDuration = draggingNote.duration + timeOffset;
+      if (newDuration > 0.05) {
+        draggingNote.duration = newDuration;
       }
     }
-  }
+  } else {
+    // Moving entire note
+    // Move in time
+    draggingNote.startTime = Math.max(dragOriginalStartTime + timeOffset, 0);
 
-  // highlight new
-  if (pitchPossiblePositions[pitch]) {
-    pitchPossiblePositions[pitch].forEach(pos => {
-      keysState[pos.y][pos.x].marker = true;
-    });
-    awaitingMappingPitch = pitch;
+    // Move in pitch vertically if user moves the mouse up/down enough
+    const dy = e.clientY - dragStartY;
+    const noteRowChange = Math.round(dy / SEQUENCER_CONFIG.noteHeight);
+    let newIndex = dragOriginalNoteIndex + noteRowChange;
+    newIndex = Math.max(0, Math.min(newIndex, globalSortedNotes.length - 1));
+    draggingNote.noteIndex = newIndex;
+    // Update the (x,y) for that note if we haven't mapped it
+    // The direct x,y might be irrelevant if user uses a custom mapping, 
+    // but let's store the default to keep consistent if no custom mapping
+    const newPitchObj = globalSortedNotes[newIndex];
+    if (newPitchObj) {
+      draggingNote.noteName = newPitchObj.noteName;
+      draggingNote.octave = newPitchObj.octave;
+      draggingNote.pitch = newPitchObj.pitch;
+      draggingNote.x = newPitchObj.x;
+      draggingNote.y = newPitchObj.y;
+    }
   }
-  drawTablature();
-}
+  drawSequencerGrid();
+});
 
-let activeNotes = new Map();
+document.addEventListener('mouseup', () => {
+  if (draggingNote) {
+    draggingNote = null;
+  }
+  resizingEdge = null;
+});
+
+// End of drag
 
 function startNoteRecording(x, y) {
   if (!isRecording) return;
-  
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
   const fullName = noteName + octave;
@@ -1474,7 +1643,6 @@ function startNoteRecording(x, y) {
 
 function stopNoteRecording(x, y) {
   if (!isRecording) return;
-  
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
   const fullName = noteName + octave;
@@ -1486,7 +1654,7 @@ function stopNoteRecording(x, y) {
 
     let duration = effectiveTime - activeNote.startTime;
     if (isStepMode && duration <= 0) {
-      duration = 60 / SEQUENCER_CONFIG.bpm;  // default 1 beat
+      duration = 60 / SEQUENCER_CONFIG.bpm;  // fallback 1 beat
     }
 
     recordedNotes.push({
@@ -1500,600 +1668,6 @@ function stopNoteRecording(x, y) {
   }
 }
 
-// (2) Ensure clicking on the grid always moves the cursor, even if not playing/recording
-document.addEventListener("DOMContentLoaded", () => {
-  const sequencerGrid = document.getElementById("sequencer-grid");
-  sequencerGrid.addEventListener("mousedown", e => {
-    const rect = sequencerGrid.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left + sequencerGrid.scrollLeft;
-    const beats = offsetX / SEQUENCER_CONFIG.pixelsPerBeat;
-    const timeInSec = beats * (60 / SEQUENCER_CONFIG.bpm);
-    jumpToTime(timeInSec);
-  });
-});
-
-function updateBarBeatDisplay(timeInSec) {
-  const totalBeats = timeInSec * (SEQUENCER_CONFIG.bpm / 60);
-  const bar = Math.floor(totalBeats / SEQUENCER_CONFIG.beatsPerBar) + 1;
-  const beat = (totalBeats % SEQUENCER_CONFIG.beatsPerBar) + 1;
-  document.getElementById('barInput').value = bar.toString();
-  document.getElementById('beatInput').value = beat.toFixed(2);
-}
-
-// (3) We must always move the cursor visually + clock whenever jumpToTime is called
-function jumpToTime(timeInSec) {
-  // Stop any actively playing notes
-  recordedNotes.forEach(note => {
-    if (note.isPlaying && note.oscObj) {
-      stopOscillator(note.oscObj);
-      note.oscObj = null;
-      note.isPlaying = false;
-      keysState[note.y][note.x].sequencerPlaying = false;
-    }
-  });
-  drawTablature();
-
-  if (isStepMode) {
-    stepModeTime = timeInSec;
-  } else {
-    const now = audioContext ? audioContext.currentTime : 0;
-    audioStartTime = now - timeInSec;
-  }
-  
-  updateBarBeatDisplay(timeInSec);
-  updatePlayhead(); // Force the cursor to update right away
-}
-
-function updatePlayhead() {
-  // Always compute "now" so we can set the cursor even if not playing
-  let now = 0;
-  if (isStepMode) {
-    now = stepModeTime;
-  } else if (audioContext) {
-    now = audioContext.currentTime - audioStartTime;
-  }
-
-  // Reflect bar/beat in transport
-  updateBarBeatDisplay(now);
-
-  // Move the playhead visually
-  playheadPosition = (now * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
-  const playhead = document.getElementById('playhead');
-  playhead.style.left = `${playheadPosition}px`;
-
-  // If playing AND not step mode, do note scanning + animation loop
-  if (isPlaying && !isStepMode) {
-    // Check if new beat -> metronome
-    const currentTimeBeat = Math.floor(now * SEQUENCER_CONFIG.bpm / 60);
-    if (currentTimeBeat > currentBeat) {
-      currentBeat = currentTimeBeat;
-      if (metronomeEnabled) {
-        playMetronomeSound();
-      }
-    }
-
-    // Note on/off scanning
-    recordedNotes.forEach(note => {
-      const noteStartTime = note.startTime;
-      const noteEndTime = noteStartTime + note.duration;
-      
-      if (now >= noteStartTime && now < noteEndTime) {
-        if (!note.isPlaying) {
-          note.isPlaying = true;
-
-          // If user mapped this pitch, use that x,y for frequency
-          // else use the default frequency from note
-          let freq;
-          const chosenMapping = pitchMappings[note.pitch];
-          if (chosenMapping) {
-            const mappedNoteName = getNoteName(chosenMapping.x, chosenMapping.y);
-            const mappedOct = getNoteOctave(chosenMapping.x, chosenMapping.y);
-            freq = noteToFrequency(mappedNoteName, mappedOct);
-          } else {
-            // fallback to original
-            freq = noteToFrequency(note.noteName, note.octave);
-          }
-
-          const { osc, gain } = createOscillator(freq);
-          osc.start();
-          note.oscObj = { osc, gain };
-          keysState[note.y][note.x].sequencerPlaying = true;
-          drawTablature();
-        }
-      } else if (now >= noteEndTime && note.isPlaying) {
-        note.isPlaying = false;
-        if (note.oscObj) {
-          stopOscillator(note.oscObj);
-          note.oscObj = null;
-        }
-        keysState[note.y][note.x].sequencerPlaying = false;
-        drawTablature();
-      }
-    });
-
-    requestAnimationFrame(updatePlayhead);
-  } else if (isPlaying) {
-    // If isPlaying but in step mode, we still want the playhead to update
-    // but not do the note scanning. Just continue the animation loop.
-    requestAnimationFrame(updatePlayhead);
-  }
-}
-
-// Transport
-function togglePlay() {
-  if (!audioContext) initAudio();
-  if (!metronomeContext) initMetronome();
-  
-  isPlaying = true;
-  const playBtn = document.getElementById('play-btn');
-  playBtn.classList.add('bg-green-600');
-  
-  audioStartTime = audioContext.currentTime;
-  currentBeat = 0;
-  updatePlayhead();
-}
-
-function stopPlayback() {
-  isPlaying = false;
-  isRecording = false;
-  const playBtn = document.getElementById('play-btn');
-  const recordBtn = document.getElementById('record-btn');
-  playBtn.classList.remove('bg-green-600');
-  recordBtn.classList.remove('bg-red-600');
-
-  document.getElementById('record-indicator').classList.add('hidden');
-
-  const playhead = document.getElementById('playhead');
-  playhead.style.left = '0';
-  playheadPosition = 0;
-
-  recordedNotes.forEach(note => {
-    if (note.isPlaying && note.oscObj) {
-      stopOscillator(note.oscObj);
-      note.oscObj = null;
-      note.isPlaying = false;
-      keysState[note.y][note.x].sequencerPlaying = false;
-    }
-  });
-  drawTablature();
-
-  // Update the bar/beat display + cursor when we stop
-  updatePlayhead();
-}
-
-function toggleRecord() {
-  isRecording = !isRecording;
-  const recordBtn = document.getElementById('record-btn');
-  recordBtn.classList.toggle('bg-red-600');
-
-  const indicator = document.getElementById('record-indicator');
-  if (isRecording) {
-    indicator.classList.remove('hidden');
-  } else {
-    indicator.classList.add('hidden');
-  }
-  
-  if (isRecording && !isPlaying) {
-    togglePlay();
-  }
-}
-
-function toggleMetronome() {
-  metronomeEnabled = !metronomeEnabled;
-  const metronomeBtn = document.getElementById('metronome-btn');
-  metronomeBtn.classList.toggle('bg-blue-600');
-}
-
-function saveSequence() {
-  const fileName = prompt('Enter a name for your sequence:', 'My Sequence');
-  if (!fileName) return;
-  
-  const data = {
-    name: fileName,
-    bpm: SEQUENCER_CONFIG.bpm,
-    notes: recordedNotes,
-    timestamp: new Date().toISOString()
-  };
-  
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${fileName}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function loadSequence() {
-  const input = document.getElementById('load-seq-file');
-  input.onchange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = JSON.parse(e.target.result);
-          SEQUENCER_CONFIG.bpm = data.bpm;
-          recordedNotes = data.notes || [];
-          stopPlayback();
-          drawSequencerGrid();
-        } catch (error) {
-          console.error('Error loading sequence:', error);
-          alert('Error loading sequence file');
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-  input.click();
-}
-
-// NEW: Basic MIDI import
-function handleImportMIDI() {
-  const input = document.getElementById('import-midi-file');
-  input.onchange = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    const arrayBuffer = await file.arrayBuffer();
-    const midiData = parseMIDI(arrayBuffer); // We'll create a simple parse function
-    if (!midiData) {
-      alert("Unable to parse MIDI file or no note data found.");
-      return;
-    }
-    // Convert midi tracks to recordedNotes
-    // We'll assume the first track for simplicity
-    recordedNotes = [];
-    let minTime = Infinity;
-    midiData.forEach((noteEvent) => {
-      if (noteEvent.type === "note") {
-        minTime = Math.min(minTime, noteEvent.time);
-      }
-    });
-    // build recordedNotes from midiData
-    midiData.forEach((evt) => {
-      if (evt.type === "note") {
-        const startTime = evt.time - minTime;
-        recordedNotes.push({
-          noteName: "?", // placeholder
-          octave: 4, // placeholder
-          pitch: evt.pitch,
-          noteIndex: 0, // placeholder, actual row in piano roll
-          startTime,
-          duration: evt.duration,
-          isPlaying: false,
-          oscObj: null,
-          x: 0,
-          y: 0
-        });
-      }
-    });
-    // Sort by startTime
-    recordedNotes.sort((a,b) => a.startTime - b.startTime);
-    stopPlayback();
-    drawSequencerGrid();
-  };
-  input.click();
-}
-
-/**
- * A very minimal MIDI parser for note events (type 0 or 1).
- * Returns an array of {type: "note", pitch, time, duration}
- */
-function parseMIDI(buffer) {
-  // This is a simplified parser that only handles single-track or minimal multi-track,
-  // ignoring many advanced MIDI features. The goal is to extract note on/off events.
-
-  const data = new Uint8Array(buffer);
-
-  // Check "MThd" header
-  if (data[0] !== 0x4D || data[1] !== 0x54 || data[2] !== 0x68 || data[3] !== 0x64) {
-    console.error("Not a valid MIDI file");
-    return null;
-  }
-  const formatType = (data[8] << 8) | data[9];
-  const trackCount = (data[10] << 8) | data[11];
-  // timeDivision => data[12], data[13], not fully used here
-  let pointer = 14;
-  const events = [];
-  for (let t = 0; t < trackCount; t++) {
-    // find MTrk
-    if (data[pointer] !== 0x4D || data[pointer+1] !== 0x54 || data[pointer+2] !== 0x72 || data[pointer+3] !== 0x6B) {
-      console.error("Missing MTrk header");
-      return null;
-    }
-    const trackLength = (data[pointer+4]<<24) | (data[pointer+5]<<16) | (data[pointer+6]<<8) | data[pointer+7];
-    pointer += 8;
-    const trackEnd = pointer + trackLength;
-    let currentTime = 0;
-    let lastEventTypeByte = 0;
-    
-    while (pointer < trackEnd) {
-      const delta = readVarLen(data, pointer);
-      pointer += delta.length;
-      currentTime += delta.value; 
-
-      let eventTypeByte = data[pointer++];
-      if (eventTypeByte < 0x80) {
-        // running status
-        pointer--;
-        eventTypeByte = lastEventTypeByte;
-      } else {
-        lastEventTypeByte = eventTypeByte;
-      }
-
-      if ((eventTypeByte & 0xF0) === 0x80) {
-        // note off
-        const note = data[pointer++];
-        const vel = data[pointer++];
-        events.push({time: currentTime, type: "noteOff", pitch: note});
-      } else if ((eventTypeByte & 0xF0) === 0x90) {
-        // note on
-        const note = data[pointer++];
-        const vel = data[pointer++];
-        if (vel > 0) {
-          events.push({time: currentTime, type: "noteOn", pitch: note});
-        } else {
-          // note on with velocity=0 is note off
-          events.push({time: currentTime, type: "noteOff", pitch: note});
-        }
-      } else if ((eventTypeByte & 0xF0) === 0xA0 ||
-                 (eventTypeByte & 0xF0) === 0xB0 ||
-                 (eventTypeByte & 0xF0) === 0xE0 ) {
-        pointer += 2; // skip 2 data bytes
-      } else if ((eventTypeByte & 0xF0) === 0xC0 ||
-                 (eventTypeByte & 0xF0) === 0xD0) {
-        pointer += 1; // skip 1 data byte
-      } else if (eventTypeByte === 0xFF) {
-        // meta event
-        const metaType = data[pointer++];
-        const lengthMeta = readVarLen(data, pointer);
-        pointer += lengthMeta.length;
-        pointer += lengthMeta.value;
-      } else {
-        // unknown
-        console.warn("Unknown event type: ", eventTypeByte.toString(16));
-      }
-    }
-    pointer = trackEnd;
-  }
-
-  // second pass to form note objects
-  let activeMap = {};
-  let noteEvents = [];
-  events.forEach(evt => {
-    if (evt.type === "noteOn") {
-      activeMap[evt.pitch] = { pitch: evt.pitch, time: evt.time };
-    } else if (evt.type === "noteOff") {
-      if (activeMap[evt.pitch]) {
-        const onObj = activeMap[evt.pitch];
-        const duration = evt.time - onObj.time;
-        noteEvents.push({ 
-          type: "note",
-          pitch: evt.pitch,
-          time: onObj.time,
-          duration: duration
-        });
-        delete activeMap[evt.pitch];
-      }
-    }
-  });
-  return noteEvents;
-}
-
-function readVarLen(data, index) {
-  let value = 0;
-  let offset = 0;
-  let b;
-  do {
-    b = data[index + offset++];
-    value = (value << 7) + (b & 0x7F);
-  } while (b & 0x80);
-  return { value, length: offset };
-}
-
-// Toggle Sequencer
-function toggleSequencerMode() {
-  isSequencerModeOn = !isSequencerModeOn;
-  const sequencerDiv = document.getElementById("sequencer");
-  if (isSequencerModeOn) {
-    sequencerDiv.classList.remove("hidden");
-  } else {
-    sequencerDiv.classList.add("hidden");
-  }
-}
-
-// Toggle Key Mode
-function toggleKeyMode() {
-  if (keyMode === 'toggle') {
-    keyMode = 'press';
-    document.getElementById('toggleKeyModeBtn').textContent = "Key Mode: Press";
-  } else {
-    keyMode = 'toggle';
-    document.getElementById('toggleKeyModeBtn').textContent = "Key Mode: Toggle";
-  }
-}
-
-function toggleSongStepMode() {
-  isStepMode = !isStepMode;
-  const modeBtn = document.getElementById('mode-toggle-btn');
-  modeBtn.textContent = isStepMode ? 'Step Mode' : 'Song Mode';
-}
-
-// NEW: Toggle Select Mode
-function toggleSelectMode() {
-  isSelectMode = !isSelectMode;
-  const btn = document.getElementById('select-mode-btn');
-  btn.textContent = isSelectMode ? 'Select Mode: On' : 'Select Mode: Off';
-  if (!isSelectMode) {
-    // Clear any partial highlight
-    awaitingMappingPitch = null;
-    for (let fy = 0; fy < numberOfFrets; fy++) {
-      for (let fx = 0; fx < numberOfStrings; fx++) {
-        keysState[fy][fx].marker = false;
-      }
-    }
-    drawTablature();
-  }
-}
-
-function barBeatToSeconds(barString, beatString) {
-  const bar = parseFloat(barString) || 1;
-  const beat = parseFloat(beatString) || 1;
-  const totalBeats = (bar - 1) * SEQUENCER_CONFIG.beatsPerBar + (beat - 1);
-  const seconds = totalBeats * (60 / SEQUENCER_CONFIG.bpm);
-  return seconds;
-}
-
-function jumpToPosition(barString, beatString) {
-  jumpToTime(barBeatToSeconds(barString, beatString));
-}
-
-// ==============================
-// CHORD PALETTE SAVE/LOAD (Self-contained)
-// ==============================
-function saveChords() {
-  const fileName = prompt("Enter a file name for chord palette:", "MyChords");
-  if (!fileName) return;
-
-  // We'll just store chordSlots as-is
-  const data = JSON.stringify(chordSlots, null, 2);
-  const blob = new Blob([data], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName + ".json";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function loadChords() {
-  const input = document.getElementById("loadChordsFile");
-  input.onchange = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const loadedChords = JSON.parse(e.target.result);
-        // Validate structure (array of up to 8, each has 'name', 'keys')
-        if (Array.isArray(loadedChords) && loadedChords.length <= chordSlots.length) {
-          chordSlots.forEach((slot, idx) => {
-            if (loadedChords[idx]) {
-              slot.name = loadedChords[idx].name || slot.name;
-              slot.keys = Array.isArray(loadedChords[idx].keys) ? loadedChords[idx].keys : [];
-            }
-          });
-          updateChordPaletteUI();
-          alert("Chord palette loaded successfully.");
-        } else {
-          throw new Error("Invalid chord file structure.");
-        }
-      } catch (err) {
-        alert("Error loading chord file: " + err.message);
-      }
-      input.value = ""; // reset
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-// ==============================
-// PROJECT-WIDE SAVE / LOAD
-// ==============================
-
-function saveProject() {
-  // Gather everything:
-  const advancedOptions = {
-    cursorColor: document.getElementById('cursorColorPicker').value,
-    rowSpacing: fretSpacing
-  };
-  const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
-  const chordPalette = chordSlots;
-  const sequencerData = {
-    bpm: SEQUENCER_CONFIG.bpm,
-    notes: recordedNotes,
-    pitchMappings: pitchMappings // the user's chosen note mappings in select mode
-  };
-
-  const projectData = {
-    advancedOptions,
-    library,
-    chordPalette,
-    sequencerData
-  };
-
-  const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'harpejji_project.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function loadProject() {
-  const input = document.getElementById('loadProjectFile');
-  input.onchange = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-
-        // advancedOptions
-        if (data.advancedOptions) {
-          if (data.advancedOptions.cursorColor) {
-            document.getElementById('cursorColorPicker').value = data.advancedOptions.cursorColor;
-            document.getElementById("playhead").style.backgroundColor = data.advancedOptions.cursorColor;
-          }
-          if (typeof data.advancedOptions.rowSpacing === 'number') {
-            fretSpacing = data.advancedOptions.rowSpacing;
-            document.getElementById('rowSpacingRange').value = data.advancedOptions.rowSpacing;
-            document.getElementById('rowSpacingValue').textContent = data.advancedOptions.rowSpacing + ' px';
-          }
-          drawTablature();
-        }
-
-        // library
-        if (Array.isArray(data.library)) {
-          localStorage.setItem('harpejjiSelections', JSON.stringify(data.library));
-          populateLibrary();
-        }
-
-        // chordPalette
-        if (Array.isArray(data.chordPalette) && data.chordPalette.length <= chordSlots.length) {
-          chordSlots.forEach((slot, idx) => {
-            if (data.chordPalette[idx]) {
-              slot.name = data.chordPalette[idx].name || slot.name;
-              slot.keys = Array.isArray(data.chordPalette[idx].keys) ? data.chordPalette[idx].keys : [];
-            }
-          });
-          updateChordPaletteUI();
-        }
-
-        // sequencerData
-        if (data.sequencerData) {
-          SEQUENCER_CONFIG.bpm = data.sequencerData.bpm || 120;
-          recordedNotes = data.sequencerData.notes || [];
-          pitchMappings = data.sequencerData.pitchMappings || {};
-          stopPlayback();
-          drawSequencerGrid();
-        }
-
-        alert("Project loaded successfully.");
-      } catch (error) {
-        alert('Error loading project file: ' + error.message);
-      }
-      input.value = ""; // reset
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-// Final DOMContentLoaded
 document.addEventListener("DOMContentLoaded", () => {
   drawTablature();
   drawPianoRoll();
@@ -2120,6 +1694,31 @@ document.addEventListener("DOMContentLoaded", () => {
     currentInstrument = instrumentSelect.value;
   });
 
+  // Scale selection
+  const scaleSelect = document.getElementById("scaleSelect");
+  // Populate any existing loadedScales into the dropdown
+  function populateScaleDropdown() {
+    scaleSelect.innerHTML = `<option value="none">None</option>`;
+    Object.keys(loadedScales).forEach(scaleName => {
+      const opt = document.createElement('option');
+      opt.value = scaleName;
+      opt.textContent = scaleName;
+      scaleSelect.appendChild(opt);
+    });
+  }
+  populateScaleDropdown();
+  scaleSelect.addEventListener("change", (e) => {
+    currentScale = e.target.value;
+    drawTablature();
+  });
+
+  // Root note
+  const rootSelect = document.getElementById("rootSelect");
+  rootSelect.addEventListener("change", (e) => {
+    currentRoot = e.target.value;
+    drawTablature();
+  });
+
   // Toggle note names
   document.getElementById("toggleNotesBtn").addEventListener("click", () => {
     showNotes = !showNotes;
@@ -2132,7 +1731,7 @@ document.addEventListener("DOMContentLoaded", () => {
     drawTablature();
   });
 
-  // Tablature Save/Load
+  // Save/Load Tablature
   document.getElementById("saveBtn").addEventListener("click", saveSelection);
   document.getElementById("loadBtn").addEventListener("click", handleFileLoad);
 
@@ -2144,23 +1743,310 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
   document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
   document.getElementById("clearLibraryBtn").addEventListener("click", () => {
-    if (confirm('Are you sure you want to clear the library? This will hide all selections but not delete them.')) {
-      libraryContent.innerHTML = '<p class="text-gray-500 text-center">No saved selections yet</p>';
+    if (confirm('Are you sure you want to clear the library?')) {
+      localStorage.removeItem('harpejjiSelections');
+      populateLibrary();
     }
   });
 
+  // Kill Notes
+  document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
+
   // Sequencer
-  document.getElementById('play-btn').addEventListener('click', togglePlay);
-  document.getElementById('stop-btn').addEventListener('click', stopPlayback);
-  document.getElementById('record-btn').addEventListener('click', toggleRecord);
-  document.getElementById('metronome-btn').addEventListener('click', toggleMetronome);
-  document.getElementById('save-seq-btn').addEventListener('click', saveSequence);
-  document.getElementById('load-seq-btn').addEventListener('click', loadSequence);
+  document.getElementById('play-btn').addEventListener('click', () => {
+    if (!audioContext) initAudio();
+    if (!metronomeContext) initMetronome();
+    isPlaying = true;
+    audioStartTime = audioContext.currentTime;
+    currentBeat = 0;
+    document.getElementById('play-btn').classList.add('bg-green-600');
+    updatePlayhead();
+  });
 
-  document.getElementById('toggleSequencerModeBtn').addEventListener('click', toggleSequencerMode);
-  document.getElementById('toggleKeyModeBtn').addEventListener('click', toggleKeyMode);
+  document.getElementById('stop-btn').addEventListener('click', () => {
+    isPlaying = false;
+    isRecording = false;
+    document.getElementById('play-btn').classList.remove('bg-green-600');
+    document.getElementById('record-btn').classList.remove('bg-red-600');
+    document.getElementById('record-indicator').classList.add('hidden');
+    document.getElementById('playhead').style.left = '0';
+    playheadPosition = 0;
+    recordedNotes.forEach(note => {
+      if (note.isPlaying && note.oscObj) {
+        stopOscillator(note.oscObj);
+        note.oscObj = null;
+        note.isPlaying = false;
+        keysState[note.y][note.x].sequencerPlaying = false;
+      }
+    });
+    drawTablature();
+    updatePlayhead(); // reset
+  });
 
-  document.getElementById('mode-toggle-btn').addEventListener('click', toggleSongStepMode);
+  document.getElementById('record-btn').addEventListener('click', () => {
+    isRecording = !isRecording;
+    const recordBtn = document.getElementById('record-btn');
+    recordBtn.classList.toggle('bg-red-600');
+    const indicator = document.getElementById('record-indicator');
+    if (isRecording) {
+      indicator.classList.remove('hidden');
+      if (!isPlaying) {
+        // auto-start
+        document.getElementById('play-btn').click();
+      }
+    } else {
+      indicator.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('metronome-btn').addEventListener('click', () => {
+    metronomeEnabled = !metronomeEnabled;
+    document.getElementById('metronome-btn').classList.toggle('bg-blue-600');
+  });
+
+  document.getElementById('save-seq-btn').addEventListener('click', () => {
+    const fileName = prompt('Enter a name for your sequence:', 'My Sequence');
+    if (!fileName) return;
+    const data = {
+      name: fileName,
+      bpm: SEQUENCER_CONFIG.bpm,
+      notes: recordedNotes,
+      timestamp: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('load-seq-btn').addEventListener('click', () => {
+    const input = document.getElementById('load-seq-file');
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = JSON.parse(e.target.result);
+            SEQUENCER_CONFIG.bpm = data.bpm;
+            recordedNotes = data.notes || [];
+            document.getElementById("tempoSlider").value = data.bpm;
+            document.getElementById("tempoValue").textContent = `${data.bpm} BPM`;
+            stopPlayback();
+            drawSequencerGrid();
+          } catch (error) {
+            console.error('Error loading sequence:', error);
+            alert('Error loading sequence file');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  });
+
+  function stopPlayback() {
+    isPlaying = false;
+    isRecording = false;
+    document.getElementById('play-btn').classList.remove('bg-green-600');
+    document.getElementById('record-btn').classList.remove('bg-red-600');
+    document.getElementById('record-indicator').classList.add('hidden');
+    document.getElementById('playhead').style.left = '0';
+    playheadPosition = 0;
+    recordedNotes.forEach(note => {
+      if (note.isPlaying && note.oscObj) {
+        stopOscillator(note.oscObj);
+        note.oscObj = null;
+        note.isPlaying = false;
+        keysState[note.y][note.x].sequencerPlaying = false;
+      }
+    });
+    drawTablature();
+    updatePlayhead();
+  }
+
+  document.getElementById('import-midi-btn').addEventListener('click', () => {
+    const input = document.getElementById('import-midi-file');
+    input.onchange = async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const arrayBuffer = await file.arrayBuffer();
+      const midiData = parseMIDI(arrayBuffer);
+      if (!midiData) {
+        alert("Unable to parse MIDI or no note data found.");
+        return;
+      }
+      recordedNotes = [];
+      let minTime = Infinity;
+      midiData.forEach((noteEvent) => {
+        if (noteEvent.type === "note") {
+          minTime = Math.min(minTime, noteEvent.time);
+        }
+      });
+      midiData.forEach(evt => {
+        if (evt.type === "note") {
+          const startTime = evt.time - minTime;
+          recordedNotes.push({
+            noteName: "?",
+            octave: 4,
+            pitch: evt.pitch,
+            noteIndex: 0,
+            startTime,
+            duration: evt.duration,
+            isPlaying: false,
+            oscObj: null,
+            x: 0,
+            y: 0
+          });
+        }
+      });
+      recordedNotes.sort((a,b) => a.startTime - b.startTime);
+      stopPlayback();
+      drawSequencerGrid();
+    };
+    input.click();
+  });
+
+  // A minimal MIDI parser
+  function parseMIDI(buffer) {
+    const data = new Uint8Array(buffer);
+    if (data[0] !== 0x4D || data[1] !== 0x54 || data[2] !== 0x68 || data[3] !== 0x64) {
+      console.error("Not a valid MIDI file");
+      return null;
+    }
+    const trackCount = (data[10] << 8) | data[11];
+    let pointer = 14;
+    const events = [];
+    for (let t = 0; t < trackCount; t++) {
+      if (data[pointer] !== 0x4D || data[pointer+1] !== 0x54 || data[pointer+2] !== 0x72 || data[pointer+3] !== 0x6B) {
+        console.error("Missing MTrk header");
+        return null;
+      }
+      const trackLength = (data[pointer+4]<<24) | (data[pointer+5]<<16) | (data[pointer+6]<<8) | data[pointer+7];
+      pointer += 8;
+      const trackEnd = pointer + trackLength;
+      let currentTime = 0;
+      let lastEventTypeByte = 0;
+      
+      while (pointer < trackEnd) {
+        const delta = readVarLen(data, pointer);
+        pointer += delta.length;
+        currentTime += delta.value; 
+        let eventTypeByte = data[pointer++];
+        if (eventTypeByte < 0x80) {
+          pointer--;
+          eventTypeByte = lastEventTypeByte;
+        } else {
+          lastEventTypeByte = eventTypeByte;
+        }
+        if ((eventTypeByte & 0xF0) === 0x80) {
+          const note = data[pointer++];
+          const vel = data[pointer++];
+          events.push({time: currentTime, type: "noteOff", pitch: note});
+        } else if ((eventTypeByte & 0xF0) === 0x90) {
+          const note = data[pointer++];
+          const vel = data[pointer++];
+          if (vel > 0) {
+            events.push({time: currentTime, type: "noteOn", pitch: note});
+          } else {
+            events.push({time: currentTime, type: "noteOff", pitch: note});
+          }
+        } else if ((eventTypeByte & 0xF0) === 0xA0 ||
+                   (eventTypeByte & 0xF0) === 0xB0 ||
+                   (eventTypeByte & 0xF0) === 0xE0 ) {
+          pointer += 2;
+        } else if ((eventTypeByte & 0xF0) === 0xC0 ||
+                   (eventTypeByte & 0xF0) === 0xD0) {
+          pointer += 1;
+        } else if (eventTypeByte === 0xFF) {
+          const metaType = data[pointer++];
+          const lengthMeta = readVarLen(data, pointer);
+          pointer += lengthMeta.length;
+          pointer += lengthMeta.value;
+        } else {
+          console.warn("Unknown event type: ", eventTypeByte.toString(16));
+        }
+      }
+      pointer = trackEnd;
+    }
+    let activeMap = {};
+    let noteEvents = [];
+    events.forEach(evt => {
+      if (evt.type === "noteOn") {
+        activeMap[evt.pitch] = { pitch: evt.pitch, time: evt.time };
+      } else if (evt.type === "noteOff") {
+        if (activeMap[evt.pitch]) {
+          const onObj = activeMap[evt.pitch];
+          const duration = evt.time - onObj.time;
+          noteEvents.push({ 
+            type: "note",
+            pitch: evt.pitch,
+            time: onObj.time,
+            duration: duration
+          });
+          delete activeMap[evt.pitch];
+        }
+      }
+    });
+    return noteEvents;
+  }
+  function readVarLen(data, index) {
+    let value = 0;
+    let offset = 0;
+    let b;
+    do {
+      b = data[index + offset++];
+      value = (value << 7) + (b & 0x7F);
+    } while (b & 0x80);
+    return { value, length: offset };
+  }
+
+  // Toggle Sequencer
+  document.getElementById("toggleSequencerModeBtn").addEventListener("click", () => {
+    isSequencerModeOn = !isSequencerModeOn;
+    const sequencerDiv = document.getElementById("sequencer");
+    if (isSequencerModeOn) {
+      sequencerDiv.classList.remove("hidden");
+    } else {
+      sequencerDiv.classList.add("hidden");
+    }
+  });
+
+  // Toggle Key Mode
+  document.getElementById("toggleKeyModeBtn").addEventListener("click", () => {
+    if (keyMode === 'toggle') {
+      keyMode = 'press';
+      document.getElementById('toggleKeyModeBtn').textContent = "Key Mode: Press";
+    } else {
+      keyMode = 'toggle';
+      document.getElementById('toggleKeyModeBtn').textContent = "Key Mode: Toggle";
+    }
+  });
+
+  // Song/Step
+  document.getElementById('mode-toggle-btn').addEventListener('click', () => {
+    isStepMode = !isStepMode;
+    document.getElementById('mode-toggle-btn').textContent = isStepMode ? 'Step Mode' : 'Song Mode';
+  });
+
+  // Select Mode
+  document.getElementById('select-mode-btn').addEventListener('click', () => {
+    isSelectMode = !isSelectMode;
+    const btn = document.getElementById('select-mode-btn');
+    btn.textContent = isSelectMode ? 'Select Mode: On' : 'Select Mode: Off';
+    if (!isSelectMode) {
+      awaitingMappingPitch = null;
+      for (let fy = 0; fy < numberOfFrets; fy++) {
+        for (let fx = 0; fx < numberOfStrings; fx++) {
+          keysState[fy][fx].marker = false;
+        }
+      }
+      drawTablature();
+    }
+  });
 
   document.getElementById('jump-btn').addEventListener('click', () => {
     const barVal = document.getElementById('barInput').value;
@@ -2168,13 +2054,109 @@ document.addEventListener("DOMContentLoaded", () => {
     jumpToPosition(barVal, beatVal);
   });
 
-  // Advanced Config Slideover
+  function barBeatToSeconds(barString, beatString) {
+    const bar = parseFloat(barString) || 1;
+    const beat = parseFloat(beatString) || 1;
+    const totalBeats = (bar - 1) * SEQUENCER_CONFIG.beatsPerBar + (beat - 1);
+    const seconds = totalBeats * (60 / SEQUENCER_CONFIG.bpm);
+    return seconds;
+  }
+
+  function jumpToPosition(barString, beatString) {
+    jumpToTime(barBeatToSeconds(barString, beatString));
+  }
+
+  function jumpToTime(timeInSec) {
+    recordedNotes.forEach(note => {
+      if (note.isPlaying && note.oscObj) {
+        stopOscillator(note.oscObj);
+        note.oscObj = null;
+        note.isPlaying = false;
+        keysState[note.y][note.x].sequencerPlaying = false;
+      }
+    });
+    drawTablature();
+    if (isStepMode) {
+      stepModeTime = timeInSec;
+    } else {
+      const now = audioContext ? audioContext.currentTime : 0;
+      audioStartTime = now - timeInSec;
+    }
+    updateBarBeatDisplay(timeInSec);
+    updatePlayhead();
+  }
+
+  function updateBarBeatDisplay(timeInSec) {
+    const totalBeats = timeInSec * (SEQUENCER_CONFIG.bpm / 60);
+    const bar = Math.floor(totalBeats / SEQUENCER_CONFIG.beatsPerBar) + 1;
+    const beat = (totalBeats % SEQUENCER_CONFIG.beatsPerBar) + 1;
+    document.getElementById('barInput').value = bar.toString();
+    document.getElementById('beatInput').value = beat.toFixed(2);
+  }
+
+  function updatePlayhead() {
+    let now = 0;
+    if (isStepMode) {
+      now = stepModeTime;
+    } else if (audioContext) {
+      now = audioContext.currentTime - audioStartTime;
+    }
+    updateBarBeatDisplay(now);
+    playheadPosition = (now * SEQUENCER_CONFIG.bpm / 60) * SEQUENCER_CONFIG.pixelsPerBeat;
+    const playhead = document.getElementById('playhead');
+    playhead.style.left = `${playheadPosition}px`;
+
+    if (isPlaying && !isStepMode) {
+      const currentTimeBeat = Math.floor(now * SEQUENCER_CONFIG.bpm / 60);
+      if (currentTimeBeat > currentBeat) {
+        currentBeat = currentTimeBeat;
+        if (metronomeEnabled) {
+          playMetronomeSound();
+        }
+      }
+      recordedNotes.forEach(note => {
+        const noteStart = note.startTime;
+        const noteEnd = noteStart + note.duration;
+        if (now >= noteStart && now < noteEnd) {
+          if (!note.isPlaying) {
+            note.isPlaying = true;
+            let freq;
+            const chosenMapping = pitchMappings[note.pitch];
+            if (chosenMapping) {
+              const mappedNoteName = getNoteName(chosenMapping.x, chosenMapping.y);
+              const mappedOct = getNoteOctave(chosenMapping.x, chosenMapping.y);
+              freq = noteToFrequency(mappedNoteName, mappedOct);
+            } else {
+              freq = noteToFrequency(note.noteName, note.octave);
+            }
+            const { osc, gain } = createOscillator(freq);
+            osc.start();
+            note.oscObj = { osc, gain };
+            keysState[note.y][note.x].sequencerPlaying = true;
+            drawTablature();
+          }
+        } else if (now >= noteEnd && note.isPlaying) {
+          note.isPlaying = false;
+          if (note.oscObj) {
+            stopOscillator(note.oscObj);
+            note.oscObj = null;
+          }
+          keysState[note.y][note.x].sequencerPlaying = false;
+          drawTablature();
+        }
+      });
+      requestAnimationFrame(updatePlayhead);
+    } else if (isPlaying) {
+      // step mode => just update cursor
+      requestAnimationFrame(updatePlayhead);
+    }
+  }
+
+  // Advanced Config
   const advancedConfigBtn = document.getElementById("advancedConfigBtn");
   const advancedConfigSlideover = document.getElementById("advancedConfigSlideover");
   const closeAdvancedConfigBtn = document.getElementById("closeAdvancedConfigBtn");
-  const cursorColorPicker = document.getElementById("cursorColorPicker");
 
-  // Toggle the advanced config slideover
   advancedConfigBtn.addEventListener("click", () => {
     advancedConfigSlideover.classList.toggle("hidden");
   });
@@ -2182,13 +2164,12 @@ document.addEventListener("DOMContentLoaded", () => {
     advancedConfigSlideover.classList.add("hidden");
   });
 
-  // Listen for cursor color changes
+  const cursorColorPicker = document.getElementById("cursorColorPicker");
   cursorColorPicker.addEventListener("input", (e) => {
     const color = e.target.value;
     document.getElementById("playhead").style.backgroundColor = color;
   });
 
-  // NEW: Handle row spacing changes
   const rowSpacingRange = document.getElementById("rowSpacingRange");
   const rowSpacingValue = document.getElementById("rowSpacingValue");
   rowSpacingRange.addEventListener("input", (e) => {
@@ -2198,47 +2179,177 @@ document.addEventListener("DOMContentLoaded", () => {
     drawTablature();
   });
 
-  // NEW: Save Project / Load Project
-  document.getElementById("saveProjectBtn").addEventListener("click", saveProject);
-  document.getElementById("loadProjectBtn").addEventListener("click", loadProject);
+  // Scale Highlight Color & Alpha
+  const scaleHighlightColorInput = document.getElementById("scaleHighlightColor");
+  scaleHighlightColorInput.addEventListener("input", (e) => {
+    scaleHighlightColor = e.target.value;
+    drawTablature();
+  });
+
+  const scaleHighlightAlphaRange = document.getElementById("scaleHighlightAlpha");
+  const scaleHighlightAlphaValue = document.getElementById("scaleHighlightAlphaValue");
+  scaleHighlightAlphaRange.addEventListener("input", (e) => {
+    scaleHighlightAlpha = parseFloat(e.target.value);
+    scaleHighlightAlphaValue.textContent = scaleHighlightAlpha.toString();
+    drawTablature();
+  });
+
+  // Import Scales
+  const importScalesBtn = document.getElementById("importScalesBtn");
+  const scaleFileInput = document.getElementById("scaleFileInput");
+  importScalesBtn.addEventListener("click", () => {
+    scaleFileInput.click();
+  });
+  scaleFileInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target.result);
+        // Merge into loadedScales
+        Object.keys(imported).forEach(name => {
+          loadedScales[name] = imported[name];
+        });
+        populateScaleDropdown();
+        alert("Scales imported successfully.");
+      } catch(err) {
+        alert("Error importing scales: " + err.message);
+      }
+      scaleFileInput.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  // Save Project
+  document.getElementById("saveProjectBtn").addEventListener("click", () => {
+    const advancedOptions = {
+      cursorColor: cursorColorPicker.value,
+      rowSpacing: fretSpacing,
+      scaleHighlightColor,
+      scaleHighlightAlpha
+    };
+    const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+    const chordPalette = chordSlots;
+    const sequencerData = {
+      bpm: SEQUENCER_CONFIG.bpm,
+      notes: recordedNotes,
+      pitchMappings
+    };
+    const scalesData = loadedScales; // so they don't need the scale file again
+
+    const projectData = {
+      advancedOptions,
+      library,
+      chordPalette,
+      sequencerData,
+      scalesData
+    };
+    const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'harpejji_project.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Load Project
+  document.getElementById("loadProjectBtn").addEventListener("click", () => {
+    const input = document.getElementById('loadProjectFile');
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.advancedOptions) {
+            const ao = data.advancedOptions;
+            if (ao.cursorColor) {
+              cursorColorPicker.value = ao.cursorColor;
+              document.getElementById("playhead").style.backgroundColor = ao.cursorColor;
+            }
+            if (typeof ao.rowSpacing === 'number') {
+              fretSpacing = ao.rowSpacing;
+              rowSpacingRange.value = ao.rowSpacing;
+              rowSpacingValue.textContent = ao.rowSpacing + ' px';
+            }
+            if (ao.scaleHighlightColor) {
+              scaleHighlightColor = ao.scaleHighlightColor;
+              scaleHighlightColorInput.value = ao.scaleHighlightColor;
+            }
+            if (typeof ao.scaleHighlightAlpha === 'number') {
+              scaleHighlightAlpha = ao.scaleHighlightAlpha;
+              scaleHighlightAlphaRange.value = ao.scaleHighlightAlpha;
+              scaleHighlightAlphaValue.textContent = ao.scaleHighlightAlpha;
+            }
+            drawTablature();
+          }
+          if (data.library && Array.isArray(data.library)) {
+            localStorage.setItem('harpejjiSelections', JSON.stringify(data.library));
+            populateLibrary();
+          }
+          if (data.chordPalette && Array.isArray(data.chordPalette)) {
+            chordSlots.forEach((slot, idx) => {
+              if (data.chordPalette[idx]) {
+                slot.name = data.chordPalette[idx].name || slot.name;
+                slot.keys = Array.isArray(data.chordPalette[idx].keys) ? data.chordPalette[idx].keys : [];
+              }
+            });
+            updateChordPaletteUI();
+          }
+          if (data.sequencerData) {
+            SEQUENCER_CONFIG.bpm = data.sequencerData.bpm || 120;
+            document.getElementById("tempoSlider").value = SEQUENCER_CONFIG.bpm;
+            document.getElementById("tempoValue").textContent = `${SEQUENCER_CONFIG.bpm} BPM`;
+            recordedNotes = data.sequencerData.notes || [];
+            pitchMappings = data.sequencerData.pitchMappings || {};
+            stopPlayback();
+            drawSequencerGrid();
+          }
+          if (data.scalesData) {
+            loadedScales = data.scalesData;
+            populateScaleDropdown();
+          }
+          alert("Project loaded successfully.");
+        } catch (error) {
+          alert("Error loading project: " + error.message);
+        }
+        input.value = "";
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  });
 
   // CHORD PALETTE EVENTS
-  const chordRecordButtons = document.querySelectorAll('.chord-record-btn');
-  chordRecordButtons.forEach(btn => {
+  document.querySelectorAll('.chord-record-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
       toggleChordRecord(idx);
     });
   });
-
-  const chordClearButtons = document.querySelectorAll('.chord-clear-btn');
-  chordClearButtons.forEach(btn => {
+  document.querySelectorAll('.chord-clear-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
       clearChordNotes(idx);
     });
   });
-
-  const chordRenameButtons = document.querySelectorAll('.chord-rename-btn');
-  chordRenameButtons.forEach(btn => {
+  document.querySelectorAll('.chord-rename-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
       renameChordSlot(idx);
     });
   });
-
-  const chordButtons = document.querySelectorAll('.chord-button');
-  chordButtons.forEach(btn => {
+  document.querySelectorAll('.chord-button').forEach(btn => {
     const slot = btn.closest('.chord-slot');
     const idx = parseInt(slot.getAttribute('data-chord-index'), 10);
-    
-    // For toggle mode, just use "click"
     btn.addEventListener('click', () => {
       if (keyMode === 'toggle') {
         chordToggle(idx);
       }
     });
-    // For press mode, "mousedown" / "mouseup" to hold
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       if (keyMode === 'press') {
@@ -2258,30 +2369,64 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Chord Palette Save/Load
-  document.getElementById("saveChordsBtn").addEventListener("click", saveChords);
-  document.getElementById("loadChordsBtn").addEventListener("click", loadChords);
+  // Save/Load Chords
+  document.getElementById("saveChordsBtn").addEventListener("click", () => {
+    const fileName = prompt("Enter a file name for chord palette:", "MyChords");
+    if (!fileName) return;
+    const data = JSON.stringify(chordSlots, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById("loadChordsBtn").addEventListener("click", () => {
+    const input = document.getElementById("loadChordsFile");
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const loadedChords = JSON.parse(e.target.result);
+          if (Array.isArray(loadedChords) && loadedChords.length <= chordSlots.length) {
+            chordSlots.forEach((slot, idx) => {
+              if (loadedChords[idx]) {
+                slot.name = loadedChords[idx].name || slot.name;
+                slot.keys = Array.isArray(loadedChords[idx].keys) ? loadedChords[idx].keys : [];
+              }
+            });
+            updateChordPaletteUI();
+            alert("Chord palette loaded successfully.");
+          } else {
+            throw new Error("Invalid chord file structure.");
+          }
+        } catch (err) {
+          alert("Error loading chord file: " + err.message);
+        }
+        input.value = "";
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  });
 
-  updateChordPaletteUI();
-
-  // NEW: Handle Reverb/Delay sliders
-  const delaySlider = document.getElementById('delaySlider');
-  delaySlider.addEventListener('input', (e) => {
+  // Reverb/Delay
+  document.getElementById('delaySlider').addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
     if (delayGain) {
       delayGain.gain.value = val;
     }
   });
-
-  const reverbSlider = document.getElementById('reverbSlider');
-  reverbSlider.addEventListener('input', (e) => {
+  document.getElementById('reverbSlider').addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
     if (reverbGain) {
       reverbGain.gain.value = val;
     }
   });
-
-  // NEW: Handle Tempo slider
+  // Tempo
   const tempoSlider = document.getElementById('tempoSlider');
   const tempoValue = document.getElementById('tempoValue');
   tempoSlider.addEventListener('input', (e) => {
@@ -2290,12 +2435,9 @@ document.addEventListener("DOMContentLoaded", () => {
     tempoValue.textContent = `${val} BPM`;
   });
 
-  // NEW: Import MIDI
-  document.getElementById('import-midi-btn').addEventListener('click', handleImportMIDI);
-
-  // NEW: Select Mode
-  document.getElementById('select-mode-btn').addEventListener('click', toggleSelectMode);
+  updateChordPaletteUI();
 });
+
 </script>
 </body>
 </html>
