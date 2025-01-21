@@ -10,7 +10,7 @@
 <div class="max-w-6xl mx-auto bg-white rounded shadow p-4">
   <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
 
-  <!-- NEW: Reverb, Delay, and Tempo Sliders at the top -->
+  <!-- NEW: Reverb, Delay, Tempo Sliders, and Transpose Buttons at the top -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
     <!-- Reverb Slider -->
     <div class="flex items-center gap-2">
@@ -52,8 +52,22 @@
       />
       <span id="tempoValue" class="text-gray-700">120 BPM</span>
     </div>
+
+    <!-- NEW: Transpose Up/Down Buttons -->
+    <button 
+      id="transposeUpBtn"
+      class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+    >
+      Transpose +1
+    </button>
+    <button 
+      id="transposeDownBtn"
+      class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+    >
+      Transpose -1
+    </button>
   </div>
-  <!-- End of new sliders -->
+  <!-- End of new sliders and transpose buttons -->
 
   <!-- Controls -->
   <div class="flex flex-wrap items-center gap-4 mb-4">
@@ -316,6 +330,10 @@
       <button id="saveLibraryBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
         Save Library
       </button>
+      <!-- NEW: Save Library As Button -->
+      <button id="saveLibraryAsBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
+        Save Library As
+      </button>
       <button id="loadLibraryBtn" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">
         Load Library
       </button>
@@ -323,6 +341,13 @@
         Clear Library
       </button>
     </div>
+
+    <!-- NEW: Scale Filter Checkbox -->
+    <div class="mb-4 flex items-center gap-2">
+      <input type="checkbox" id="scaleFilterCheck" />
+      <label for="scaleFilterCheck" class="text-gray-700 text-sm">Filter by Current Scale</label>
+    </div>
+
     <div id="libraryContent" class="space-y-4 overflow-y-auto h-full">
       <!-- Thumbnails and names of saved files will be dynamically added here -->
     </div>
@@ -1099,6 +1124,47 @@ function handleKeyUp(x, y) {
 }
 
 // ==============================
+// Transpose Selected
+// ==============================
+function transposeSelected(amount) {
+  let newMarkers = [];
+  for (let yy = 0; yy < numberOfFrets; yy++) {
+    newMarkers[yy] = new Array(numberOfStrings).fill(false);
+  }
+
+  // For each currently marked key, shift by +amount semitones if possible
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      if (keysState[y][x].marker) {
+        let oldSemitones = 2*x + y;
+        let newSemitones = oldSemitones + amount;
+        // Check boundaries
+        if (newSemitones < 0) continue;
+        let maxSemitones = 2*(numberOfStrings - 1) + (numberOfFrets - 1);
+        if (newSemitones > maxSemitones) continue;
+        // Find a valid (nx, ny)
+        // We'll pick the first that fits
+        for (let nx = 0; nx < numberOfStrings; nx++) {
+          let ny = newSemitones - 2*nx;
+          if (ny >= 0 && ny < numberOfFrets) {
+            newMarkers[ny][nx] = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Reset and apply new markers
+  for (let yy = 0; yy < numberOfFrets; yy++) {
+    for (let xx = 0; xx < numberOfStrings; xx++) {
+      keysState[yy][xx].marker = newMarkers[yy][xx];
+    }
+  }
+  drawTablature();
+}
+
+// ==============================
 // Save/Load Tablature
 // ==============================
 function saveSelection() {
@@ -1216,6 +1282,47 @@ function toggleLibrary() {
   slideover.classList.toggle("hidden");
 }
 
+// NEW helper to parse "Xn (row=Y, string=Z)" -> returns {noteName, noteOctave}
+function parseNotePlainText(line) {
+  // example: "A0 (row=3, string=2)"
+  // We'll split at space, the first part is note+octave
+  const parts = line.split(" ");
+  if (!parts[0]) return null; 
+  // parts[0] is something like "A0" or "C#4"
+  const rawNote = parts[0];
+  // separate note name from octave
+  // find last character or digits
+  let match = rawNote.match(/^([A-G]#?)(-?\d+)/);
+  if (!match) return null;
+  return {
+    noteName: match[1],
+    noteOctave: parseInt(match[2], 10)
+  };
+}
+
+function selectionInCurrentScale(selection) {
+  // If no scale filter or scale = none => trivially pass
+  if (currentScale === "none") return true;
+
+  const scaleSet = getScaleSemitones(currentScale, currentRoot);
+  if (scaleSet.size === 0) return true; // no real filter
+
+  // check each line in selection.notesPlainText
+  if (!selection.notesPlainText) return true;
+
+  for (let line of selection.notesPlainText) {
+    const parsed = parseNotePlainText(line);
+    if (!parsed) continue; // skip unparseable lines
+    let noteIndex = NOTES.indexOf(parsed.noteName);
+    if (noteIndex < 0) continue; // skip unknown note
+    // check pitch class
+    if (!scaleSet.has(noteIndex)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function populateLibrary() {
   const libraryContent = document.getElementById("libraryContent");
   libraryContent.innerHTML = "";
@@ -1227,7 +1334,14 @@ function populateLibrary() {
     return;
   }
 
+  const scaleFilterCheck = document.getElementById("scaleFilterCheck");
+  const doScaleFilter = scaleFilterCheck && scaleFilterCheck.checked;
+
   savedSelections.forEach((selection, index) => {
+    if (doScaleFilter && !selectionInCurrentScale(selection)) {
+      return; // skip if not in scale
+    }
+
     const div = document.createElement("div");
     div.className = "relative p-2 border rounded hover:bg-gray-100";
     div.innerHTML = `
@@ -1324,6 +1438,39 @@ function saveLibrary() {
   const a = document.createElement('a');
   a.href = url;
   a.download = 'harpejji_library.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// NEW: Save Library As
+function saveLibraryAs() {
+  const fileName = prompt("Enter a file name for the library:", "my_library");
+  if (!fileName) return;
+  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  if (savedSelections.length === 0) {
+    alert('No selections to save');
+    return;
+  }
+  const completeLibrary = savedSelections.map(selection => {
+    if (!selection.modelData) {
+      const model = MODELS[selection.model];
+      selection.modelData = {
+        numberOfStrings: model.numberOfStrings,
+        numberOfFrets: model.numberOfFrets,
+        startNote: model.startNote,
+        startOctave: model.startOctave,
+        endNote: model.endNote,
+        endOctave: model.endOctave
+      };
+    }
+    return selection;
+  });
+
+  const blob = new Blob([JSON.stringify(completeLibrary)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName + '.json';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -1607,8 +1754,6 @@ document.addEventListener('mousemove', (e) => {
     newIndex = Math.max(0, Math.min(newIndex, globalSortedNotes.length - 1));
     draggingNote.noteIndex = newIndex;
     // Update the (x,y) for that note if we haven't mapped it
-    // The direct x,y might be irrelevant if user uses a custom mapping, 
-    // but let's store the default to keep consistent if no custom mapping
     const newPitchObj = globalSortedNotes[newIndex];
     if (newPitchObj) {
       draggingNote.noteName = newPitchObj.noteName;
@@ -1714,6 +1859,7 @@ document.addEventListener("DOMContentLoaded", () => {
   scaleSelect.addEventListener("change", (e) => {
     currentScale = e.target.value;
     drawTablature();
+    populateLibrary(); // refresh library in case filter is on
   });
 
   // Root note
@@ -1721,6 +1867,7 @@ document.addEventListener("DOMContentLoaded", () => {
   rootSelect.addEventListener("change", (e) => {
     currentRoot = e.target.value;
     drawTablature();
+    populateLibrary(); // refresh library in case filter is on
   });
 
   // Toggle note names
@@ -1745,6 +1892,11 @@ document.addEventListener("DOMContentLoaded", () => {
   populateLibrary();
   document.getElementById("importBtn").addEventListener("click", importFiles);
   document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
+
+  // NEW: saveLibraryAs
+  const saveLibraryAsBtn = document.getElementById("saveLibraryAsBtn");
+  saveLibraryAsBtn.addEventListener("click", saveLibraryAs);
+
   document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
   document.getElementById("clearLibraryBtn").addEventListener("click", () => {
     if (confirm('Are you sure you want to clear the library?')) {
@@ -1753,8 +1905,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Scale filter checkbox -> repopulate library on change
+  const scaleFilterCheck = document.getElementById("scaleFilterCheck");
+  scaleFilterCheck.addEventListener("change", populateLibrary);
+
   // Kill Notes
   document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
+
+  // Transpose Buttons
+  document.getElementById("transposeUpBtn").addEventListener("click", () => transposeSelected(1));
+  document.getElementById("transposeDownBtn").addEventListener("click", () => transposeSelected(-1));
 
   // Sequencer
   document.getElementById('play-btn').addEventListener('click', () => {
