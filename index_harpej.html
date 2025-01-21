@@ -1596,8 +1596,33 @@ let audioStartTime = 0;
 let globalSortedNotes = [];
 let globalNoteToIndexMap = new Map();
 
-let metronomeContext;
-let metronomeGain;
+// ADD THESE LINES TO FIX THE PLAY/STOP (metronome) REFS:
+let metronomeContext = null;
+
+/**
+ * Minimal “initMetronome” so it won't cause an error.
+ */
+function initMetronome() {
+  // We can just reuse the existing audioContext as a "metronome context"
+  // or create any simple placeholder. Here we do:
+  metronomeContext = audioContext || null;
+}
+
+/**
+ * Minimal “playMetronomeSound” to avoid errors. 
+ * It makes a short beep if metronome is enabled.
+ */
+function playMetronomeSound() {
+  if (!metronomeContext) return;
+  const beepOsc = audioContext.createOscillator();
+  const beepGain = audioContext.createGain();
+  beepOsc.frequency.value = 880; // beep
+  beepGain.gain.setValueAtTime(0.1, audioContext.currentTime);
+  beepOsc.connect(beepGain).connect(audioContext.destination);
+  beepOsc.start(audioContext.currentTime);
+  beepOsc.stop(audioContext.currentTime + 0.05);
+}
+// END OF FIX
 
 let isStepMode = false;
 let stepModeTime = 0.0;
