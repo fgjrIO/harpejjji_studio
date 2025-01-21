@@ -339,10 +339,10 @@ const MODELS = {
   }
 };
 
-// Each row (bottom to top) => +1 semitone
 // Each column (left to right) => +2 semitones
+// Each row (bottom to top) => +1 semitone
 function getSemitonesFromBase(x, y) {
-  return x * 2 + y * 1;
+  return (x * 2) + (y * 1);
 }
 
 const fretSpacing = 30;   // vertical spacing in pixels
@@ -358,9 +358,6 @@ let numberOfFrets = currentModel.numberOfFrets;
 let numberOfStrings = currentModel.numberOfStrings;
 let BASE_NOTE = currentModel.startNote;
 let BASE_OCTAVE = currentModel.startOctave;
-
-let svgWidth = stringSpacing * (numberOfStrings + 2);
-let svgHeight = fretSpacing * (numberOfFrets + 2);
 
 // We keep an array for each fret/string
 let keysState = [];
@@ -471,9 +468,9 @@ function isBlackNote(noteName) {
 // Draw Tablature
 // ==============================
 function drawTablature() {
-  // Recompute total size
-  const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing;
-  const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2;
+  // We expand slightly so the right side isn't cut off
+  const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
+  const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
 
   const svg = document.getElementById("tablature");
   svg.setAttribute("width", totalWidth);
@@ -490,18 +487,14 @@ function drawTablature() {
   const g = document.createElementNS("http://www.w3.org/2000/svg","g");
   svg.appendChild(g);
 
-  // Draw horizontal fret lines (inverted so row 0 is bottom):
+  // Draw horizontal fret lines (bottom to top)
   for (let row = 0; row <= numberOfFrets; row++) {
-    // each row => y = bottom + row*fretSpacing => but we invert so row=0 is bottom
-    // actually row=0 => bottom line. So yCoord = row*fretSpacing
-    // but the bottom line is row=0 => yCoord= 0 + keyHeight?
-    // We'll offset slightly so the keys line up
     const lineY = row * fretSpacing + fretSpacing/2;
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", 0);
-    line.setAttribute("y1", totalHeight - lineY);
+    line.setAttribute("y1", (totalHeight - lineY));
     line.setAttribute("x2", numberOfStrings * stringSpacing);
-    line.setAttribute("y2", totalHeight - lineY);
+    line.setAttribute("y2", (totalHeight - lineY));
     line.setAttribute("stroke", "#000");
     line.setAttribute("stroke-width", "1");
     g.appendChild(line);
@@ -512,7 +505,7 @@ function drawTablature() {
     const lineX = x * stringSpacing + stringSpacing;
     const line = document.createElementNS("http://www.w3.org/2000/svg","line");
     line.setAttribute("x1", lineX);
-    line.setAttribute("y1", totalHeight - (fretSpacing/2 + keyHeight));
+    line.setAttribute("y1", (totalHeight - fretSpacing/2 - keyHeight));
     line.setAttribute("x2", lineX);
     line.setAttribute("y2", fretSpacing/2);
     line.setAttribute("stroke", "#CCC");
@@ -523,7 +516,6 @@ function drawTablature() {
   // Draw border
   const borderRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
   borderRect.setAttribute("x", 0.5);
-  // bottom is fretSpacing/2 + keyHeight, top is fretSpacing/2. We'll just enclose the entire area.
   borderRect.setAttribute("y", 0.5);
   borderRect.setAttribute("width", totalWidth - 1);
   borderRect.setAttribute("height", totalHeight - 1);
@@ -532,15 +524,13 @@ function drawTablature() {
   g.appendChild(borderRect);
 
   // Now draw keys
-  // row=0 => bottom row => yCoord = totalHeight - offset
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       const noteName = getNoteName(x, y);
       const octave   = getNoteOctave(x, y);
       const blackKey = isBlackNote(noteName);
 
-      // The bottom corner for row y:
-      const yPos = totalHeight - ( (y * fretSpacing) + fretSpacing/2 ) - keyHeight;
+      const yPos = (totalHeight - ((y * fretSpacing) + fretSpacing/2)) - keyHeight;
       const xPos = (x * stringSpacing) + stringSpacing - 7.5;
 
       const keyGroup = document.createElementNS("http://www.w3.org/2000/svg","g");
@@ -568,8 +558,8 @@ function drawTablature() {
 
       if (showNotes) {
         const label = document.createElementNS("http://www.w3.org/2000/svg","text");
-        label.setAttribute("x", "7.5");
-        label.setAttribute("y", blackKey ? "10" : "10");
+        label.setAttribute("x", 7.5);
+        label.setAttribute("y", 12.5);
         label.setAttribute("fill", blackKey ? "#EEE" : "#555");
         label.setAttribute("font-size", "7");
         label.setAttribute("font-family", "Helvetica, Arial, sans-serif");
@@ -594,74 +584,102 @@ let keyMode = 'toggle';
 // ==============================
 // CHORD PALETTE SETUP
 // ==============================
-// We have 8 chord slots. Each slot can record a set of notes.
-let chordSlots = Array(8).fill(null).map(() => ({ notes: [] }));
+/**
+ * Instead of storing just noteName + octave for chords,
+ * we will store the exact (x,y) so playback is accurate.
+ */
+let chordSlots = Array(8).fill(null).map(() => ({ keys: [] }));
 let chordRecordIndex = -1; // which chord slot is currently in record mode, -1 if none
 
 function toggleChordRecord(index) {
-  // If we're already recording this chord, turn it off. Otherwise set to this chord.
   chordRecordIndex = (chordRecordIndex === index) ? -1 : index;
   updateChordPaletteUI();
 }
 
 function clearChordNotes(index) {
-  chordSlots[index].notes = [];
+  chordSlots[index].keys = [];
   updateChordPaletteUI();
 }
 
-// Add a note (by name+octave) to a chord if in record mode
-function recordChordNoteIfNeeded(noteName, octave) {
+/** Record the exact x,y pressed (plus note name / octave if needed) */
+function recordChordNoteIfNeeded(x, y) {
   if (chordRecordIndex === -1) return;
+  const noteName = getNoteName(x, y);
+  const octave = getNoteOctave(x, y);
+
   const chord = chordSlots[chordRecordIndex];
-  const key = noteName + octave;
   // Avoid duplicates
-  if (!chord.notes.includes(key)) {
-    chord.notes.push(key);
+  const existing = chord.keys.find(k => k.x === x && k.y === y);
+  if (!existing) {
+    chord.keys.push({ x, y, noteName, octave });
   }
 }
 
-// If a file is loaded while chord record is on, use the new markers to define the chord:
+/** If a file is loaded while chord record is on, use the newly loaded markers to define the chord. */
 function setChordNotesFromKeysState(index) {
-  const newNotes = [];
+  const chord = chordSlots[index];
+  chord.keys = [];
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       if (keysState[y][x].marker) {
-        const noteName = getNoteName(x, y);
-        const octave = getNoteOctave(x, y);
-        const full = noteName + octave;
-        if (!newNotes.includes(full)) {
-          newNotes.push(full);
-        }
+        chord.keys.push({
+          x,
+          y,
+          noteName: getNoteName(x, y),
+          octave: getNoteOctave(x, y)
+        });
       }
     }
   }
-  chordSlots[index].notes = newNotes;
   updateChordPaletteUI();
 }
 
-// Helper to parse noteName+octave from string like "C#4"
-function parseNoteNameOctave(str) {
-  const match = str.match(/^([A-G]#?)(\d+)$/);
-  if (!match) return null;
-  return {
-    noteName: match[1],
-    octave: parseInt(match[2], 10)
-  };
+/** Press mode: hold chord button => keys "press" until mouse up */
+function chordPressDown(chordIndex) {
+  const chord = chordSlots[chordIndex];
+  chord.keys.forEach(keyData => {
+    handleKeyDownProgrammatically(keyData.x, keyData.y);
+  });
 }
 
-// Find the x,y location for a given noteName+octave, or null if not found
-function findXYForNote(noteName, octave) {
-  for (let yy = 0; yy < numberOfFrets; yy++) {
-    for (let xx = 0; xx < numberOfStrings; xx++) {
-      if (getNoteName(xx, yy) === noteName && getNoteOctave(xx, yy) === octave) {
-        return { x: xx, y: yy };
-      }
+function chordPressUp(chordIndex) {
+  const chord = chordSlots[chordIndex];
+  chord.keys.forEach(keyData => {
+    handleKeyUpProgrammatically(keyData.x, keyData.y);
+  });
+}
+
+/** Toggle mode: single click => toggle chord notes */
+function chordToggle(chordIndex) {
+  const chord = chordSlots[chordIndex];
+  chord.keys.forEach(keyData => {
+    handleKeyDownProgrammatically(keyData.x, keyData.y);
+    setTimeout(() => {
+      handleKeyUpProgrammatically(keyData.x, keyData.y);
+    }, 300);
+  });
+}
+
+/** Update chord palette UI to show which chord is in record mode */
+function updateChordPaletteUI() {
+  const recordButtons = document.querySelectorAll('.chord-record-btn');
+  recordButtons.forEach(btn => {
+    const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
+    if (idx === chordRecordIndex) {
+      btn.classList.add('ring');
+      btn.classList.add('ring-offset-2');
+      btn.classList.add('ring-red-500');
+    } else {
+      btn.classList.remove('ring');
+      btn.classList.remove('ring-offset-2');
+      btn.classList.remove('ring-red-500');
     }
-  }
-  return null;
+  });
 }
 
-// Programmatic keyDown / keyUp
+// ==============================
+// Handle Key Pressing
+// ==============================
 function handleKeyDownProgrammatically(x, y) {
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
@@ -694,65 +712,6 @@ function handleKeyUpProgrammatically(x, y) {
   drawTablature();
 }
 
-// Press mode: hold chord button => keys "press" until mouse up
-function chordPressDown(chordIndex) {
-  const chord = chordSlots[chordIndex];
-  chord.notes.forEach(noteNameOctave => {
-    const parsed = parseNoteNameOctave(noteNameOctave);
-    if (!parsed) return;
-    const xy = findXYForNote(parsed.noteName, parsed.octave);
-    if (!xy) return;
-    handleKeyDownProgrammatically(xy.x, xy.y);
-  });
-}
-
-function chordPressUp(chordIndex) {
-  const chord = chordSlots[chordIndex];
-  chord.notes.forEach(noteNameOctave => {
-    const parsed = parseNoteNameOctave(noteNameOctave);
-    if (!parsed) return;
-    const xy = findXYForNote(parsed.noteName, parsed.octave);
-    if (!xy) return;
-    handleKeyUpProgrammatically(xy.x, xy.y);
-  });
-}
-
-// Toggle mode: single click => toggle chord notes
-function chordToggle(chordIndex) {
-  const chord = chordSlots[chordIndex];
-  chord.notes.forEach(noteNameOctave => {
-    const parsed = parseNoteNameOctave(noteNameOctave);
-    if (!parsed) return;
-    const xy = findXYForNote(parsed.noteName, parsed.octave);
-    if (!xy) return;
-    // "KeyDown" toggles, then "KeyUp" stops sound
-    handleKeyDownProgrammatically(xy.x, xy.y);
-    setTimeout(() => {
-      handleKeyUpProgrammatically(xy.x, xy.y);
-    }, 300);
-  });
-}
-
-function updateChordPaletteUI() {
-  // Visually show which chord slot is in record mode (chordRecordIndex)
-  const recordButtons = document.querySelectorAll('.chord-record-btn');
-  recordButtons.forEach(btn => {
-    const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
-    if (idx === chordRecordIndex) {
-      btn.classList.add('ring');
-      btn.classList.add('ring-offset-2');
-      btn.classList.add('ring-red-500');
-    } else {
-      btn.classList.remove('ring');
-      btn.classList.remove('ring-offset-2');
-      btn.classList.remove('ring-red-500');
-    }
-  });
-}
-
-// ==============================
-// Handle Key Pressing
-// ==============================
 function handleKeyDown(x, y) {
   const noteName = getNoteName(x, y);
   const octave = getNoteOctave(x, y);
@@ -768,8 +727,8 @@ function handleKeyDown(x, y) {
     keysState[y][x].pressing = true;
   }
 
-  // Also handle chord record
-  recordChordNoteIfNeeded(noteName, octave);
+  // Also record chord note if chordRecordIndex != -1
+  recordChordNoteIfNeeded(x, y);
 
   startNoteRecording(x, y);
   drawTablature();
@@ -1083,7 +1042,6 @@ function playMetronomeSound() {
 }
 
 function buildSortedNotesMapping() {
-  // Build unique note mapping from highest to lowest
   let noteObjects = [];
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
@@ -1100,7 +1058,7 @@ function buildSortedNotesMapping() {
     }
   });
   let uniqueNotes = Array.from(pitchMap.values());
-  // sort descending so highest pitch is at the top of the piano roll
+  // Sort descending so highest pitch is at top
   uniqueNotes.sort((a, b) => b.pitch - a.pitch);
 
   globalSortedNotes = uniqueNotes;
@@ -1228,7 +1186,7 @@ function stopNoteRecording(x, y) {
   }
 }
 
-// jump by mouse
+// jump by mouse in sequencer
 document.addEventListener("DOMContentLoaded", () => {
   const sequencerGrid = document.getElementById("sequencer-grid");
   sequencerGrid.addEventListener("mousedown", e => {
@@ -1591,6 +1549,7 @@ document.addEventListener("DOMContentLoaded", () => {
     advancedConfigSlideover.classList.add("hidden");
   });
 
+  // Listen for cursor color changes
   cursorColorPicker.addEventListener("input", (e) => {
     // Apply the chosen color to the #playhead
     const color = e.target.value;
@@ -1619,13 +1578,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const slot = btn.closest('.chord-slot');
     const idx = parseInt(slot.getAttribute('data-chord-index'), 10);
     
-    // For toggle mode, we'll just use "click"
-    // For press mode, we'll use "mousedown" / "mouseup" to hold
+    // For toggle mode, just use "click"
     btn.addEventListener('click', () => {
       if (keyMode === 'toggle') {
         chordToggle(idx);
       }
     });
+    // For press mode, "mousedown" / "mouseup" to hold
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       if (keyMode === 'press') {
