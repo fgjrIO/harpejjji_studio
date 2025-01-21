@@ -978,6 +978,19 @@ function drawTablature() {
         keyGroup.appendChild(rect);
       }
 
+      // Always display small rectangle outline for C
+      if (noteName === "C") {
+        const cIndicatorRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+        cIndicatorRect.setAttribute("x", 4);
+        cIndicatorRect.setAttribute("y", 18);
+        cIndicatorRect.setAttribute("width", 7);
+        cIndicatorRect.setAttribute("height", 3);
+        cIndicatorRect.setAttribute("fill", "none");
+        cIndicatorRect.setAttribute("stroke", "black");
+        cIndicatorRect.setAttribute("stroke-width", "1");
+        keyGroup.appendChild(cIndicatorRect);
+      }
+
       const stateObj = keysState[y][x];
       if (stateObj.marker || stateObj.pressing || stateObj.sequencerPlaying) {
         const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
@@ -991,7 +1004,8 @@ function drawTablature() {
       if (showNotes) {
         const label = document.createElementNS("http://www.w3.org/2000/svg","text");
         label.setAttribute("x", 7.5);
-        label.setAttribute("y", 12.5);
+        // Moved label higher to allow room for the rectangle
+        label.setAttribute("y", 7);
         label.setAttribute("fill", blackKey ? "#EEE" : "#555");
         label.setAttribute("font-size", "7");
         label.setAttribute("font-family", "Helvetica, Arial, sans-serif");
@@ -2583,6 +2597,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   updateChordPaletteUI();
+
+  // Allow clicking anywhere on the sequencer grid to jump the cursor
+  const sequencerGridEl = document.getElementById('sequencer-grid');
+  sequencerGridEl.addEventListener('click', (e) => {
+    const rect = sequencerGridEl.getBoundingClientRect();
+    const x = e.clientX - rect.left + sequencerGridEl.scrollLeft;
+    const timeInSec = x / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60));
+    jumpToTime(timeInSec);
+  });
 });
 
 // ==============================
