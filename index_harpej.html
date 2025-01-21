@@ -205,6 +205,20 @@
       Advanced Config
     </button>
 
+    <!-- NEW: Find Chord + Play Current Selection Buttons -->
+    <button
+      id="findChordBtn"
+      class="px-4 py-2 rounded bg-indigo-500 text-white hover:bg-indigo-600"
+    >
+      Find Chord
+    </button>
+    <button
+      id="playSelectionBtn"
+      class="px-4 py-2 rounded bg-blue-700 text-white hover:bg-blue-800"
+    >
+      Play Current Selection
+    </button>
+
     <span class="text-gray-600 text-sm">
       Click any key to toggle a marker and play its note.
     </span>
@@ -574,6 +588,22 @@
     </div>
 </div>
 
+<!-- NEW: Find Chord Popup -->
+<div id="findChordPopup" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="bg-white p-4 rounded w-full max-w-md relative">
+      <h2 class="text-xl font-bold mb-2">Chord Suggestions</h2>
+      <div id="chordMatches" class="text-sm space-y-2"></div>
+      <button 
+        id="closeChordPopup" 
+        class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==============================
 // Some default built-in scales
@@ -625,6 +655,32 @@ const stringSpacing = 30;
 const keyHeight = 25;     
 
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+// NEW: Big chord dictionary (extremely comprehensive, but still a sample).
+// Each chord definition has a name and a set of semitone intervals from root.
+const CHORD_DEFINITIONS = [
+  { name: "Major", intervals: [0,4,7] },
+  { name: "Minor", intervals: [0,3,7] },
+  { name: "Dim",   intervals: [0,3,6] },
+  { name: "Aug",   intervals: [0,4,8] },
+  { name: "Maj7",  intervals: [0,4,7,11] },
+  { name: "Min7",  intervals: [0,3,7,10] },
+  { name: "Dom7",  intervals: [0,4,7,10] },
+  { name: "Sus2",  intervals: [0,2,7] },
+  { name: "Sus4",  intervals: [0,5,7] },
+  { name: "6",     intervals: [0,4,7,9] },
+  { name: "m6",    intervals: [0,3,7,9] },
+  { name: "6/9",   intervals: [0,4,7,9,2] },
+  { name: "m6/9",  intervals: [0,3,7,9,2] },
+  { name: "Maj9",  intervals: [0,4,7,11,2] },
+  { name: "Min9",  intervals: [0,3,7,10,2] },
+  { name: "13",    intervals: [0,4,7,10,2,5,9] },
+  { name: "Maj13", intervals: [0,4,7,11,2,5,9] },
+  { name: "Min13", intervals: [0,3,7,10,2,5,9] },
+  { name: "Add9",  intervals: [0,4,7,2] },
+  { name: "mAdd9", intervals: [0,3,7,2] },
+  // ... more could be added here for even more completeness ...
+];
 
 // Current model defaults to K24
 let currentModel = MODELS.K24;
@@ -2708,6 +2764,120 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   updateChordPaletteUI();
+
+  // ==============================
+  // NEW: "Find Chord" Button Logic
+  // ==============================
+  const findChordBtn = document.getElementById("findChordBtn");
+  const findChordPopup = document.getElementById("findChordPopup");
+  const closeChordPopup = document.getElementById("closeChordPopup");
+  const chordMatchesDiv = document.getElementById("chordMatches");
+
+  findChordBtn.addEventListener("click", () => {
+    // Gather selected note pitch classes
+    const selectedPositions = [];
+    for (let y = 0; y < numberOfFrets; y++) {
+      for (let x = 0; x < numberOfStrings; x++) {
+        if (keysState[y][x].marker) {
+          const noteName = getNoteName(x, y);
+          const octave = getNoteOctave(x, y);
+          const pitchClass = NOTES.indexOf(noteName);
+          selectedPositions.push({ noteName, octave, pitchClass });
+        }
+      }
+    }
+
+    if (selectedPositions.length === 0) {
+      chordMatchesDiv.innerHTML = "<p class='text-red-600'>No notes selected.</p>";
+      findChordPopup.classList.remove("hidden");
+      return;
+    }
+
+    // Remove duplicates by pitchClass+octave if desired, but let's just keep pitchClass for chord matching
+    const uniquePitchClasses = Array.from(new Set(selectedPositions.map(sp => sp.pitchClass)));
+
+    // Attempt chord detection:
+    // We'll create a list of potential (chordName, matches, rootName).
+    let chordResults = [];
+
+    // We consider each uniquePitchClass as a potential root.
+    for (let rootPc of uniquePitchClasses) {
+      // Shift everything so rootPc => 0
+      const shiftedSet = uniquePitchClasses.map(pc => mod(pc - rootPc, 12));
+
+      // For each chord definition, count how many intervals are in that shiftedSet
+      CHORD_DEFINITIONS.forEach(chDef => {
+        let matchCount = 0;
+        chDef.intervals.forEach(interval => {
+          if (shiftedSet.includes(mod(interval,12))) {
+            matchCount++;
+          }
+        });
+        // We also want to know the chord's "root" note name
+        const rootName = NOTES[rootPc];
+        chordResults.push({
+          chordName: `${rootName} ${chDef.name}`,
+          totalChordIntervals: chDef.intervals.length,
+          matchedIntervals: matchCount
+        });
+      });
+    }
+
+    // Sort chordResults by matchedIntervals desc, then totalChordIntervals asc (fewer intervals => easier to match).
+    chordResults.sort((a,b) => {
+      if (b.matchedIntervals === a.matchedIntervals) {
+        return a.totalChordIntervals - b.totalChordIntervals;
+      }
+      return b.matchedIntervals - a.matchedIntervals;
+    });
+
+    // Take top 8
+    const topMatches = chordResults.slice(0, 8);
+
+    // Display in popup
+    if (topMatches.length === 0) {
+      chordMatchesDiv.innerHTML = "<p class='text-gray-600'>No chord matches found.</p>";
+    } else {
+      chordMatchesDiv.innerHTML = topMatches.map(match => {
+        return `
+          <div>
+            <strong>${match.chordName}</strong>
+            <span class="ml-2 text-gray-700">
+              (Matched ${match.matchedIntervals} / ${match.totalChordIntervals})
+            </span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    findChordPopup.classList.remove("hidden");
+  });
+
+  closeChordPopup.addEventListener("click", () => {
+    findChordPopup.classList.add("hidden");
+  });
+
+  // ==============================
+  // NEW: "Play Current Selection" Button
+  // ==============================
+  document.getElementById("playSelectionBtn").addEventListener("click", () => {
+    // Gather the currently selected keys
+    const selectedKeys = [];
+    for (let y = 0; y < numberOfFrets; y++) {
+      for (let x = 0; x < numberOfStrings; x++) {
+        if (keysState[y][x].marker) {
+          selectedKeys.push({ x, y });
+        }
+      }
+    }
+    // Mimic chordToggle logic for toggle mode, chordPress logic for press mode
+    selectedKeys.forEach(pos => {
+      handleKeyDownProgrammatically(pos.x, pos.y);
+      setTimeout(() => {
+        handleKeyUpProgrammatically(pos.x, pos.y);
+      }, 300);
+    });
+  });
 });
 
 // ==============================
