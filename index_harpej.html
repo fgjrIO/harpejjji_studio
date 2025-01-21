@@ -53,18 +53,30 @@
       <span id="tempoValue" class="text-gray-700">120 BPM</span>
     </div>
 
-    <!-- Transpose Up & Down Buttons -->
+    <!-- Shift Up / Down / Left / Right -->
     <button 
-      id="transposeUpBtn"
+      id="shiftUpBtn"
       class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
     >
-      Transpose +1
+      Shift Up
     </button>
     <button 
-      id="transposeDownBtn"
+      id="shiftDownBtn"
       class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
     >
-      Transpose -1
+      Shift Down
+    </button>
+    <button 
+      id="shiftLeftBtn"
+      class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+    >
+      Shift Left
+    </button>
+    <button 
+      id="shiftRightBtn"
+      class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+    >
+      Shift Right
     </button>
   </div>
 
@@ -556,8 +568,8 @@ let loadedScales = {
 // ==============================
 const MODELS = {
   K24: {
-    numberOfStrings: 24, // x dimension
-    numberOfFrets: 15,   // y dimension
+    numberOfStrings: 24,
+    numberOfFrets: 15,
     startNote: "A",
     startOctave: 0,
     endNote: "A",
@@ -620,7 +632,8 @@ initKeysState();
 
 // show/hide note names
 let showNotes = false;
-// Instrument selection
+
+// A basic map, but we will override the actual wave creation for more realistic timbres below
 const instrumentMap = {
   piano: "sine",
   guitar: "triangle",
@@ -699,35 +712,121 @@ function initAudio() {
   masterGainNode.connect(audioContext.destination);
 }
 
-function createOscillator(frequency) {
+/**
+ * Create a more sophisticated multi-node chain to approximate
+ * some realism for each instrument. This is a basic approach
+ * using ADSR envelopes and a filter. It's still synthetic,
+ * but more "instrument-like" than a plain single-wave oscillator.
+ */
+function createInstrumentSound(frequency, instrument) {
   if (!audioContext) initAudio();
-  const osc = audioContext.createOscillator();
-  const waveType = instrumentMap[currentInstrument] || "sine";
-  osc.type = waveType;
 
-  const gain = audioContext.createGain();
-  gain.gain.value = 0.5;
+  // Create a master gain for the note
+  const noteGain = audioContext.createGain();
+  noteGain.gain.value = 0; // will envelope in
 
-  osc.frequency.value = frequency;
+  // A filter for timbre shaping
+  const filter = audioContext.createBiquadFilter();
+  filter.type = "lowpass";
 
-  // Connect the oscillator's gain to the master chain
-  osc.connect(gain);
-  gain.connect(masterGainNode);
-  gain.connect(delayNode);
-  gain.connect(reverbConvolver);
+  // Envelope parameters for each instrument
+  let envelope = { attack: 0.01, decay: 0.3, sustain: 0.2, release: 0.5 };
+  let filterFreq = 2000;
 
-  return { osc, gain };
+  switch(instrument) {
+    case 'piano':
+      envelope = { attack: 0.01, decay: 0.3, sustain: 0.2, release: 0.8 };
+      filterFreq = 3000;
+      break;
+    case 'guitar':
+      envelope = { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.6 };
+      filterFreq = 2500;
+      break;
+    case 'ukulele':
+      envelope = { attack: 0.01, decay: 0.1, sustain: 0.3, release: 0.5 };
+      filterFreq = 3500;
+      break;
+    case 'harp':
+      envelope = { attack: 0.02, decay: 0.2, sustain: 0.3, release: 1.0 };
+      filterFreq = 4000;
+      break;
+    default:
+      // fallback
+      envelope = { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 };
+      filterFreq = 2000;
+      break;
+  }
+
+  // Create a couple of oscillators slightly detuned for richness
+  const osc1 = audioContext.createOscillator();
+  const osc2 = audioContext.createOscillator();
+  const waveType = instrumentMap[instrument] || "sine";
+  osc1.type = waveType;
+  osc2.type = waveType;
+  osc1.frequency.value = frequency;
+  osc2.frequency.value = frequency * 1.003; // slight detune
+
+  // Connect them to the filter
+  osc1.connect(filter);
+  osc2.connect(filter);
+
+  // Filter -> noteGain
+  filter.connect(noteGain);
+
+  // Connect noteGain to the main chain
+  noteGain.connect(masterGainNode);
+  noteGain.connect(delayNode);
+  noteGain.connect(reverbConvolver);
+
+  filter.frequency.value = filterFreq;
+
+  // ADSR envelope
+  const now = audioContext.currentTime;
+  const attackEnd = now + envelope.attack;
+  const decayEnd = attackEnd + envelope.decay;
+
+  noteGain.gain.cancelScheduledValues(now);
+  noteGain.gain.setValueAtTime(0, now);
+  noteGain.gain.linearRampToValueAtTime(1.0, attackEnd); // Attack up to full
+  noteGain.gain.linearRampToValueAtTime(envelope.sustain, decayEnd); // Decay to sustain
+
+  osc1.start(now);
+  osc2.start(now);
+
+  return {
+    stop: () => {
+      const releaseStart = audioContext.currentTime;
+      const releaseEnd = releaseStart + envelope.release;
+      noteGain.gain.cancelScheduledValues(releaseStart);
+      noteGain.gain.setValueAtTime(noteGain.gain.value, releaseStart);
+      noteGain.gain.linearRampToValueAtTime(0.0001, releaseEnd);
+      setTimeout(() => {
+        osc1.stop();
+        osc2.stop();
+        osc1.disconnect();
+        osc2.disconnect();
+        filter.disconnect();
+        noteGain.disconnect();
+      }, envelope.release * 1000 + 50);
+    }
+  };
 }
 
-function stopOscillator({ osc, gain }) {
-  const now = audioContext.currentTime;
-  gain.gain.setValueAtTime(gain.gain.value, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-  setTimeout(() => {
-    osc.stop();
-    osc.disconnect();
-    gain.disconnect();
-  }, 150);
+function createOscillator(frequency, instrument) {
+  // This function sets up a more realistic "instrument" chain
+  // using the above function.
+  // We'll return an object mimicking { osc, gain } but in practice,
+  // the "osc" is replaced with a custom stop() method.
+  const soundObj = createInstrumentSound(frequency, instrument);
+  const fakeOscObj = {
+    osc: { stop: soundObj.stop },
+    gain: { disconnect: () => {} }
+  };
+  return fakeOscObj;
+}
+
+function stopOscillator({ osc }) {
+  osc.stop();
 }
 
 function killAllNotes() {
@@ -1045,9 +1144,8 @@ function handleKeyDownProgrammatically(x, y) {
   const octave = getNoteOctave(x, y);
   const freq = noteToFrequency(noteName, octave);
 
-  const { osc, gain } = createOscillator(freq);
-  osc.start();
-  activeUserOscillators.set(`${x}_${y}`, { osc, gain });
+  const oscObj = createOscillator(freq, currentInstrument);
+  activeUserOscillators.set(`${x}_${y}`, oscObj);
 
   if (keyMode === 'toggle') {
     keysState[y][x].marker = !keysState[y][x].marker;
@@ -1076,9 +1174,8 @@ function handleKeyDown(x, y) {
   const octave = getNoteOctave(x, y);
   const freq = noteToFrequency(noteName, octave);
 
-  const { osc, gain } = createOscillator(freq);
-  osc.start();
-  activeUserOscillators.set(`${x}_${y}`, { osc, gain });
+  const oscObj = createOscillator(freq, currentInstrument);
+  activeUserOscillators.set(`${x}_${y}`, oscObj);
 
   if (keyMode === 'toggle') {
     keysState[y][x].marker = !keysState[y][x].marker;
@@ -1650,7 +1747,7 @@ function drawSequencerGrid() {
   });
 }
 
-// Drag handling
+// Mousemove / mouseup for note dragging
 document.addEventListener('mousemove', (e) => {
   if (!draggingNote) return;
 
@@ -1674,7 +1771,7 @@ document.addEventListener('mousemove', (e) => {
       }
     }
   } else {
-    // Moving entire note
+    // Moving entire note in time & pitch
     draggingNote.startTime = Math.max(dragOriginalStartTime + timeOffset, 0);
 
     const dy = e.clientY - dragStartY;
@@ -1925,7 +2022,6 @@ document.addEventListener("DOMContentLoaded", () => {
     input.click();
   });
 
-  // Import MIDI
   document.getElementById('import-midi-btn').addEventListener('click', () => {
     const input = document.getElementById('import-midi-file');
     input.onchange = async (event) => {
@@ -2102,7 +2198,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Bar/Beat + Jump
   document.getElementById('jump-btn').addEventListener('click', () => {
     const barVal = document.getElementById('barInput').value;
     const beatVal = document.getElementById('beatInput').value;
@@ -2183,9 +2278,8 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
               freq = noteToFrequency(note.noteName, note.octave);
             }
-            const { osc, gain } = createOscillator(freq);
-            osc.start();
-            note.oscObj = { osc, gain };
+            const oscObj = createOscillator(freq, currentInstrument);
+            note.oscObj = oscObj;
             keysState[note.y][note.x].sequencerPlaying = true;
             drawTablature();
           }
@@ -2420,7 +2514,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // SAVE CHORDS + LOAD CHORDS FIX
+  // Save/Load Chords
   document.getElementById("saveChordsBtn").addEventListener("click", () => {
     const fileName = prompt("Enter a file name for chord palette:", "MyChords");
     if (!fileName) return;
@@ -2492,17 +2586,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==============================
-// Transpose Functionality
+// Shift Up/Down/Left/Right
 // ==============================
-document.getElementById("transposeUpBtn").addEventListener("click", () => {
-  transposeSelection(1);
-});
-document.getElementById("transposeDownBtn").addEventListener("click", () => {
-  transposeSelection(-1);
-});
-
-function transposeSelection(steps) {
-  // steps = +1 or -1
+function shiftSelection(dx, dy) {
   const selectedPositions = [];
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
@@ -2511,18 +2597,35 @@ function transposeSelection(steps) {
       }
     }
   }
-  // Move them by steps in the Y dimension
   selectedPositions.forEach(pos => {
     const oldX = pos.x;
     const oldY = pos.y;
-    const newY = oldY + steps;
-    if (newY >= 0 && newY < numberOfFrets) {
+    const newX = oldX + dx;
+    const newY = oldY + dy;
+    if (newX >= 0 && newX < numberOfStrings && newY >= 0 && newY < numberOfFrets) {
       keysState[oldY][oldX].marker = false;
-      keysState[newY][oldX].marker = true;
+      keysState[newY][newX].marker = true;
     }
   });
   drawTablature();
 }
+
+document.getElementById("shiftUpBtn").addEventListener("click", () => {
+  // shift up = y + 1
+  shiftSelection(0, +1);
+});
+document.getElementById("shiftDownBtn").addEventListener("click", () => {
+  // shift down = y - 1
+  shiftSelection(0, -1);
+});
+document.getElementById("shiftLeftBtn").addEventListener("click", () => {
+  // shift left = x - 1
+  shiftSelection(-1, 0);
+});
+document.getElementById("shiftRightBtn").addEventListener("click", () => {
+  // shift right = x + 1
+  shiftSelection(+1, 0);
+});
 </script>
 </body>
 </html>
