@@ -566,14 +566,6 @@
             Load
         </button>
         <input type="file" id="load-seq-file" class="hidden" accept=".json">
-        <!-- Import MIDI Button -->
-        <button 
-          id="import-midi-btn"
-          class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
-        >
-          Import MIDI
-        </button>
-        <input type="file" id="import-midi-file" class="hidden" accept=".mid">
 
         <!-- Song/Step Mode Toggle -->
         <button
@@ -1078,6 +1070,7 @@ function drawTablature() {
   borderRect.setAttribute("height", totalHeight - 1);
   borderRect.setAttribute("fill", "transparent");
   borderRect.setAttribute("stroke", "black");
+  borderRect.setAttribute("stroke-width", "1");
   g.appendChild(borderRect);
 
   // Scale highlighting
@@ -2383,140 +2376,6 @@ document.addEventListener("DOMContentLoaded", () => {
     input.click();
   });
 
-  document.getElementById('import-midi-btn').addEventListener('click', () => {
-    const input = document.getElementById('import-midi-file');
-    input.onchange = async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      const arrayBuffer = await file.arrayBuffer();
-      const midiData = parseMIDI(arrayBuffer);
-      if (!midiData) {
-        alert("Unable to parse MIDI or no note data found.");
-        return;
-      }
-      recordedNotes = [];
-      let minTime = Infinity;
-      midiData.forEach((noteEvent) => {
-        if (noteEvent.type === "note") {
-          minTime = Math.min(minTime, noteEvent.time);
-        }
-      });
-      midiData.forEach(evt => {
-        if (evt.type === "note") {
-          const startTime = evt.time - minTime;
-          recordedNotes.push({
-            noteName: "?",
-            octave: 4,
-            pitch: evt.pitch,
-            noteIndex: 0,
-            startTime,
-            duration: evt.duration,
-            isPlaying: false,
-            oscObj: null,
-            x: 0,
-            y: 0,
-            selected: false
-          });
-        }
-      });
-      recordedNotes.sort((a,b) => a.startTime - b.startTime);
-      stopPlayback();
-      pushHistory();
-      drawSequencerGrid();
-    };
-    input.click();
-  });
-
-  function parseMIDI(buffer) {
-    const data = new Uint8Array(buffer);
-    if (data[0] !== 0x4D || data[1] !== 0x54 || data[2] !== 0x68 || data[3] !== 0x64) {
-      return null;
-    }
-    const trackCount = (data[10] << 8) | data[11];
-    let pointer = 14;
-    const events = [];
-    for (let t = 0; t < trackCount; t++) {
-      if (data[pointer] !== 0x4D || data[pointer+1] !== 0x54 || data[pointer+2] !== 0x72 || data[pointer+3] !== 0x6B) {
-        return null;
-      }
-      const trackLength = (data[pointer+4]<<24) | (data[pointer+5]<<16) | (data[pointer+6]<<8) | data[pointer+7];
-      pointer += 8;
-      const trackEnd = pointer + trackLength;
-      let currentTime = 0;
-      let lastEventTypeByte = 0;
-      
-      while (pointer < trackEnd) {
-        const delta = readVarLen(data, pointer);
-        pointer += delta.length;
-        currentTime += delta.value; 
-        let eventTypeByte = data[pointer++];
-        if (eventTypeByte < 0x80) {
-          pointer--;
-          eventTypeByte = lastEventTypeByte;
-        } else {
-          lastEventTypeByte = eventTypeByte;
-        }
-        if ((eventTypeByte & 0xF0) === 0x80) {
-          const note = data[pointer++];
-          const vel = data[pointer++];
-          events.push({time: currentTime, type: "noteOff", pitch: note});
-        } else if ((eventTypeByte & 0xF0) === 0x90) {
-          const note = data[pointer++];
-          const vel = data[pointer++];
-          if (vel > 0) {
-            events.push({time: currentTime, type: "noteOn", pitch: note});
-          } else {
-            events.push({time: currentTime, type: "noteOff", pitch: note});
-          }
-        } else if ((eventTypeByte & 0xF0) === 0xA0 ||
-                   (eventTypeByte & 0xF0) === 0xB0 ||
-                   (eventTypeByte & 0xF0) === 0xE0 ) {
-          pointer += 2;
-        } else if ((eventTypeByte & 0xF0) === 0xC0 ||
-                   (eventTypeByte & 0xF0) === 0xD0) {
-          pointer += 1;
-        } else if (eventTypeByte === 0xFF) {
-          const metaType = data[pointer++];
-          const lengthMeta = readVarLen(data, pointer);
-          pointer += lengthMeta.length;
-          pointer += lengthMeta.value;
-        }
-      }
-      pointer = trackEnd;
-    }
-    let activeMap = {};
-    let noteEvents = [];
-    events.forEach(evt => {
-      if (evt.type === "noteOn") {
-        activeMap[evt.pitch] = { pitch: evt.pitch, time: evt.time };
-      } else if (evt.type === "noteOff") {
-        if (activeMap[evt.pitch]) {
-          const onObj = activeMap[evt.pitch];
-          const duration = evt.time - onObj.time;
-          noteEvents.push({ 
-            type: "note",
-            pitch: evt.pitch,
-            time: onObj.time,
-            duration: duration
-          });
-          delete activeMap[evt.pitch];
-        }
-      }
-    });
-    return noteEvents;
-  }
-
-  function readVarLen(data, index) {
-    let value = 0;
-    let offset = 0;
-    let b;
-    do {
-      b = data[index + offset++];
-      value = (value << 7) + (b & 0x7F);
-    } while (b & 0x80);
-    return { value, length: offset };
-  }
-
   // Toggle Sequencer
   document.getElementById("toggleSequencerModeBtn").addEventListener("click", () => {
     isSequencerModeOn = !isSequencerModeOn;
@@ -2765,7 +2624,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Load Project
   document.getElementById("loadProjectBtn").addEventListener("click", () => {
-    const input = document.getElementById('loadProjectFile');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
     input.onchange = (event) => {
       const file = event.target.files[0];
       if (!file) return;
