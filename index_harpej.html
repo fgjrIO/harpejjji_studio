@@ -2328,8 +2328,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = JSON.parse(e.target.result);
             SEQUENCER_CONFIG.bpm = data.bpm;
             recordedNotes = data.notes || [];
-            document.getElementById("tempoSlider").value = data.bpm;
-            document.getElementById("tempoValue").textContent = `${data.bpm} BPM`;
+            document.getElementById("tempoSlider").value = SEQUENCER_CONFIG.bpm;
+            document.getElementById("tempoValue").textContent = `${SEQUENCER_CONFIG.bpm} BPM`;
             stopPlayback();
             drawSequencerGrid();
           } catch (error) {
@@ -3095,17 +3095,17 @@ function shiftSelection(dx, dy) {
   drawTablature();
 }
 
-document.getElementById("shiftUpBtn").addEventListener("click", () => {
-  shiftSelection(0, +1);
-});
-document.getElementById("shiftDownBtn").addEventListener("click", () => {
-  shiftSelection(0, -1);
-});
-document.getElementById("shiftLeftBtn").addEventListener("click", () => {
-  shiftSelection(-1, 0);
-});
-document.getElementById("shiftRightBtn").addEventListener("click", () => {
-  shiftSelection(+1, 0);
+// ==============================
+// Event Listeners for Library Filters
+// ==============================
+document.addEventListener("DOMContentLoaded", () => {
+  // Add event listeners to library filter radio buttons
+  document.querySelectorAll('input[name="libraryFilter"]').forEach(radio => {
+    radio.addEventListener('change', populateLibrary);
+  });
+
+  // Add event listener to scale filter checkbox
+  document.getElementById("scaleFilterCheckbox").addEventListener("change", populateLibrary);
 });
 </script>
 </body>
