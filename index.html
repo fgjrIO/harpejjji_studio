@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Harpejji Tablature Emulation (Plain JS + Tailwind)</title>
+  <!-- Tailwind CSS (via CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 pb-[350px]">
+  <div class="max-w-6xl mx-auto bg-white rounded shadow p-4">
+    <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
+
+    <!-- Reverb, Delay, and Tempo Sliders at the top -->
+    <div class="flex flex-wrap items-center gap-4 mb-4">
+      <!-- Reverb Slider -->
+      <div class="flex items-center gap-2">
+        <label for="reverbSlider" class="text-gray-700">Reverb:</label>
+        <input 
+          type="range" 
+          id="reverbSlider" 
+          min="0" 
+          max="1" 
+          step="0.01" 
+          value="0" 
+          class="w-24"
+        />
+      </div>
+      <!-- Delay Slider -->
+      <div class="flex items-center gap-2">
+        <label for="delaySlider" class="text-gray-700">Delay:</label>
+        <input 
+          type="range" 
+          id="delaySlider" 
+          min="0" 
+          max="1" 
+          step="0.01" 
+          value="0" 
+          class="w-24"
+        />
+      </div>
+      <!-- Tempo Slider -->
+      <div class="flex items-center gap-2">
+        <label for="tempoSlider" class="text-gray-700">Tempo:</label>
+        <input 
+          type="range" 
+          id="tempoSlider" 
+          min="40" 
+          max="300" 
+          step="1" 
+          value="120" 
+          class="w-24"
+        />
+        <span id="tempoValue" class="text-gray-700">120 BPM</span>
+      </div>
+
+      <!-- Shift Up / Down / Left / Right -->
+      <button 
+        id="shiftUpBtn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Shift Up
+      </button>
+      <button 
+        id="shiftDownBtn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Shift Down
+      </button>
+      <button 
+        id="shiftLeftBtn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Shift Left
+      </button>
+      <button 
+        id="shiftRightBtn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Shift Right
+      </button>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex flex-wrap items-center gap-4 mb-4">
+      <!-- Model Selector -->
+      <div class="flex items-center gap-2">
+        <label for="modelSelect" class="text-gray-700">Model:</label>
+        <select 
+          id="modelSelect"
+          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[200px]"
+        >
+          <option value="K24">K24 (A0-A5, 24 strings)</option>
+          <option value="G16">G16 (C2-C6, 16 strings)</option>
+          <option value="G12">G12 (C2-C#5, 12 strings)</option>
+        </select>
+      </div>
+
+      <!-- Instrument Selector -->
+      <div class="flex items-center gap-2">
+        <label for="instrumentSelect" class="text-gray-700">Instrument:</label>
+        <select 
+          id="instrumentSelect"
+          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+        >
+          <option value="piano">Piano</option>
+          <option value="guitar">Guitar</option>
+          <option value="ukulele">Ukulele</option>
+          <option value="harp">Harp</option>
+        </select>
+      </div>
+
+      <!-- Scale Selector -->
+      <div class="flex items-center gap-2">
+        <label for="scaleSelect" class="text-gray-700">Scale:</label>
+        <select 
+          id="scaleSelect"
+          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+        >
+          <option value="none">None</option>
+          <option value="Major">Major</option>
+          <option value="Minor">Minor</option>
+        </select>
+      </div>
+
+      <!-- Root Note Selector -->
+      <div class="flex items-center gap-2">
+        <label for="rootSelect" class="text-gray-700">Root:</label>
+        <select 
+          id="rootSelect"
+          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        >
+          <option value="C">C</option>
+          <option value="C#">C#</option>
+          <option value="D">D</option>
+          <option value="D#">D#</option>
+          <option value="E">E</option>
+          <option value="F">F</option>
+          <option value="F#">F#</option>
+          <option value="G">G</option>
+          <option value="G#">G#</option>
+          <option value="A" selected>A</option>
+          <option value="A#">A#</option>
+          <option value="B">B</option>
+        </select>
+      </div>
+
+      <button 
+        id="toggleNotesBtn"
+        class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+      >
+        Toggle Note Names
+      </button>
+      <button 
+        id="resetMarkersBtn"
+        class="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+      >
+        Clear All Markers
+      </button>
+      <button 
+        id="saveBtn"
+        class="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600"
+      >
+        Save Tab
+      </button>
+      <button 
+        id="loadBtn"
+        class="px-4 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600"
+      >
+        Load Selection
+      </button>
+      <button 
+        id="libraryBtn"
+        class="px-4 py-2 rounded bg-purple-500 text-white hover:bg-purple-600"
+      >
+        Open Library
+      </button>
+
+      <!-- Sequencer Mode + Key Mode Buttons -->
+      <button
+        id="toggleSequencerModeBtn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Sequencer Mode
+      </button>
+      <button
+        id="toggleKeyModeBtn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Key Mode: Toggle
+      </button>
+
+      <!-- Kill Notes Button -->
+      <button
+        id="killNotesBtn"
+        class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+      >
+        Kill Notes
+      </button>
+
+      <!-- Advanced Config Button -->
+      <button
+        id="advancedConfigBtn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Advanced Config
+      </button>
+
+      <!-- NEW: Find Chord + Play Current Selection Buttons -->
+      <button
+        id="findChordBtn"
+        class="px-4 py-2 rounded bg-indigo-500 text-white hover:bg-indigo-600"
+      >
+        Find Chord
+      </button>
+      <button
+        id="playSelectionBtn"
+        class="px-4 py-2 rounded bg-blue-700 text-white hover:bg-blue-800"
+      >
+        Play Current Selection
+      </button>
+
+      <span class="text-gray-600 text-sm">
+        Click any key to toggle a marker and play its note.
+      </span>
+    </div>
+
+    <!-- Harpejji board + Chord Palette side by side -->
+    <div class="flex">
+      <!-- Our Tablature SVG -->
+      <svg 
+        id="tablature" 
+        class="border border-gray-400"
+      >
+        <!-- Will be drawn dynamically via JavaScript -->
+      </svg>
+
+      <!-- Chord Palette -->
+      <div class="ml-4 w-64" id="chordPalette">
+        <h2 class="text-xl font-bold mb-2">Chord Palette</h2>
+
+        <!-- Buttons to Save/Load the entire chord palette -->
+        <div class="flex gap-2 mb-2">
+          <button 
+            id="saveChordsBtn" 
+            class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+          >
+            Save Chords
+          </button>
+          <!-- NEW separate button to save all chords directly to a single file -->
+          <button 
+            id="saveChordsToFileBtn"
+            class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+          >
+            Save Chords to File
+          </button>
+          <button 
+            id="loadChordsBtn"
+            class="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+          >
+            Load Chords
+          </button>
+          <input 
+            type="file" 
+            id="loadChordsFile" 
+            class="hidden" 
+            accept=".json"
+          />
+        </div>
+
+        <!-- NEW: Chord Trigger Mode, Strum Pace, Clear Tab on Trigger -->
+        <div class="mb-2">
+          <label for="chordModeSelect" class="text-sm font-semibold mr-1">Chord Mode:</label>
+          <select 
+            id="chordModeSelect"
+            class="px-2 py-1 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="press" selected>Press</option>
+            <option value="strum">Strum</option>
+          </select>
+        </div>
+
+        <div class="mb-2 flex items-center">
+          <label for="strumPaceInput" class="text-sm font-semibold mr-2">Strum Pace:</label>
+          <input 
+            type="number"
+            id="strumPaceInput"
+            value="100"
+            class="w-16 text-center border rounded mr-2"
+          />
+          <select 
+            id="strumPaceUnit"
+            class="px-2 py-1 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="ms">ms</option>
+            <option value="beats">beats</option>
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label for="clearTabOnTrigger" class="inline-flex items-center space-x-1">
+            <input type="checkbox" id="clearTabOnTrigger" />
+            <span>Clear Tab on Trigger</span>
+          </label>
+        </div>
+        <!-- end of NEW UI elements -->
+
+        <!-- 2 column, 4 row grid of chord slots -->
+        <div class="grid grid-cols-2 grid-rows-4 gap-4">
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="0">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 1</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="0">S</button>
+            </div>
+          </div>
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="1">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 2</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="1">S</button>
+            </div>
+          </div>
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="2">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 3</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="2">S</button>
+            </div>
+          </div>
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="3">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 4</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="3">S</button>
+            </div>
+          </div>
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="4">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 5</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="4">S</button>
+            </div>
+          </div>
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="5">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 6</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="5">S</button>
+            </div>
+          </div>
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="6">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 7</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="6">S</button>
+            </div>
+          </div>
+          <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="7">
+            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 8</button>
+            <div class="flex space-x-1">
+              <button class="chord-record-btn bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">R</button>
+              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">C</button>
+              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">N</button>
+              <button class="chord-save-btn bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center" data-chord-index="7">S</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Library Slideover -->
+  <div id="librarySlideover" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
+    <div class="absolute left-0 top-0 bottom-0 bg-white w-64 p-4 overflow-y-auto">
+      <h2 class="text-xl font-bold mb-4">Library</h2>
+      <button id="closeLibraryBtn" class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600">
+        Close
+      </button>
+      <!-- Library Controls -->
+      <div class="mb-4 flex flex-wrap gap-2">
+        <button id="importBtn" class="px-3 py-1 rounded bg-green-500 text-white hover:bg-green-600">
+          Import Files
+        </button>
+        <button id="saveLibraryBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
+          Save Library
+        </button>
+        <!-- Save Library As Button -->
+        <button id="saveLibraryAsBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
+          Save Library As
+        </button>
+        <button id="loadLibraryBtn" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">
+          Load Library
+        </button>
+        <button id="clearLibraryBtn" class="px-3 py-1 rounded bg-gray-500 text-white hover:bg-gray-600">
+          Clear Library
+        </button>
+      </div>
+
+      <!-- Add Filter Controls -->
+      <div class="mb-4">
+        <label class="font-semibold">Filter:</label>
+        <div class="flex items-center mt-1">
+          <label class="mr-4">
+            <input type="radio" name="libraryFilter" value="all" checked /> All
+          </label>
+          <label class="mr-4">
+            <input type="radio" name="libraryFilter" value="tabs" /> Tabs
+          </label>
+          <label>
+            <input type="radio" name="libraryFilter" value="chords" /> Chords
+          </label>
+        </div>
+      </div>
+
+      <!-- Scale Filter Checkbox -->
+      <div class="mb-2">
+        <label for="scaleFilterCheckbox" class="inline-flex items-center space-x-1">
+          <input type="checkbox" id="scaleFilterCheckbox" />
+          <span>Scale Filter</span>
+        </label>
+      </div>
+
+      <div id="libraryContent" class="space-y-4 overflow-y-auto h-full">
+        <!-- Thumbnails and names of saved files will be dynamically added here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Advanced Config Slideover -->
+  <div id="advancedConfigSlideover" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
+    <div class="absolute right-0 top-0 bottom-0 bg-white w-64 p-4 overflow-y-auto">
+      <h2 class="text-xl font-bold mb-4">Advanced Config</h2>
+      <button id="closeAdvancedConfigBtn" class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600">
+        Close
+      </button>
+
+      <!-- Cursor Color Picker -->
+      <div class="mb-4">
+        <label for="cursorColorPicker" class="block font-semibold mb-1">Cursor Color:</label>
+        <input 
+          type="color" 
+          id="cursorColorPicker"
+          value="#ffffff"
+          class="w-full h-10 border border-gray-300 rounded"
+        />
+      </div>
+
+      <!-- Row Spacing -->
+      <div class="mb-4">
+        <label for="rowSpacingRange" class="block font-semibold mb-1">Row Spacing:</label>
+        <input 
+          type="range"
+          id="rowSpacingRange"
+          min="20"
+          max="60"
+          step="1"
+          value="30"
+          class="w-full"
+        />
+        <span id="rowSpacingValue" class="text-gray-700 text-sm">30 px</span>
+      </div>
+
+      <!-- Scale Highlight Color & Transparency -->
+      <div class="mb-4">
+        <label for="scaleHighlightColor" class="block font-semibold mb-1">Scale Highlight Color:</label>
+        <input 
+          type="color"
+          id="scaleHighlightColor"
+          value="#ffc107"
+          class="w-full h-10 border border-gray-300 rounded"
+        />
+      </div>
+      <div class="mb-4">
+        <label for="scaleHighlightAlpha" class="block font-semibold mb-1">Scale Highlight Alpha:</label>
+        <input 
+          type="range"
+          id="scaleHighlightAlpha"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0.3"
+          class="w-full"
+        />
+        <span id="scaleHighlightAlphaValue" class="text-gray-700 text-sm">0.3</span>
+      </div>
+
+      <!-- Import Scale File -->
+      <div class="space-y-2 mt-4">
+        <button
+          id="importScalesBtn"
+          class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 w-full"
+        >
+          Import Scales
+        </button>
+        <input 
+          type="file" 
+          id="scaleFileInput" 
+          class="hidden" 
+          accept=".json"
+        />
+      </div>
+
+      <!-- Save Project + Load Project Buttons -->
+      <div class="space-y-2 mt-4">
+        <button
+          id="saveProjectBtn"
+          class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full"
+        >
+          Save Project
+        </button>
+        <button
+          id="loadProjectBtn"
+          class="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 w-full"
+        >
+          Load Project
+        </button>
+        <input 
+          type="file" 
+          id="loadProjectFile" 
+          class="hidden" 
+          accept=".json"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Sequencer (hidden by default; toggled by "Sequencer Mode" button) -->
+  <div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600 hidden">
+      <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2 items-center">
+          <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+              Play
+          </button>
+          <button id="stop-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+              Stop
+          </button>
+          <button id="record-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+              Record
+          </button>
+          <span 
+            id="record-indicator"
+            class="text-red-500 font-bold hidden ml-2"
+          >
+            RECORDING
+          </span>
+          <button id="metronome-btn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+              Metronome
+          </button>
+          <button id="save-seq-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+              Save
+          </button>
+          <button id="load-seq-btn" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+              Load
+          </button>
+          <input type="file" id="load-seq-file" class="hidden" accept=".json">
+
+          <!-- Song/Step Mode Toggle -->
+          <button
+            id="mode-toggle-btn"
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Song Mode
+          </button>
+          <!-- Select Mode Toggle -->
+          <button
+            id="select-mode-btn"
+            class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+          >
+            Select Mode: Off
+          </button>
+
+          <!-- Bar/Beat + Jump -->
+          <div class="flex items-center gap-2 ml-4">
+            <label class="text-white text-sm">Bar:</label>
+            <input
+              id="barInput"
+              type="text"
+              value="1"
+              class="w-14 px-1 py-1 text-sm rounded"
+            />
+            <label class="text-white text-sm">Beat:</label>
+            <input
+              id="beatInput"
+              type="text"
+              value="1"
+              class="w-14 px-1 py-1 text-sm rounded"
+            />
+            <button
+              id="jump-btn"
+              class="px-3 py-1 text-white bg-gray-500 rounded hover:bg-gray-600 text-sm"
+            >
+              Jump
+            </button>
+          </div>
+
+          <!-- Undo / Redo / Delete Buttons -->
+          <button 
+            id="undo-btn" 
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Undo
+          </button>
+          <button 
+            id="redo-btn" 
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Redo
+          </button>
+          <button 
+            id="delete-notes-btn"
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Delete
+          </button>
+
+          <!-- NEW: Add Section Button -->
+          <button 
+            id="add-section-btn"
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Add Section
+          </button>
+      </div>
+      
+      <div class="flex h-[calc(100%-68px)]">
+          <!-- Piano Roll -->
+          <div class="w-[100px] bg-gray-900 h-full relative overflow-hidden">
+              <div id="piano-roll-wrapper" class="absolute inset-0">
+                  <div id="piano-keys" class="w-full"></div>
+              </div>
+          </div>
+          
+          <!-- Sequencer Grid -->
+          <div 
+            id="sequencer-grid" 
+            class="flex-1 relative overflow-auto bg-gray-900" 
+            onscroll="document.querySelector('#piano-roll-wrapper').style.transform='translateY(-' + this.scrollTop + 'px)'"
+          >
+              <div id="grid-content" class="absolute top-0 left-0"></div>
+              <!-- The playhead -->
+              <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
+          </div>
+      </div>
+  </div>
+
+  <!-- NEW: Find Chord Popup -->
+  <div id="findChordPopup" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white p-4 rounded w-full max-w-md relative">
+        <h2 class="text-xl font-bold mb-2">Chord Suggestions</h2>
+        <div id="chordMatches" class="text-sm space-y-2"></div>
+        <button 
+          id="closeChordPopup" 
+          class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
