@@ -73,12 +73,13 @@ let loadedScales = {
     { name: "mAdd9", intervals: [0,3,7,2] },
   ];
   
-  // Current model defaults to K24
-  let currentModel = MODELS.K24;
-  let numberOfFrets = currentModel.numberOfFrets;
-  let numberOfStrings = currentModel.numberOfStrings;
-  let BASE_NOTE = currentModel.startNote;
-  let BASE_OCTAVE = currentModel.startOctave;
+// Current model defaults to K24
+// Current model defaults to K24
+let currentModel = MODELS.K24;
+let numberOfFrets = currentModel.numberOfFrets;
+let numberOfStrings = currentModel.numberOfStrings;
+let BASE_NOTE = currentModel.startNote;
+let BASE_OCTAVE = currentModel.startOctave;
   
   // We keep an array for each fret/string
   let keysState = [];
@@ -1519,7 +1520,8 @@ let loadedScales = {
     }
   }
   
-  document.addEventListener("DOMContentLoaded", () => {
+// Initialize when DOM is ready
+window.addEventListener("DOMContentLoaded", () => {
     drawTablature();
     drawPianoRoll();
     drawSequencerGrid();
@@ -2368,4 +2370,3 @@ let loadedScales = {
     // Add event listener to scale filter checkbox
     document.getElementById("scaleFilterCheckbox").addEventListener("change", populateLibrary);
   });
-  
