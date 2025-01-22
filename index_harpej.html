@@ -246,6 +246,13 @@
         >
           Save Chords
         </button>
+        <!-- NEW separate button to save all chords directly to a single file -->
+        <button 
+          id="saveChordsToFileBtn"
+          class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+        >
+          Save Chords to File
+        </button>
         <button 
           id="loadChordsBtn"
           class="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
@@ -625,6 +632,14 @@
           class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
         >
           Delete
+        </button>
+
+        <!-- NEW: Add Section Button -->
+        <button 
+          id="add-section-btn"
+          class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Add Section
         </button>
     </div>
     
@@ -1671,8 +1686,13 @@ function importFiles() {
           const data = JSON.parse(e.target.result);
           if (data.type === "tab" || data.type === "chord") {
             savedSelections.push(data);
-          } else {
-            throw new Error("Invalid data type.");
+          } else if (Array.isArray(data)) {
+            // In case it's an array of chords/tabs
+            data.forEach(d => {
+              if (d.type === "tab" || d.type === "chord") {
+                savedSelections.push(d);
+              }
+            });
           }
         } catch (error) {
           console.error('Error importing file:', error);
@@ -1903,6 +1923,12 @@ function redo() {
   }
 }
 
+// NEW: Array to hold named sections
+let sequencerSections = [];
+
+/**
+ * Build sorted map of all possible notes on current model for the piano roll
+ */
 function buildSortedNotesMapping() {
   let multiMap = {};
   for (let y = 0; y < numberOfFrets; y++) {
@@ -1999,6 +2025,22 @@ function drawSequencerGrid() {
     gridContent.appendChild(line);
   }
 
+  // Named sections (draw them behind the notes)
+  sequencerSections.forEach(section => {
+    const startBeat = (section.startBar - 1) * SEQUENCER_CONFIG.beatsPerBar;
+    const endBeat = section.endBar * SEQUENCER_CONFIG.beatsPerBar;
+    const leftPx = startBeat * SEQUENCER_CONFIG.pixelsPerBeat;
+    const widthPx = (endBeat - startBeat) * SEQUENCER_CONFIG.pixelsPerBeat;
+
+    const sectionDiv = document.createElement('div');
+    sectionDiv.className = 'absolute top-0 border-l border-r border-gray-400 bg-gray-200 bg-opacity-30 text-gray-800 text-xs flex items-center pl-1';
+    sectionDiv.style.left = `${leftPx}px`;
+    sectionDiv.style.width = `${widthPx}px`;
+    sectionDiv.style.height = '20px'; // just a small band at the top
+    sectionDiv.textContent = section.name;
+    gridContent.appendChild(sectionDiv);
+  });
+
   // Painted notes
   recordedNotes.forEach((note, idx) => {
     const noteElement = document.createElement('div');
@@ -2063,7 +2105,6 @@ function drawSequencerGrid() {
   });
 }
 
-// Mousemove / mouseup for note dragging
 document.addEventListener('mousemove', (e) => {
   if (!draggingNote) return;
 
@@ -2884,6 +2925,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // NEW separate event for "Save Chords to File" (one single JSON)
+  document.getElementById("saveChordsToFileBtn").addEventListener("click", () => {
+    const allChordsData = chordSlots.map(ch => ({
+      type: "chord",
+      name: ch.name,
+      keys: ch.keys.map(k => ({
+        x: k.x,
+        y: k.y,
+        noteName: k.noteName,
+        octave: k.octave
+      }))
+    }));
+    const blob = new Blob([JSON.stringify(allChordsData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'harpejji_chords.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
   document.getElementById("loadChordsBtn").addEventListener("click", () => {
     const input = document.getElementById("loadChordsFile");
     input.onchange = (event) => {
@@ -2963,110 +3025,123 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  updateChordPaletteUI();
-
-  // ==============================
-  // NEW: "Find Chord" Button Logic
-  // ==============================
-  const findChordBtn = document.getElementById("findChordBtn");
-  const findChordPopup = document.getElementById("findChordPopup");
-  const closeChordPopup = document.getElementById("closeChordPopup");
-  const chordMatchesDiv = document.getElementById("chordMatches");
-
-  findChordBtn.addEventListener("click", () => {
-    // Gather selected note pitch classes
-    const selectedPositions = [];
-    for (let y = 0; y < numberOfFrets; y++) {
-      for (let x = 0; x < numberOfStrings; x++) {
-        if (keysState[y][x].marker) {
-          const noteName = getNoteName(x, y);
-          const octave = getNoteOctave(x, y);
-          const pitchClass = NOTES.indexOf(noteName);
-          selectedPositions.push({ noteName, octave, pitchClass });
-        }
-      }
-    }
-
-    if (selectedPositions.length === 0) {
-      chordMatchesDiv.innerHTML = "<p class='text-red-600'>No notes selected.</p>";
-      findChordPopup.classList.remove("hidden");
+  // NEW: Add Section
+  document.getElementById('add-section-btn').addEventListener('click', () => {
+    const startBar = parseInt(prompt("Enter start bar:", "1"), 10);
+    const endBar = parseInt(prompt("Enter end bar:", "2"), 10);
+    const name = prompt("Enter section name:", "Intro");
+    if (isNaN(startBar) || isNaN(endBar) || !name) {
+      alert("Invalid section data.");
       return;
     }
+    sequencerSections.push({ startBar, endBar, name });
+    drawSequencerGrid();
+  });
 
-    const uniquePitchClasses = Array.from(new Set(selectedPositions.map(sp => sp.pitchClass)));
+  updateChordPaletteUI();
+});
 
-    let chordResults = [];
+// ==============================
+// NEW: "Find Chord" Button Logic
+// ==============================
+const findChordBtn = document.getElementById("findChordBtn");
+const findChordPopup = document.getElementById("findChordPopup");
+const closeChordPopup = document.getElementById("closeChordPopup");
+const chordMatchesDiv = document.getElementById("chordMatches");
 
-    for (let rootPc of uniquePitchClasses) {
-      const shiftedSet = uniquePitchClasses.map(pc => mod(pc - rootPc, 12));
-
-      CHORD_DEFINITIONS.forEach(chDef => {
-        let matchCount = 0;
-        chDef.intervals.forEach(interval => {
-          if (shiftedSet.includes(mod(interval,12))) {
-            matchCount++;
-          }
-        });
-        const rootName = NOTES[rootPc];
-        chordResults.push({
-          chordName: `${rootName} ${chDef.name}`,
-          totalChordIntervals: chDef.intervals.length,
-          matchedIntervals: matchCount
-        });
-      });
-    }
-
-    chordResults.sort((a,b) => {
-      if (b.matchedIntervals === a.matchedIntervals) {
-        return a.totalChordIntervals - b.totalChordIntervals;
+findChordBtn.addEventListener("click", () => {
+  // Gather selected note pitch classes
+  const selectedPositions = [];
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      if (keysState[y][x].marker) {
+        const noteName = getNoteName(x, y);
+        const octave = getNoteOctave(x, y);
+        const pitchClass = NOTES.indexOf(noteName);
+        selectedPositions.push({ noteName, octave, pitchClass });
       }
-      return b.matchedIntervals - a.matchedIntervals;
-    });
-
-    const topMatches = chordResults.slice(0, 8);
-
-    if (topMatches.length === 0) {
-      chordMatchesDiv.innerHTML = "<p class='text-gray-600'>No chord matches found.</p>";
-    } else {
-      chordMatchesDiv.innerHTML = topMatches.map(match => {
-        return `
-          <div>
-            <strong>${match.chordName}</strong>
-            <span class="ml-2 text-gray-700">
-              (Matched ${match.matchedIntervals} / ${match.totalChordIntervals})
-            </span>
-          </div>
-        `;
-      }).join("");
     }
+  }
 
+  if (selectedPositions.length === 0) {
+    chordMatchesDiv.innerHTML = "<p class='text-red-600'>No notes selected.</p>";
     findChordPopup.classList.remove("hidden");
-  });
+    return;
+  }
 
-  closeChordPopup.addEventListener("click", () => {
-    findChordPopup.classList.add("hidden");
-  });
+  const uniquePitchClasses = Array.from(new Set(selectedPositions.map(sp => sp.pitchClass)));
 
-  // ==============================
-  // NEW: "Play Current Selection" Button
-  // ==============================
-  document.getElementById("playSelectionBtn").addEventListener("click", () => {
-    // Gather selected keys
-    const selectedKeys = [];
-    for (let y = 0; y < numberOfFrets; y++) {
-      for (let x = 0; x < numberOfStrings; x++) {
-        if (keysState[y][x].marker) {
-          selectedKeys.push({ x, y });
+  let chordResults = [];
+
+  for (let rootPc of uniquePitchClasses) {
+    const shiftedSet = uniquePitchClasses.map(pc => mod(pc - rootPc, 12));
+
+    CHORD_DEFINITIONS.forEach(chDef => {
+      let matchCount = 0;
+      chDef.intervals.forEach(interval => {
+        if (shiftedSet.includes(mod(interval,12))) {
+          matchCount++;
         }
+      });
+      const rootName = NOTES[rootPc];
+      chordResults.push({
+        chordName: `${rootName} ${chDef.name}`,
+        totalChordIntervals: chDef.intervals.length,
+        matchedIntervals: matchCount
+      });
+    });
+  }
+
+  chordResults.sort((a,b) => {
+    if (b.matchedIntervals === a.matchedIntervals) {
+      return a.totalChordIntervals - b.totalChordIntervals;
+    }
+    return b.matchedIntervals - a.matchedIntervals;
+  });
+
+  const topMatches = chordResults.slice(0, 8);
+
+  if (topMatches.length === 0) {
+    chordMatchesDiv.innerHTML = "<p class='text-gray-600'>No chord matches found.</p>";
+  } else {
+    chordMatchesDiv.innerHTML = topMatches.map(match => {
+      return `
+        <div>
+          <strong>${match.chordName}</strong>
+          <span class="ml-2 text-gray-700">
+            (Matched ${match.matchedIntervals} / ${match.totalChordIntervals})
+          </span>
+        </div>
+      `;
+    }).join("");
+  }
+
+  findChordPopup.classList.remove("hidden");
+});
+
+closeChordPopup.addEventListener("click", () => {
+  findChordPopup.classList.add("hidden");
+});
+
+// ==============================
+// NEW: "Play Current Selection" Button
+// ==============================
+document.getElementById("playSelectionBtn").addEventListener("click", () => {
+  // Gather selected keys
+  const selectedKeys = [];
+  for (let y = 0; y < numberOfFrets; y++) {
+    for (let x = 0; x < numberOfStrings; x++) {
+      if (keysState[y][x].marker) {
+        selectedKeys.push({ x, y });
       }
     }
-    // Mimic chordToggle logic
-    selectedKeys.forEach(pos => {
-      handleKeyDownProgrammatically(pos.x, pos.y);
-      setTimeout(() => {
-        handleKeyUpProgrammatically(pos.x, pos.y);
-      }, 300);
-    });
+  }
+  // Mimic chordToggle logic
+  selectedKeys.forEach(pos => {
+    handleKeyDownProgrammatically(pos.x, pos.y);
+    setTimeout(() => {
+      handleKeyUpProgrammatically(pos.x, pos.y);
+    }, 300);
   });
 });
 
