@@ -118,7 +118,6 @@ let reverbConvolver;
 let reverbGain;
 
 // user-played oscillators
-// We'll also keep a global set of *all* live oscillators to kill hung notes thoroughly.
 let activeUserOscillators = new Map();
 let allLiveOscillators = new Set();
 
@@ -279,7 +278,6 @@ return {
 };
 }
 
-// Keep track of *all* live oscillators in a global set for thorough cleanup
 function createOscillator(frequency, instrument) {
 const soundObj = createInstrumentSound(frequency, instrument);
 const fakeOscObj = {
@@ -290,7 +288,6 @@ allLiveOscillators.add(fakeOscObj);
 return fakeOscObj;
 }
 
-// Updated to remove from the global set as well
 function stopOscillator(oscObj) {
 if (!oscObj) return;
 if (oscObj.osc && typeof oscObj.osc.stop === 'function') {
@@ -300,12 +297,10 @@ allLiveOscillators.delete(oscObj);
 }
 
 /**
-* More thorough approach to kill any possible hung notes
-* by stopping all oscillators from allLiveOscillators first,
-* then clearing user/recorded references.
+* Thorough approach to kill any possible hung notes
 */
 function killAllNotes() {
-// Stop all possible oscillator objects
+// Stop all possible oscillators
 for (let obj of allLiveOscillators) {
   if (obj && obj.osc && typeof obj.osc.stop === 'function') {
     obj.osc.stop();
@@ -326,8 +321,7 @@ recordedNotes.forEach(note => {
   }
 });
 
-// Forcefully reset pressing flags so that no chord/hung note
-// remains flagged internally
+// Forcefully reset pressing flags so that no chord/hung note remains flagged
 for (let y = 0; y < numberOfFrets; y++) {
   for (let x = 0; x < numberOfStrings; x++) {
     keysState[y][x].pressing = false;
@@ -827,7 +821,6 @@ if (chord.keys.length === 0) {
 const chordName = prompt("Enter a name for this chord:", chord.name);
 if (!chordName) return;
 
-// No image capture here; just a simple JSON file
 const data = {
   type: "chord",
   name: chordName,
@@ -855,19 +848,15 @@ URL.revokeObjectURL(url);
 function captureChordImage(chord) {
 if (!chord || chord.keys.length === 0) return null;
 
-// Get min/max fret (y)
 let minY = Math.min(...chord.keys.map(k => k.y));
 let maxY = Math.max(...chord.keys.map(k => k.y));
 
-// Expand 1 fret up and down, clamp
 minY = Math.max(0, minY - 1);
 maxY = Math.min(numberOfFrets - 1, maxY + 1);
 
-// Get min/max string (x) - no margin
 let minX = Math.min(...chord.keys.map(k => k.x));
 let maxX = Math.max(...chord.keys.map(k => k.x));
 
-// We use the same coordinate logic as in drawTablature
 const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
 const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
 
@@ -877,19 +866,16 @@ const img = new Image();
 
 return new Promise(resolve => {
   img.onload = () => {
-    // We'll draw the entire tablature, then crop
     const fullCanvas = document.createElement("canvas");
     fullCanvas.width = svg.width.baseVal.value;
     fullCanvas.height = svg.height.baseVal.value;
     const fullCtx = fullCanvas.getContext("2d");
     fullCtx.drawImage(img, 0, 0);
 
-    // Convert minY => pixel top, maxY => pixel bottom
     const yTop = totalHeight - ((maxY * fretSpacing) + fretSpacing/2) - keyHeight;
     const yBottom = totalHeight - ((minY * fretSpacing) + fretSpacing/2);
     const chordHeight = yBottom - yTop;
 
-    // Convert minX => pixel left, maxX => pixel right
     const xLeft = (minX * stringSpacing) + stringSpacing - 7.5;
     const xRight = (maxX * stringSpacing) + stringSpacing + 7.5; 
     const chordWidth = xRight - xLeft;
@@ -899,7 +885,7 @@ return new Promise(resolve => {
     chordCanvas.height = chordHeight;
     const chordCtx = chordCanvas.getContext("2d");
     chordCtx.drawImage(
-      fullCtx,
+      fullCanvas,
       xLeft, yTop,
       chordWidth, chordHeight,
       0, 0,
@@ -914,6 +900,7 @@ return new Promise(resolve => {
 
 /**
 * Sends chord to the library with a bounding-box image and the current model.
+* FIX: We update the chord slot name with chordName so it doesn't get lost.
 */
 async function sendChordToLibrary(index) {
 const chord = chordSlots[index];
@@ -923,6 +910,9 @@ if (chord.keys.length === 0) {
 }
 const chordName = prompt("Enter a name for this chord:", chord.name);
 if (!chordName) return;
+
+// Ensure chord slot's name is updated too
+chordSlots[index].name = chordName;
 
 const chordImage = await captureChordImage(chord);
 const data = {
@@ -935,7 +925,7 @@ const data = {
     octave: k.octave
   })),
   timestamp: new Date().toISOString(),
-  model: modelSelect.value,
+  model: modelSelect.value, 
   image: chordImage || null
 };
 
@@ -968,7 +958,6 @@ if (data.type === "tab") {
     setChordNotesFromKeysState(chordRecordIndex);
   }
 } else if (data.type === "chord") {
-  // Instead of finding an empty slot, prompt user for chord slot
   const userSlot = parseInt(prompt("Which chord slot do you want to load this chord into? (1-8)"), 10);
   if (isNaN(userSlot) || userSlot < 1 || userSlot > 8) {
     alert("Invalid chord slot index.");
@@ -1007,8 +996,7 @@ input.click();
 }
 
 function loadChord(data) {
-// This function can be used if you want to handle loading chords separately
-// Currently handled within loadSelection based on type
+// Not used separately in this approach
 }
 
 // ==============================
@@ -1033,28 +1021,26 @@ if (savedSelections.length === 0) {
 const scaleFilterCheckbox = document.getElementById("scaleFilterCheckbox");
 const filterActive = scaleFilterCheckbox && scaleFilterCheckbox.checked && currentScale !== 'none';
 
-// libraryFilter => all, tabs, chords
 const libraryFilter = document.querySelector('input[name="libraryFilter"]:checked').value;
-// modelFilter => all, K24, G16, G12
 const modelFilterSelect = document.getElementById("modelFilterSelect");
 const modelFilter = modelFilterSelect ? modelFilterSelect.value : "all";
 
 for (let index = 0; index < savedSelections.length; index++) {
   const selection = savedSelections[index];
 
-  // Apply type filter
+  // Type filter
   if (libraryFilter !== "all" && selection.type !== libraryFilter.slice(0, -1)) {
     continue;
   }
 
-  // Apply scale filter if active and selection is a tab
+  // Scale filter if active and selection is a tab
   if (filterActive && selection.type === "tab") {
     if (!allNotesInCurrentScale(selection.notesPlainText)) {
       continue;
     }
   }
 
-  // Apply model filter if not 'all'
+  // Model filter
   if (modelFilter !== "all") {
     if (!selection.model || selection.model !== modelFilter) {
       continue;
@@ -1076,7 +1062,6 @@ for (let index = 0; index < savedSelections.length; index++) {
         </div>
       </div>
     `;
-    // If there's a plain text note list
     if (selection.notesPlainText && selection.notesPlainText.length) {
       const textDiv = document.createElement("div");
       textDiv.className = "text-xs whitespace-pre-wrap mt-1";
@@ -1089,7 +1074,6 @@ for (let index = 0; index < savedSelections.length; index++) {
       infoDiv.textContent = (selection.date || "") + " " + (selection.time || "");
       div.querySelector('.selection-content').appendChild(infoDiv);
     }
-
     div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
   } else if (selection.type === "chord") {
     div.innerHTML = `
@@ -1113,7 +1097,6 @@ for (let index = 0; index < savedSelections.length; index++) {
         </div>
       </div>
     `;
-    // Show the chord keys as well
     const chordKeysDiv = document.createElement("div");
     chordKeysDiv.className = "text-xs mt-1";
     chordKeysDiv.innerHTML = selection.keys
@@ -1158,7 +1141,6 @@ input.onchange = (event) => {
         if (data.type === "tab" || data.type === "chord") {
           savedSelections.push(data);
         } else if (Array.isArray(data)) {
-          // In case it's an array of chords/tabs
           data.forEach(d => {
             if (d.type === "tab" || d.type === "chord") {
               savedSelections.push(d);
@@ -1256,7 +1238,6 @@ input.onchange = (event) => {
     try {
       const library = JSON.parse(e.target.result);
       if (Array.isArray(library)) {
-        // Validate entries
         const valid = library.every(item => item.type === "tab" || item.type === "chord");
         if (!valid) throw new Error("Invalid library file format.");
         localStorage.setItem('harpejjiSelections', JSON.stringify(library));
@@ -1333,7 +1314,6 @@ let audioStartTime = 0;
 let globalSortedNotes = [];
 let globalNoteToIndexMap = new Map();
 
-// ADD THESE LINES TO FIX THE PLAY/STOP (metronome) REFS:
 let metronomeContext = null;
 function initMetronome() {
 metronomeContext = audioContext || null;
@@ -1394,12 +1374,8 @@ if (redoStack.length > 0) {
 }
 }
 
-// NEW: Array to hold named sections
 let sequencerSections = [];
 
-/**
-* Build sorted map of all possible notes on current model for the piano roll
-*/
 function buildSortedNotesMapping() {
 let multiMap = {};
 for (let y = 0; y < numberOfFrets; y++) {
@@ -1481,14 +1457,13 @@ gridContent.style.width = `${totalWidth}px`;
 gridContent.style.height = `${totalHeight}px`;
 playhead.style.height = `${totalHeight}px`;
 
-// Vertical lines (each beat)
 for (let i = 0; i <= SEQUENCER_CONFIG.totalBars * SEQUENCER_CONFIG.beatsPerBar; i++) {
   const line = document.createElement('div');
   line.className = `absolute top-0 w-px h-full ${i % SEQUENCER_CONFIG.beatsPerBar === 0 ? 'bg-gray-500' : 'bg-gray-700'}`;
   line.style.left = `${i * SEQUENCER_CONFIG.pixelsPerBeat}px`;
   gridContent.appendChild(line);
 }
-// Horizontal lines (each note)
+
 for (let i = 0; i <= totalNotes; i++) {
   const line = document.createElement('div');
   line.className = 'absolute left-0 right-0 h-px bg-gray-700';
@@ -1496,7 +1471,6 @@ for (let i = 0; i <= totalNotes; i++) {
   gridContent.appendChild(line);
 }
 
-// Named sections (draw them behind the notes)
 sequencerSections.forEach(section => {
   const startBeat = (section.startBar - 1) * SEQUENCER_CONFIG.beatsPerBar;
   const endBeat = section.endBar * SEQUENCER_CONFIG.beatsPerBar;
@@ -1507,12 +1481,11 @@ sequencerSections.forEach(section => {
   sectionDiv.className = 'absolute top-0 border-l border-r border-gray-400 bg-gray-200 bg-opacity-30 text-gray-800 text-xs flex items-center pl-1';
   sectionDiv.style.left = `${leftPx}px`;
   sectionDiv.style.width = `${widthPx}px`;
-  sectionDiv.style.height = '20px'; // just a small band at the top
+  sectionDiv.style.height = '20px';
   sectionDiv.textContent = section.name;
   gridContent.appendChild(sectionDiv);
 });
 
-// Painted notes
 recordedNotes.forEach((note, idx) => {
   const noteElement = document.createElement('div');
   noteElement.className = 'absolute bg-blue-500 opacity-75 rounded cursor-pointer note-event';
@@ -1534,7 +1507,6 @@ recordedNotes.forEach((note, idx) => {
     noteElement.classList.add('ring-yellow-300');
   }
 
-  // Resize handles
   const leftHandle = document.createElement('div');
   leftHandle.className = 'absolute left-0 top-0 bottom-0 w-2 bg-transparent cursor-w-resize';
   noteElement.appendChild(leftHandle);
@@ -1543,7 +1515,6 @@ recordedNotes.forEach((note, idx) => {
   rightHandle.className = 'absolute right-0 top-0 bottom-0 w-2 bg-transparent cursor-e-resize';
   noteElement.appendChild(rightHandle);
 
-  // Mouse event for dragging/resizing
   noteElement.addEventListener('mousedown', (e) => {
     e.stopPropagation();
     const rect = noteElement.getBoundingClientRect();
@@ -1563,7 +1534,6 @@ recordedNotes.forEach((note, idx) => {
     }
   });
 
-  // Toggle selection on click if not dragging/resizing
   noteElement.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!draggingNote) {
@@ -1583,7 +1553,6 @@ const dx = e.clientX - dragStartX;
 const timeOffset = dx / (SEQUENCER_CONFIG.pixelsPerBeat * (SEQUENCER_CONFIG.bpm / 60)) * 0.25;
 
 if (resizingEdge) {
-  // Resizing
   if (resizingEdge === 'left') {
     const newStart = Math.max(dragOriginalStartTime + timeOffset, 0);
     const oldEnd = draggingNote.startTime + draggingNote.duration;
@@ -1599,7 +1568,6 @@ if (resizingEdge) {
     }
   }
 } else {
-  // Moving entire note
   const newStart = Math.max(dragOriginalStartTime + timeOffset, 0);
   draggingNote.startTime = newStart;
 
@@ -1677,7 +1645,6 @@ drawTablature();
 drawPianoRoll();
 drawSequencerGrid();
 
-// Model selection
 const modelSelectEl = document.getElementById("modelSelect");
 modelSelectEl.addEventListener("change", () => {
   currentModel = MODELS[modelSelectEl.value];
@@ -1692,13 +1659,11 @@ modelSelectEl.addEventListener("change", () => {
   drawSequencerGrid();
 });
 
-// Instrument
 const instrumentSelect = document.getElementById("instrumentSelect");
 instrumentSelect.addEventListener("change", () => {
   currentInstrument = instrumentSelect.value;
 });
 
-// Scale
 const scaleSelect = document.getElementById("scaleSelect");
 function populateScaleDropdown() {
   scaleSelect.innerHTML = `<option value="none">None</option>`;
@@ -1715,30 +1680,24 @@ scaleSelect.addEventListener("change", (e) => {
   drawTablature();
 });
 
-// Root
 const rootSelect = document.getElementById("rootSelect");
 rootSelect.addEventListener("change", (e) => {
   currentRoot = e.target.value;
   drawTablature();
 });
 
-// Toggle note names
 document.getElementById("toggleNotesBtn").addEventListener("click", () => {
   showNotes = !showNotes;
   drawTablature();
 });
-
-// Clear markers
 document.getElementById("resetMarkersBtn").addEventListener("click", () => {
   initKeysState();
   drawTablature();
 });
 
-// Save/Load Tablature
 document.getElementById("saveBtn").addEventListener("click", saveSelection);
 document.getElementById("loadBtn").addEventListener("click", handleFileLoad);
 
-// Library
 document.getElementById("libraryBtn").addEventListener("click", toggleLibrary);
 document.getElementById("closeLibraryBtn").addEventListener("click", toggleLibrary);
 populateLibrary();
@@ -1753,10 +1712,8 @@ document.getElementById("clearLibraryBtn").addEventListener("click", () => {
   }
 });
 
-// Kill Notes
 document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
 
-// Sequencer
 document.getElementById('play-btn').addEventListener('click', () => {
   if (!audioContext) initAudio();
   if (!metronomeContext) initMetronome();
@@ -1854,7 +1811,6 @@ document.getElementById('load-seq-btn').addEventListener('click', () => {
   input.click();
 });
 
-// Toggle Sequencer
 document.getElementById("toggleSequencerModeBtn").addEventListener("click", () => {
   isSequencerModeOn = !isSequencerModeOn;
   const sequencerDiv = document.getElementById("sequencer");
@@ -1865,7 +1821,6 @@ document.getElementById("toggleSequencerModeBtn").addEventListener("click", () =
   }
 });
 
-// Toggle Key Mode
 document.getElementById("toggleKeyModeBtn").addEventListener("click", () => {
   if (keyMode === 'toggle') {
     keyMode = 'press';
@@ -1876,13 +1831,11 @@ document.getElementById("toggleKeyModeBtn").addEventListener("click", () => {
   }
 });
 
-// Song/Step
 document.getElementById('mode-toggle-btn').addEventListener('click', () => {
   isStepMode = !isStepMode;
   document.getElementById('mode-toggle-btn').textContent = isStepMode ? 'Step Mode' : 'Song Mode';
 });
 
-// Select Mode
 document.getElementById('select-mode-btn').addEventListener('click', () => {
   isSelectMode = !isSelectMode;
   const btn = document.getElementById('select-mode-btn');
@@ -1996,12 +1949,10 @@ function updatePlayhead() {
     });
     requestAnimationFrame(updatePlayhead);
   } else if (isPlaying) {
-    // step mode => keep updating
     requestAnimationFrame(updatePlayhead);
   }
 }
 
-// Advanced Config
 const advancedConfigBtn = document.getElementById("advancedConfigBtn");
 const advancedConfigSlideover = document.getElementById("advancedConfigSlideover");
 const closeAdvancedConfigBtn = document.getElementById("closeAdvancedConfigBtn");
@@ -2067,7 +2018,6 @@ scaleFileInput.addEventListener("change", (event) => {
   reader.readAsText(file);
 });
 
-// Save Project
 document.getElementById("saveProjectBtn").addEventListener("click", () => {
   const advancedOptions = {
     cursorColor: cursorColorPicker.value,
@@ -2100,7 +2050,6 @@ document.getElementById("saveProjectBtn").addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
-// Load Project
 document.getElementById("loadProjectBtn").addEventListener("click", () => {
   const input = document.createElement('input');
   input.type = 'file';
@@ -2171,7 +2120,6 @@ document.getElementById("loadProjectBtn").addEventListener("click", () => {
   input.click();
 });
 
-// CHORD PALETTE EVENTS
 document.querySelectorAll('.chord-record-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
@@ -2190,8 +2138,6 @@ document.querySelectorAll('.chord-rename-btn').forEach(btn => {
     renameChordSlot(idx);
   });
 });
-
-// Save chord to file (does NOT affect library)
 document.querySelectorAll('.chord-save-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
@@ -2199,7 +2145,7 @@ document.querySelectorAll('.chord-save-btn').forEach(btn => {
   });
 });
 
-// Send chord to library only
+// The "Send chord to library" button
 document.querySelectorAll('.chord-send-lib-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
@@ -2207,24 +2153,20 @@ document.querySelectorAll('.chord-send-lib-btn').forEach(btn => {
   });
 });
 
-// References to new chord-mode UI
 window.chordModeSelect = document.getElementById("chordModeSelect");
 window.strumPaceInput = document.getElementById("strumPaceInput");
 window.strumPaceUnit = document.getElementById("strumPaceUnit");
 window.clearTabOnTriggerCheckbox = document.getElementById("clearTabOnTrigger");
 
-// Hook chord button events (click, mousedown, mouseup, etc.)
 document.querySelectorAll('.chord-button').forEach(btn => {
   const slot = btn.closest('.chord-slot');
   const idx = parseInt(slot.getAttribute('data-chord-index'), 10);
 
-  // Click => Either chordToggle or chordStrum, depending on chordMode
   btn.addEventListener('click', () => {
     if (clearTabOnTriggerCheckbox.checked) {
       clearAllTabMarkers();
     }
     if (chordModeSelect.value === 'press') {
-      // use existing logic
       if (keyMode === 'toggle') {
         chordToggle(idx);
       }
@@ -2233,7 +2175,6 @@ document.querySelectorAll('.chord-button').forEach(btn => {
     }
   });
 
-  // For press mode with mouse hold (only if chordMode=press):
   btn.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (chordModeSelect.value === 'press') {
@@ -2253,7 +2194,6 @@ document.querySelectorAll('.chord-button').forEach(btn => {
       }
     }
   });
-  // Mouse leave => if we were in "press" mode and still holding, release
   btn.addEventListener('mouseleave', (e) => {
     if (chordModeSelect.value === 'press') {
       if (keyMode === 'press' && e.buttons === 1) {
@@ -2263,7 +2203,6 @@ document.querySelectorAll('.chord-button').forEach(btn => {
   });
 });
 
-// Save/Load All Chords
 document.getElementById("saveChordsBtn").addEventListener("click", () => {
   const confirmation = confirm("Are you sure you want to save all chords in the palette to the library?");
   if (!confirmation) return;
@@ -2274,7 +2213,6 @@ document.getElementById("saveChordsBtn").addEventListener("click", () => {
   });
 });
 
-// NEW separate event for "Save Chords to File" (one single JSON)
 document.getElementById("saveChordsToFileBtn").addEventListener("click", () => {
   const allChordsData = chordSlots.map(ch => ({
     type: "chord",
@@ -2324,7 +2262,6 @@ document.getElementById("loadChordsBtn").addEventListener("click", () => {
   input.click();
 });
 
-// Reverb/Delay
 document.getElementById('delaySlider').addEventListener('input', (e) => {
   const val = parseFloat(e.target.value);
   if (delayGain) {
@@ -2338,7 +2275,6 @@ document.getElementById('reverbSlider').addEventListener('input', (e) => {
   }
 });
 
-// Tempo
 const tempoSlider = document.getElementById('tempoSlider');
 const tempoValue = document.getElementById('tempoValue');
 tempoSlider.addEventListener('input', (e) => {
@@ -2347,7 +2283,6 @@ tempoSlider.addEventListener('input', (e) => {
   tempoValue.textContent = `${val} BPM`;
 });
 
-// Clicking on sequencer grid to jump
 const sequencerGridEl = document.getElementById('sequencer-grid');
 sequencerGridEl.addEventListener('click', (e) => {
   const rect = sequencerGridEl.getBoundingClientRect();
@@ -2356,7 +2291,6 @@ sequencerGridEl.addEventListener('click', (e) => {
   jumpToTime(timeInSec);
 });
 
-// Undo / Redo
 document.getElementById('undo-btn').addEventListener('click', () => {
   undo();
 });
@@ -2364,7 +2298,6 @@ document.getElementById('redo-btn').addEventListener('click', () => {
   redo();
 });
 
-// Delete selected notes
 document.getElementById('delete-notes-btn').addEventListener('click', () => {
   const oldLength = recordedNotes.length;
   recordedNotes = recordedNotes.filter(n => !n.selected);
@@ -2374,7 +2307,6 @@ document.getElementById('delete-notes-btn').addEventListener('click', () => {
   }
 });
 
-// NEW: Add Section
 document.getElementById('add-section-btn').addEventListener('click', () => {
   const startBar = parseInt(prompt("Enter start bar:", "1"), 10);
   const endBar = parseInt(prompt("Enter end bar:", "2"), 10);
@@ -2391,7 +2323,7 @@ updateChordPaletteUI();
 });
 
 // ==============================
-// NEW: "Find Chord" Button Logic
+// "Find Chord" Button Logic
 // ==============================
 const findChordBtn = document.getElementById("findChordBtn");
 const findChordPopup = document.getElementById("findChordPopup");
@@ -2399,7 +2331,6 @@ const closeChordPopup = document.getElementById("closeChordPopup");
 const chordMatchesDiv = document.getElementById("chordMatches");
 
 findChordBtn.addEventListener("click", () => {
-// Gather selected note pitch classes
 const selectedPositions = [];
 for (let y = 0; y < numberOfFrets; y++) {
   for (let x = 0; x < numberOfStrings; x++) {
@@ -2473,10 +2404,9 @@ findChordPopup.classList.add("hidden");
 });
 
 // ==============================
-// NEW: "Play Current Selection" Button
+// "Play Current Selection" Button
 // ==============================
 document.getElementById("playSelectionBtn").addEventListener("click", () => {
-// Gather selected keys
 const selectedKeys = [];
 for (let y = 0; y < numberOfFrets; y++) {
   for (let x = 0; x < numberOfStrings; x++) {
@@ -2485,7 +2415,6 @@ for (let y = 0; y < numberOfFrets; y++) {
     }
   }
 }
-// Mimic chordToggle logic
 selectedKeys.forEach(pos => {
   handleKeyDownProgrammatically(pos.x, pos.y);
   setTimeout(() => {
@@ -2523,15 +2452,11 @@ drawTablature();
 // Event Listeners for Library Filters
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
-// Add event listeners to library filter radio buttons
 document.querySelectorAll('input[name="libraryFilter"]').forEach(radio => {
   radio.addEventListener('change', populateLibrary);
 });
-
-// Add event listener to scale filter checkbox
 document.getElementById("scaleFilterCheckbox").addEventListener("change", populateLibrary);
 
-// Also add event for model filter
 const modelFilterSelect = document.getElementById("modelFilterSelect");
 if (modelFilterSelect) {
   modelFilterSelect.addEventListener("change", populateLibrary);
