@@ -91,7 +91,10 @@ function initKeysState() {
         marker: false,
         pressing: false,
         sequencerPlaying: false,
-        finger: null
+        finger: null,
+        // For fading:
+        fading: false,
+        fadeOutStart: null
       };
     }
   }
@@ -131,6 +134,11 @@ let scaleHighlightMode = "fill";
 
 // NEW: Finger overlay color
 let fingerOverlayColor = "#000000";
+
+// NEW: Fade config
+let fadeNotes = false;
+let fadeTime = 1.0;
+let fadeAnimationActive = false;
 
 /**
  * Generate a set of pitch classes (0..11) for the selected scale,
@@ -329,6 +337,8 @@ function killAllNotes() {
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       keysState[y][x].pressing = false;
+      keysState[y][x].fading = false;
+      keysState[y][x].fadeOutStart = null;
     }
   }
 
@@ -427,6 +437,9 @@ function drawTablature() {
   // Scale highlighting
   const scaleSet = getScaleSemitones(currentScale, currentRoot);
 
+  let stillFading = false;
+  const now = performance.now();
+
   // Draw keys
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
@@ -493,16 +506,36 @@ function drawTablature() {
       }
 
       const stateObj = keysState[y][x];
+      let drawCircle = false;
+      let circleAlpha = 1.0;
+
       if (stateObj.marker || stateObj.pressing || stateObj.sequencerPlaying) {
+        drawCircle = true;
+      } else if (stateObj.fading) {
+        // Compute fade alpha
+        const elapsed = (now - stateObj.fadeOutStart) / 1000;
+        const ratio = 1 - (elapsed / fadeTime);
+        if (ratio > 0) {
+          drawCircle = true;
+          circleAlpha = ratio;
+          stillFading = true;
+        } else {
+          // Fade ended
+          stateObj.fading = false;
+          stateObj.fadeOutStart = null;
+        }
+      }
+
+      if (drawCircle) {
         const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
         circ.setAttribute("cx", 7.5);
         circ.setAttribute("cy", 12.5);
         circ.setAttribute("r", 7);
-        circ.setAttribute("fill", "rgba(0, 153, 255, 0.8)");
+        circ.setAttribute("fill", `rgba(0, 153, 255, ${circleAlpha})`);
         keyGroup.appendChild(circ);
 
         // If finger assigned, overlay text
-        if (stateObj.finger) {
+        if (stateObj.finger && circleAlpha > 0.2) {
           const fingerText = document.createElementNS("http://www.w3.org/2000/svg","text");
           fingerText.setAttribute("x", 7.5);
           fingerText.setAttribute("y", 13);
@@ -532,7 +565,6 @@ function drawTablature() {
       keyGroup.style.cursor = "pointer";
       keyGroup.addEventListener("mousedown", () => handleKeyDown(x, y));
       keyGroup.addEventListener("mouseup", () => handleKeyUp(x, y));
-      keyGroup.addEventListener("mouseleave", () => handleKeyUp(x, y));
 
       // If in select mode for pitch mapping:
       keyGroup.addEventListener("click", () => {
@@ -555,6 +587,15 @@ function drawTablature() {
 
       g.appendChild(keyGroup);
     }
+  }
+
+  if (stillFading) {
+    if (!fadeAnimationActive) {
+      fadeAnimationActive = true;
+    }
+    requestAnimationFrame(drawTablature);
+  } else {
+    fadeAnimationActive = false;
   }
 }
 
@@ -677,6 +718,8 @@ function clearAllTabMarkers() {
       keysState[y][x].marker = false;
       keysState[y][x].pressing = false;
       keysState[y][x].finger = null;
+      keysState[y][x].fading = false;
+      keysState[y][x].fadeOutStart = null;
     }
   }
   drawTablature();
@@ -732,6 +775,9 @@ function handleKeyDownProgrammatically(x, y) {
       keysState[y][x].finger = null;
     }
   } else if (keyMode === 'press') {
+    // Stop any fade in progress
+    keysState[y][x].fading = false;
+    keysState[y][x].fadeOutStart = null;
     keysState[y][x].pressing = true;
   }
   startNoteRecording(x, y);
@@ -745,7 +791,14 @@ function handleKeyUpProgrammatically(x, y) {
     activeUserOscillators.delete(keyStr);
   }
   if (keyMode === 'press') {
-    keysState[y][x].pressing = false;
+    if (fadeNotes) {
+      // Begin fading
+      keysState[y][x].pressing = false;
+      keysState[y][x].fading = true;
+      keysState[y][x].fadeOutStart = performance.now();
+    } else {
+      keysState[y][x].pressing = false;
+    }
   }
   stopNoteRecording(x, y);
   drawTablature();
@@ -774,6 +827,9 @@ function handleKeyDown(x, y) {
       keysState[y][x].finger = null;
     }
   } else if (keyMode === 'press') {
+    // Stop any fade in progress
+    keysState[y][x].fading = false;
+    keysState[y][x].fadeOutStart = null;
     keysState[y][x].pressing = true;
   }
 
@@ -789,7 +845,14 @@ function handleKeyUp(x, y) {
     activeUserOscillators.delete(keyStr);
   }
   if (keyMode === 'press') {
-    keysState[y][x].pressing = false;
+    if (fadeNotes) {
+      // Begin fading
+      keysState[y][x].pressing = false;
+      keysState[y][x].fading = true;
+      keysState[y][x].fadeOutStart = performance.now();
+    } else {
+      keysState[y][x].pressing = false;
+    }
   }
   stopNoteRecording(x, y);
   drawTablature();
@@ -1999,7 +2062,13 @@ document.addEventListener("DOMContentLoaded", () => {
             stopOscillator(note.oscObj);
             note.oscObj = null;
           }
-          keysState[note.y][note.x].sequencerPlaying = false;
+          if (fadeNotes) {
+            keysState[note.y][note.x].sequencerPlaying = false;
+            keysState[note.y][note.x].fading = true;
+            keysState[note.y][note.x].fadeOutStart = performance.now();
+          } else {
+            keysState[note.y][note.x].sequencerPlaying = false;
+          }
           drawTablature();
         }
       });
@@ -2086,6 +2155,20 @@ document.addEventListener("DOMContentLoaded", () => {
     reader.readAsText(file);
   });
 
+  // NEW: Fade Notes Toggle and Fade Time
+  const fadeNotesToggle = document.getElementById("fadeNotesToggle");
+  const fadeNotesTimeRange = document.getElementById("fadeNotesTimeRange");
+  const fadeNotesTimeValue = document.getElementById("fadeNotesTimeValue");
+
+  fadeNotesToggle.addEventListener("change", () => {
+    fadeNotes = fadeNotesToggle.checked;
+  });
+
+  fadeNotesTimeRange.addEventListener("input", () => {
+    fadeTime = parseFloat(fadeNotesTimeRange.value);
+    fadeNotesTimeValue.textContent = fadeTime.toFixed(1);
+  });
+
   // "Save Configuration File" (Advanced Config only)
   document.getElementById("saveProjectBtn").addEventListener("click", () => {
     const advancedOptions = {
@@ -2094,7 +2177,9 @@ document.addEventListener("DOMContentLoaded", () => {
       scaleHighlightColor,
       scaleHighlightAlpha,
       scaleHighlightMode,
-      fingerOverlayColor
+      fingerOverlayColor,
+      fadeNotes: fadeNotesToggle.checked,
+      fadeTime: parseFloat(fadeNotesTimeRange.value)
     };
     const dataToSave = {
       advancedOptions
@@ -2146,6 +2231,15 @@ document.addEventListener("DOMContentLoaded", () => {
               fingerOverlayColor = ao.fingerOverlayColor;
               fingerOverlayColorPicker.value = ao.fingerOverlayColor;
             }
+            if (typeof ao.fadeNotes === 'boolean') {
+              fadeNotes = ao.fadeNotes;
+              fadeNotesToggle.checked = ao.fadeNotes;
+            }
+            if (typeof ao.fadeTime === 'number') {
+              fadeTime = ao.fadeTime;
+              fadeNotesTimeRange.value = ao.fadeTime;
+              fadeNotesTimeValue.textContent = ao.fadeTime.toFixed(1);
+            }
             drawTablature();
           }
           alert("Configuration loaded successfully.");
@@ -2167,7 +2261,9 @@ document.addEventListener("DOMContentLoaded", () => {
       scaleHighlightColor,
       scaleHighlightAlpha,
       scaleHighlightMode,
-      fingerOverlayColor
+      fingerOverlayColor,
+      fadeNotes: fadeNotesToggle.checked,
+      fadeTime: parseFloat(fadeNotesTimeRange.value)
     };
     const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
     const chordPalette = chordSlots;
@@ -2240,6 +2336,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (ao.fingerOverlayColor) {
               fingerOverlayColor = ao.fingerOverlayColor;
               fingerOverlayColorPicker.value = ao.fingerOverlayColor;
+            }
+            if (typeof ao.fadeNotes === 'boolean') {
+              fadeNotes = ao.fadeNotes;
+              fadeNotesToggle.checked = ao.fadeNotes;
+            }
+            if (typeof ao.fadeTime === 'number') {
+              fadeTime = ao.fadeTime;
+              fadeNotesTimeRange.value = ao.fadeTime;
+              fadeNotesTimeValue.textContent = ao.fadeTime.toFixed(1);
             }
             drawTablature();
           }
@@ -2650,6 +2755,8 @@ function shiftSelection(dx, dy) {
     if (newX >= 0 && newX < numberOfStrings && newY >= 0 && newY < numberOfFrets) {
       keysState[oldY][oldX].marker = false;
       keysState[oldY][oldX].finger = null;
+      keysState[oldY][oldX].fading = false;
+      keysState[oldY][oldX].fadeOutStart = null;
       keysState[newY][newX].marker = true;
       // When newly toggled on, finger assignment is lost unless user sets again
       // (as per requirement "must be set again subsequently if they so desire")
