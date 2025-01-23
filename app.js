@@ -2159,7 +2159,7 @@ document.addEventListener("DOMContentLoaded", () => {
     input.click();
   });
 
-  // High-Level Save/Load (entire state)
+  // High-Level Save/Load Project Buttons
   document.getElementById("saveHighLevelProjectBtn").addEventListener("click", () => {
     const advancedOptions = {
       cursorColor: cursorColorPicker.value,
@@ -2300,9 +2300,11 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           if (data.currentScale) {
             currentScale = data.currentScale;
+            scaleSelect.value = currentScale; // Set dropdown to loaded scale
           }
           if (data.currentRoot) {
             currentRoot = data.currentRoot;
+            rootSelect.value = currentRoot; // Set dropdown to loaded root
           }
           if (data.keyMode) {
             keyMode = data.keyMode;
@@ -2310,6 +2312,7 @@ document.addEventListener("DOMContentLoaded", () => {
               keyMode === 'press' ? "Key Mode: Press" : "Key Mode: Toggle";
           }
 
+          drawTablature();
           alert("Project loaded successfully.");
         } catch (error) {
           alert("Error loading project: " + error.message);
@@ -2603,6 +2606,16 @@ closeChordPopup.addEventListener("click", () => {
 // ==============================
 // "Play Current Selection" Button
 // ==============================
+function playNoteTemporary(x, y, duration) {
+  const noteName = getNoteName(x, y);
+  const octave = getNoteOctave(x, y);
+  const freq = noteToFrequency(noteName, octave);
+  const oscObj = createOscillator(freq, currentInstrument);
+  setTimeout(() => {
+    stopOscillator(oscObj);
+  }, duration);
+}
+
 document.getElementById("playSelectionBtn").addEventListener("click", () => {
   const selectedKeys = [];
   for (let y = 0; y < numberOfFrets; y++) {
@@ -2613,10 +2626,7 @@ document.getElementById("playSelectionBtn").addEventListener("click", () => {
     }
   }
   selectedKeys.forEach(pos => {
-    handleKeyDownProgrammatically(pos.x, pos.y);
-    setTimeout(() => {
-      handleKeyUpProgrammatically(pos.x, pos.y);
-    }, 300);
+    playNoteTemporary(pos.x, pos.y, 300);
   });
 });
 
