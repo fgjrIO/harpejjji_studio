@@ -1075,6 +1075,7 @@ function loadSelection(data) {
       setChordNotesFromKeysState(chordRecordIndex);
     }
   } else if (data.type === "chord") {
+    // Only triggered if user clicks a chord from the library
     const userSlot = parseInt(prompt("Which chord slot do you want to load this chord into? (1-8)"), 10);
     if (isNaN(userSlot) || userSlot < 1 || userSlot > 8) {
       alert("Invalid chord slot index.");
@@ -2540,6 +2541,7 @@ document.addEventListener("DOMContentLoaded", () => {
     URL.revokeObjectURL(url);
   });
 
+  // *** FIXED: Loading a chord set from a file does NOT prompt for a slot. ***
   document.getElementById("loadChordsBtn").addEventListener("click", () => {
     const input = document.getElementById("loadChordsFile");
     input.onchange = (event) => {
@@ -2550,11 +2552,21 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const loadedChords = JSON.parse(e.target.result);
           if (Array.isArray(loadedChords)) {
+            // Auto-place chords without prompting
+            let slotIndex = 0;
             loadedChords.forEach(chordData => {
-              if (chordData.type === "chord") {
-                loadSelection(chordData);
+              if (chordData.type === "chord" && slotIndex < 8) {
+                chordSlots[slotIndex].name = chordData.name;
+                chordSlots[slotIndex].keys = chordData.keys.map(k => ({
+                  x: k.x,
+                  y: k.y,
+                  noteName: k.noteName,
+                  octave: k.octave
+                }));
+                slotIndex++;
               }
             });
+            updateChordPaletteUI();
             alert("Chords loaded successfully.");
           } else {
             throw new Error("Invalid chord file structure.");
