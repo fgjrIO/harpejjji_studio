@@ -48,7 +48,7 @@ const stringSpacing = 30;
 const keyHeight = 25;
 
 // Default black key color (can be changed via advanced config):
-let blackKeyColor = "#a6a8ad";
+let blackKeyColor = "#bcbfc4";
 
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
@@ -964,12 +964,14 @@ function captureChordImage(chord) {
 
   let minY = Math.min(...chord.keys.map(k => k.y));
   let maxY = Math.max(...chord.keys.map(k => k.y));
-
-  minY = Math.max(0, minY - 1);
-  maxY = Math.min(numberOfFrets - 1, maxY + 1);
-
   let minX = Math.min(...chord.keys.map(k => k.x));
   let maxX = Math.max(...chord.keys.map(k => k.x));
+
+  // Expand bounding box by 2 strings/frets in all directions
+  minY = Math.max(0, minY - 2);
+  maxY = Math.min(numberOfFrets - 1, maxY + 2);
+  minX = Math.max(0, minX - 2);
+  maxX = Math.min(numberOfStrings - 1, maxX + 2);
 
   const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
   const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
