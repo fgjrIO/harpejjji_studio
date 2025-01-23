@@ -47,6 +47,9 @@ let fretSpacing = 30;
 const stringSpacing = 30;
 const keyHeight = 25;
 
+// Default black key color (can be changed via advanced config):
+let blackKeyColor = "#a6a8ad";
+
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
 // NEW: Big chord dictionary
@@ -462,7 +465,7 @@ function drawTablature() {
       rect.setAttribute("height", keyHeight);
       rect.setAttribute("stroke", "#666");
       rect.setAttribute("stroke-width", "1");
-      rect.setAttribute("fill", blackKey ? "#999" : "#FFF");
+      rect.setAttribute("fill", blackKey ? blackKeyColor : "#FFF");
 
       keyGroup.appendChild(rect);
 
@@ -879,53 +882,45 @@ function saveSelection() {
   const dateStr = now.toLocaleDateString();
   const timeStr = now.toLocaleTimeString();
 
+  // Instead of converting SVG to PNG, we'll store the raw SVG (vector) for HD clarity
   const svg = document.getElementById("tablature");
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
   const svgData = new XMLSerializer().serializeToString(svg);
-  const img = new Image();
+  const svgBase64 = 'data:image/svg+xml;base64,' + btoa(svgData);
 
-  img.onload = function() {
-    canvas.width = svg.width.baseVal.value;
-    canvas.height = svg.height.baseVal.value;
-    ctx.drawImage(img, 0, 0);
-    
-    const data = {
-      type: "tab",
-      name: fileName,
-      date: dateStr,
-      time: timeStr,
-      model: modelSelect.value,
-      keysState: keysState,
-      image: canvas.toDataURL("image/png"),
-      timestamp: new Date().toISOString(),
-      modelData: {
-        numberOfStrings: currentModel.numberOfStrings,
-        numberOfFrets: currentModel.numberOfFrets,
-        startNote: currentModel.startNote,
-        startOctave: currentModel.startOctave,
-        endNote: currentModel.endNote,
-        endOctave: currentModel.endOctave
-      },
-      notesPlainText: plainTextNotes
-    };
-
-    const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
-    savedSelections.push(data);
-    localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
-
-    // Also download
-    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fileName}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    populateLibrary();
+  const data = {
+    type: "tab",
+    name: fileName,
+    date: dateStr,
+    time: timeStr,
+    model: modelSelect.value,
+    keysState: keysState,
+    image: svgBase64,
+    timestamp: new Date().toISOString(),
+    modelData: {
+      numberOfStrings: currentModel.numberOfStrings,
+      numberOfFrets: currentModel.numberOfFrets,
+      startNote: currentModel.startNote,
+      startOctave: currentModel.startOctave,
+      endNote: currentModel.endNote,
+      endOctave: currentModel.endOctave
+    },
+    notesPlainText: plainTextNotes
   };
-  img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+
+  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  savedSelections.push(data);
+  localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
+
+  // Also download
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${fileName}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  populateLibrary();
 }
 
 /**
@@ -962,7 +957,7 @@ function saveChordToFile(index) {
 }
 
 /**
- * Helper to capture a partial chord image with 1 fret margin (up/down).
+ * Helper to capture a partial chord image as a vector SVG snippet.
  */
 function captureChordImage(chord) {
   if (!chord || chord.keys.length === 0) return null;
@@ -979,46 +974,31 @@ function captureChordImage(chord) {
   const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
   const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
 
-  const svg = document.getElementById("tablature");
-  const svgData = new XMLSerializer().serializeToString(svg);
-  const img = new Image();
+  // Coordinates for bounding box in the original tab
+  const yTop = totalHeight - ((maxY * fretSpacing) + fretSpacing/2) - keyHeight;
+  const yBottom = totalHeight - ((minY * fretSpacing) + fretSpacing/2);
+  const chordHeight = yBottom - yTop;
 
-  return new Promise(resolve => {
-    img.onload = () => {
-      const fullCanvas = document.createElement("canvas");
-      fullCanvas.width = svg.width.baseVal.value;
-      fullCanvas.height = svg.height.baseVal.value;
-      const fullCtx = fullCanvas.getContext("2d");
-      fullCtx.drawImage(img, 0, 0);
+  const xLeft = (minX * stringSpacing) + stringSpacing - 7.5;
+  const xRight = (maxX * stringSpacing) + stringSpacing + 7.5;
+  const chordWidth = xRight - xLeft;
 
-      const yTop = totalHeight - ((maxY * fretSpacing) + fretSpacing/2) - keyHeight;
-      const yBottom = totalHeight - ((minY * fretSpacing) + fretSpacing/2);
-      const chordHeight = yBottom - yTop;
+  // Clone the original tablature SVG
+  const originalSvg = document.getElementById("tablature");
+  const clonedSvg = originalSvg.cloneNode(true);
 
-      const xLeft = (minX * stringSpacing) + stringSpacing - 7.5;
-      const xRight = (maxX * stringSpacing) + stringSpacing + 7.5;
-      const chordWidth = xRight - xLeft;
+  // Adjust viewBox to show only the chord region
+  clonedSvg.setAttribute("viewBox", `${xLeft} ${yTop} ${chordWidth} ${chordHeight}`);
+  clonedSvg.setAttribute("width", chordWidth);
+  clonedSvg.setAttribute("height", chordHeight);
 
-      const chordCanvas = document.createElement("canvas");
-      chordCanvas.width = chordWidth;
-      chordCanvas.height = chordHeight;
-      const chordCtx = chordCanvas.getContext("2d");
-      chordCtx.drawImage(
-        fullCanvas,
-        xLeft, yTop,
-        chordWidth, chordHeight,
-        0, 0,
-        chordWidth, chordHeight
-      );
-
-      resolve(chordCanvas.toDataURL("image/png"));
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
-  });
+  // Serialize the cloned snippet into base64 SVG
+  const chordSvgData = new XMLSerializer().serializeToString(clonedSvg);
+  return 'data:image/svg+xml;base64,' + btoa(chordSvgData);
 }
 
 /**
- * Sends chord to the library with a bounding-box image and the current model.
+ * Sends chord to the library with a bounding-box vector image and the current model.
  */
 async function sendChordToLibrary(index) {
   const chord = chordSlots[index];
@@ -1031,7 +1011,7 @@ async function sendChordToLibrary(index) {
 
   chordSlots[index].name = chordName;
 
-  const chordImage = await captureChordImage(chord);
+  const chordImage = captureChordImage(chord);
   const data = {
     type: "chord",
     name: chordName,
@@ -1398,7 +1378,7 @@ function allNotesInCurrentScale(notesArray) {
       if (noteIndex < 0) return false;
       if (!scaleSet.has(noteIndex)) return false;
     } else {
-      const noteNameOct = noteStr.substring(0, firstSpace); 
+      const noteNameOct = noteStr.substring(0, firstSpace);
       let i = noteNameOct.length - 1;
       while (i >= 0 && isDigit(noteNameOct[i])) {
         i--;
@@ -2142,6 +2122,16 @@ document.addEventListener("DOMContentLoaded", () => {
     drawTablature();
   });
 
+  // NEW: Black key color picker (if present)
+  const blackKeyColorPicker = document.getElementById("blackKeyColorPicker");
+  if (blackKeyColorPicker) {
+    blackKeyColorPicker.value = blackKeyColor;
+    blackKeyColorPicker.addEventListener("input", (e) => {
+      blackKeyColor = e.target.value;
+      drawTablature();
+    });
+  }
+
   const importScalesBtn = document.getElementById("importScalesBtn");
   const scaleFileInput = document.getElementById("scaleFileInput");
   importScalesBtn.addEventListener("click", () => {
@@ -2191,7 +2181,8 @@ document.addEventListener("DOMContentLoaded", () => {
       scaleHighlightMode,
       fingerOverlayColor,
       fadeNotes: fadeNotesToggle.checked,
-      fadeTime: parseFloat(fadeNotesTimeRange.value)
+      fadeTime: parseFloat(fadeNotesTimeRange.value),
+      blackKeyColor
     };
     const dataToSave = {
       advancedOptions
@@ -2252,6 +2243,10 @@ document.addEventListener("DOMContentLoaded", () => {
               fadeNotesTimeRange.value = ao.fadeTime;
               fadeNotesTimeValue.textContent = ao.fadeTime.toFixed(1);
             }
+            if (ao.blackKeyColor) {
+              blackKeyColor = ao.blackKeyColor;
+              if (blackKeyColorPicker) blackKeyColorPicker.value = ao.blackKeyColor;
+            }
             drawTablature();
           }
           alert("Configuration loaded successfully.");
@@ -2275,7 +2270,8 @@ document.addEventListener("DOMContentLoaded", () => {
       scaleHighlightMode,
       fingerOverlayColor,
       fadeNotes: fadeNotesToggle.checked,
-      fadeTime: parseFloat(fadeNotesTimeRange.value)
+      fadeTime: parseFloat(fadeNotesTimeRange.value),
+      blackKeyColor
     };
     const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
     const chordPalette = chordSlots;
@@ -2357,6 +2353,10 @@ document.addEventListener("DOMContentLoaded", () => {
               fadeTime = ao.fadeTime;
               fadeNotesTimeRange.value = ao.fadeTime;
               fadeNotesTimeValue.textContent = ao.fadeTime.toFixed(1);
+            }
+            if (ao.blackKeyColor) {
+              blackKeyColor = ao.blackKeyColor;
+              if (blackKeyColorPicker) blackKeyColorPicker.value = ao.blackKeyColor;
             }
             drawTablature();
           }
@@ -2830,8 +2830,6 @@ function printLibrary() {
     return;
   }
 
-  // We check if highVis is enabled. If so, we print 1 item per sheet
-  // with a high-contrast (dark background, bright text) so the blue dot stands out.
   let styleRules = "";
 
   if (!highVis) {
@@ -2876,7 +2874,6 @@ function printLibrary() {
         height: auto;
         object-fit: contain;
       }
-      /* Force a new page after each item */
     `;
   }
 
@@ -2937,12 +2934,9 @@ function printLibrary() {
   printWindow.document.write(htmlContent);
   printWindow.document.close();
 
-  // Give time for images to load before printing
   printWindow.onload = function() {
     printWindow.focus();
     printWindow.print();
-    // Optionally close after printing
-    // printWindow.close();
   };
 }
 
