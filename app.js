@@ -962,7 +962,8 @@ function saveChordToFile(index) {
 }
 
 /**
- * Helper to capture a partial chord image with 1 fret margin (up/down).
+ * Helper to capture a partial chord image with 2-string margin (left/right)
+ * and 2-row margin (top/bottom).
  */
 function captureChordImage(chord) {
   if (!chord || chord.keys.length === 0) return null;
@@ -970,11 +971,14 @@ function captureChordImage(chord) {
   let minY = Math.min(...chord.keys.map(k => k.y));
   let maxY = Math.max(...chord.keys.map(k => k.y));
 
-  minY = Math.max(0, minY - 1);
-  maxY = Math.min(numberOfFrets - 1, maxY + 1);
+  minY = Math.max(0, minY - 2);
+  maxY = Math.min(numberOfFrets - 1, maxY + 2);
 
   let minX = Math.min(...chord.keys.map(k => k.x));
   let maxX = Math.max(...chord.keys.map(k => k.x));
+
+  minX = Math.max(0, minX - 2);
+  maxX = Math.min(numberOfStrings - 1, maxX + 2);
 
   const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
   const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
