@@ -2810,3 +2810,128 @@ document.addEventListener("DOMContentLoaded", () => {
     modelFilterSelect.addEventListener("change", populateLibrary);
   }
 });
+
+// ==============================
+// Print Library (NEW)
+// ==============================
+document.addEventListener("DOMContentLoaded", () => {
+  const printBtn = document.createElement("button");
+  printBtn.id = "printLibraryBtn";
+  printBtn.className = "px-3 py-1 rounded bg-pink-500 text-white hover:bg-pink-600";
+  printBtn.textContent = "Print Library";
+
+  // Insert into library controls row
+  const libraryControls = document.querySelector("#librarySlideover .mb-4.flex.flex-wrap.gap-2");
+  if (libraryControls) {
+    libraryControls.appendChild(printBtn);
+  }
+
+  printBtn.addEventListener("click", printLibrary);
+});
+
+function printLibrary() {
+  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  if (!savedSelections.length) {
+    alert("No items in library to print.");
+    return;
+  }
+  
+  // Create new window for printing
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    alert("Unable to open print window.");
+    return;
+  }
+
+  // Simple styling for 2 columns x 4 rows grid
+  let htmlContent = `
+    <html>
+    <head>
+      <title>Print Library</title>
+      <style>
+        body {
+          font-family: sans-serif;
+          margin: 20px;
+        }
+        .print-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-gap: 20px;
+        }
+        .print-item {
+          border: 1px solid #ccc;
+          padding: 10px;
+          page-break-inside: avoid;
+          text-align: center;
+        }
+        .print-item img {
+          width: 200px;
+          height: 200px;
+          object-fit: contain;
+          margin-bottom: 10px;
+        }
+        .print-item h3 {
+          font-size: 1.2rem;
+          margin-bottom: 0.5rem;
+        }
+        .print-item p {
+          font-size: 0.9rem;
+          margin: 0.2rem 0;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Harpejji Library</h1>
+      <div class="print-grid">
+  `;
+
+  // We enlarge chords or tabs by showing bigger images
+  // We'll simply iterate over all items
+  savedSelections.forEach((item, idx) => {
+    const nameLabel = item.name || `Item ${idx+1}`;
+    const imageSrc = item.image ? `<img src="${item.image}" />` : "";
+    const modelLabel = item.model ? `<p>Model: ${item.model}</p>` : "";
+    let extraInfo = "";
+
+    if (item.type === "chord") {
+      extraInfo = `<p>(Chord)</p>`;
+      if (item.keys) {
+        const chordLines = item.keys.map(k => `${k.noteName}${k.octave} (r=${k.y}, s=${k.x})`).join("<br>");
+        extraInfo += `<p style="margin-top:0.5rem;font-size:0.8rem">${chordLines}</p>`;
+      }
+    } else if (item.type === "tab") {
+      extraInfo = `<p>(Tab)</p>`;
+      if (item.notesPlainText && item.notesPlainText.length) {
+        const textLines = item.notesPlainText.join("<br>");
+        extraInfo += `<p style="margin-top:0.5rem;font-size:0.8rem">${textLines}</p>`;
+      }
+    }
+
+    htmlContent += `
+      <div class="print-item">
+        ${imageSrc}
+        <h3>${nameLabel}</h3>
+        ${modelLabel}
+        ${extraInfo}
+      </div>
+    `;
+  });
+
+  htmlContent += `
+      </div>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+
+  // Give time for images to load before printing
+  printWindow.onload = function() {
+    printWindow.focus();
+    printWindow.print();
+    // Optionally close after printing
+    // printWindow.close();
+  };
+}
