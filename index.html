@@ -148,6 +148,27 @@
         </select>
       </div>
 
+      <!-- NEW: Finger Assignment Dropdown -->
+      <div class="flex items-center gap-2">
+        <label for="fingerSelect" class="text-gray-700">Finger:</label>
+        <select 
+          id="fingerSelect"
+          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+        >
+          <option value="None">None</option>
+          <option value="L1">L1</option>
+          <option value="L2">L2</option>
+          <option value="L3">L3</option>
+          <option value="L4">L4</option>
+          <option value="L5">L5</option>
+          <option value="R1">R1</option>
+          <option value="R2">R2</option>
+          <option value="R3">R3</option>
+          <option value="R4">R4</option>
+          <option value="R5">R5</option>
+        </select>
+      </div>
+
       <button 
         id="toggleNotesBtn"
         class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
@@ -207,6 +228,20 @@
         class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
       >
         Advanced Config
+      </button>
+
+      <!-- NEW: High-Level Save/Load Project Buttons -->
+      <button
+        id="saveHighLevelProjectBtn"
+        class="px-4 py-2 rounded bg-green-700 text-white hover:bg-green-800"
+      >
+        Save Project
+      </button>
+      <button
+        id="loadHighLevelProjectBtn"
+        class="px-4 py-2 rounded bg-yellow-700 text-white hover:bg-yellow-800"
+      >
+        Load Project
       </button>
 
       <!-- NEW: Find Chord + Play Current Selection Buttons -->
@@ -534,23 +569,16 @@
         </select>
       </div>
 
-      <!-- NEW: Fade Notes Config -->
+      <!-- NEW: Finger Overlay Color -->
       <div class="mb-4">
-        <label for="fadeNotesEnabled" class="inline-flex items-center space-x-1">
-          <input type="checkbox" id="fadeNotesEnabled" />
-          <span>Fade Notes</span>
-        </label>
-      </div>
-      <div class="mb-4">
-        <label for="fadeTimeInput" class="block font-semibold mb-1">Fade Time (ms):</label>
+        <label for="fingerOverlayColorPicker" class="block font-semibold mb-1">Finger Overlay Color:</label>
         <input 
-          type="number" 
-          id="fadeTimeInput" 
-          value="300" 
-          class="w-full border border-gray-300 rounded px-2 py-1"
+          type="color" 
+          id="fingerOverlayColorPicker"
+          value="#000000"
+          class="w-full h-10 border border-gray-300 rounded"
         />
       </div>
-      <!-- end of NEW: Fade Notes Config -->
 
       <!-- Import Scale File -->
       <div class="space-y-2 mt-4">
@@ -568,19 +596,19 @@
         />
       </div>
 
-      <!-- Save Project + Load Project Buttons -->
+      <!-- Save Configuration File + Load Configuration File Buttons -->
       <div class="space-y-2 mt-4">
         <button
           id="saveProjectBtn"
           class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full"
         >
-          Save Project
+          Save Configuration File
         </button>
         <button
           id="loadProjectBtn"
           class="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 w-full"
         >
-          Load Project
+          Load Configuration File
         </button>
         <input 
           type="file" 

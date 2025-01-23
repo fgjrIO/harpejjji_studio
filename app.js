@@ -91,9 +91,7 @@ function initKeysState() {
         marker: false,
         pressing: false,
         sequencerPlaying: false,
-        // For fade:
-        fadeStartTime: 0,
-        fadeAlpha: 0
+        finger: null
       };
     }
   }
@@ -129,16 +127,33 @@ let currentScale = "none";
 let currentRoot = "A";
 let scaleHighlightColor = "#ffc107";
 let scaleHighlightAlpha = 0.3;
-
-// NEW: scale highlight mode
 let scaleHighlightMode = "fill";
 
-// NEW: Fade config
-let fadeNotesEnabled = false;
-let fadeTimeMs = 300;
-let fadeActive = false;
+// NEW: Finger overlay color
+let fingerOverlayColor = "#000000";
 
-// Initialize audio graph if needed
+/**
+ * Generate a set of pitch classes (0..11) for the selected scale,
+ * relative to the chosen root.
+ */
+function getScaleSemitones(scaleName, rootNote) {
+  if (!scaleName || scaleName === "none") return new Set();
+  if (!loadedScales[scaleName]) return new Set();
+
+  const intervals = loadedScales[scaleName];
+  const rootIndex = NOTES.indexOf(rootNote);
+  if (rootIndex === -1) return new Set();
+
+  let semitonesSet = new Set();
+  let currentPos = 0;
+  semitonesSet.add(rootIndex % 12);
+  intervals.forEach(interval => {
+    currentPos += interval;
+    semitonesSet.add((rootIndex + currentPos) % 12);
+  });
+  return semitonesSet;
+}
+
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   masterGainNode = audioContext.createGain();
@@ -207,7 +222,6 @@ function createInstrumentSound(frequency, instrument) {
       filterFreq = 4000;
       break;
     default:
-      // fallback
       envelope = { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 };
       filterFreq = 2000;
       break;
@@ -307,25 +321,14 @@ function killAllNotes() {
       stopOscillator(note.oscObj);
       note.oscObj = null;
       note.isPlaying = false;
-      // Fade or remove immediate if fade not enabled
-      if (fadeNotesEnabled) {
-        startFade(note.x, note.y, 'seq');
-      } else {
-        keysState[note.y][note.x].sequencerPlaying = false;
-        keysState[note.y][note.x].fadeStartTime = 0;
-        keysState[note.y][note.x].fadeAlpha = 0;
-      }
+      keysState[note.y][note.x].sequencerPlaying = false;
     }
   });
 
-  // Forcefully reset pressing/marker, ignoring fade for kill
+  // Forcefully reset pressing flags so that no chord/hung note remains flagged
   for (let y = 0; y < numberOfFrets; y++) {
     for (let x = 0; x < numberOfStrings; x++) {
       keysState[y][x].pressing = false;
-      keysState[y][x].marker = false;
-      keysState[y][x].sequencerPlaying = false;
-      keysState[y][x].fadeStartTime = 0;
-      keysState[y][x].fadeAlpha = 0;
     }
   }
 
@@ -362,72 +365,6 @@ function getNoteOctave(x, y) {
 
 function isBlackNote(noteName) {
   return noteName.includes("#");
-}
-
-/**
- * If fade is disabled, this immediately removes any circle.
- * If fade is enabled, it starts the fade process.
- */
-function startFade(x, y, releaseType) {
-  // releaseType can be 'press' or 'seq'
-  if (!fadeNotesEnabled) {
-    if (releaseType === 'press') {
-      keysState[y][x].pressing = false;
-      keysState[y][x].marker = false;
-    } else if (releaseType === 'seq') {
-      keysState[y][x].sequencerPlaying = false;
-    }
-    keysState[y][x].fadeStartTime = 0;
-    keysState[y][x].fadeAlpha = 0;
-    drawTablature();
-    return;
-  }
-
-  const now = performance.now();
-  keysState[y][x].fadeStartTime = now;
-  keysState[y][x].fadeAlpha = 0.8;
-
-  if (releaseType === 'press') {
-    keysState[y][x].pressing = false;
-    keysState[y][x].marker = false;
-  } else if (releaseType === 'seq') {
-    keysState[y][x].sequencerPlaying = false;
-  }
-
-  if (!fadeActive) {
-    fadeActive = true;
-    requestAnimationFrame(fadeLoop);
-  }
-}
-
-/**
- * Animates fade until all fadeAlpha's are 0
- */
-function fadeLoop() {
-  let now = performance.now();
-  let anyFading = false;
-  for (let yy = 0; yy < numberOfFrets; yy++) {
-    for (let xx = 0; xx < numberOfStrings; xx++) {
-      let st = keysState[yy][xx];
-      if (st.fadeAlpha > 0) {
-        anyFading = true;
-        let elapsed = now - st.fadeStartTime;
-        let fraction = elapsed / fadeTimeMs;
-        if (fraction >= 1) {
-          st.fadeAlpha = 0;
-          st.fadeStartTime = 0;
-        } else {
-          st.fadeAlpha = 0.8 * (1 - fraction);
-        }
-      }
-    }
-  }
-  if (anyFading) {
-    drawTablature();
-    requestAnimationFrame(fadeLoop);
-  } else {
-    fadeActive = false;
-  }
 }
 
 // ==============================
@@ -556,23 +493,27 @@ function drawTablature() {
       }
 
       const stateObj = keysState[y][x];
-      // Decide if we draw the blue circle
-      // Now it can be from marker, pressing, sequencerPlaying, or a fade
-      const hasActiveCircle = stateObj.marker || stateObj.pressing || stateObj.sequencerPlaying || (stateObj.fadeAlpha > 0);
-
-      if (hasActiveCircle) {
+      if (stateObj.marker || stateObj.pressing || stateObj.sequencerPlaying) {
         const circ = document.createElementNS("http://www.w3.org/2000/svg","circle");
         circ.setAttribute("cx", 7.5);
         circ.setAttribute("cy", 12.5);
         circ.setAttribute("r", 7);
-
-        let alphaToUse = 0.8;
-        if (!stateObj.marker && !stateObj.pressing && !stateObj.sequencerPlaying) {
-          // If it's purely fade
-          alphaToUse = stateObj.fadeAlpha;
-        }
-        circ.setAttribute("fill", `rgba(0, 153, 255, ${alphaToUse})`);
+        circ.setAttribute("fill", "rgba(0, 153, 255, 0.8)");
         keyGroup.appendChild(circ);
+
+        // If finger assigned, overlay text
+        if (stateObj.finger) {
+          const fingerText = document.createElementNS("http://www.w3.org/2000/svg","text");
+          fingerText.setAttribute("x", 7.5);
+          fingerText.setAttribute("y", 13);
+          fingerText.setAttribute("fill", fingerOverlayColor);
+          fingerText.setAttribute("font-size", "8");
+          fingerText.setAttribute("font-family", "Helvetica, Arial, sans-serif");
+          fingerText.setAttribute("text-anchor", "middle");
+          fingerText.setAttribute("dominant-baseline","middle");
+          fingerText.textContent = stateObj.finger;
+          keyGroup.appendChild(fingerText);
+        }
       }
 
       if (showNotes) {
@@ -591,7 +532,7 @@ function drawTablature() {
       keyGroup.style.cursor = "pointer";
       keyGroup.addEventListener("mousedown", () => handleKeyDown(x, y));
       keyGroup.addEventListener("mouseup", () => handleKeyUp(x, y));
-      // Removed mouseleave listener to fix ghost notes
+      keyGroup.addEventListener("mouseleave", () => handleKeyUp(x, y));
 
       // If in select mode for pitch mapping:
       keyGroup.addEventListener("click", () => {
@@ -615,24 +556,6 @@ function drawTablature() {
       g.appendChild(keyGroup);
     }
   }
-}
-
-function getScaleSemitones(scaleName, rootNote) {
-  if (!scaleName || scaleName === "none") return new Set();
-  if (!loadedScales[scaleName]) return new Set();
-
-  const intervals = loadedScales[scaleName];
-  const rootIndex = NOTES.indexOf(rootNote);
-  if (rootIndex === -1) return new Set();
-
-  let semitonesSet = new Set();
-  let currentPos = 0;
-  semitonesSet.add(rootIndex % 12);
-  intervals.forEach(interval => {
-    currentPos += interval;
-    semitonesSet.add((rootIndex + currentPos) % 12);
-  });
-  return semitonesSet;
 }
 
 let keyMode = 'toggle';
@@ -753,6 +676,7 @@ function clearAllTabMarkers() {
     for (let x = 0; x < numberOfStrings; x++) {
       keysState[y][x].marker = false;
       keysState[y][x].pressing = false;
+      keysState[y][x].finger = null;
     }
   }
   drawTablature();
@@ -793,7 +717,20 @@ function handleKeyDownProgrammatically(x, y) {
   activeUserOscillators.set(`${x}_${y}`, oscObj);
 
   if (keyMode === 'toggle') {
-    keysState[y][x].marker = !keysState[y][x].marker;
+    const oldState = keysState[y][x].marker;
+    keysState[y][x].marker = !oldState;
+    if (keysState[y][x].marker) {
+      // Assign finger if dropdown != None
+      const selectedFinger = document.getElementById("fingerSelect").value;
+      if (selectedFinger !== "None") {
+        keysState[y][x].finger = selectedFinger;
+      } else {
+        keysState[y][x].finger = null;
+      }
+    } else {
+      // turned off marker, remove finger
+      keysState[y][x].finger = null;
+    }
   } else if (keyMode === 'press') {
     keysState[y][x].pressing = true;
   }
@@ -808,8 +745,7 @@ function handleKeyUpProgrammatically(x, y) {
     activeUserOscillators.delete(keyStr);
   }
   if (keyMode === 'press') {
-    // Start fade if enabled
-    startFade(x, y, 'press');
+    keysState[y][x].pressing = false;
   }
   stopNoteRecording(x, y);
   drawTablature();
@@ -824,7 +760,19 @@ function handleKeyDown(x, y) {
   activeUserOscillators.set(`${x}_${y}`, oscObj);
 
   if (keyMode === 'toggle') {
-    keysState[y][x].marker = !keysState[y][x].marker;
+    const oldState = keysState[y][x].marker;
+    keysState[y][x].marker = !oldState;
+    if (keysState[y][x].marker) {
+      // Assign finger if dropdown != None
+      const selectedFinger = document.getElementById("fingerSelect").value;
+      if (selectedFinger !== "None") {
+        keysState[y][x].finger = selectedFinger;
+      } else {
+        keysState[y][x].finger = null;
+      }
+    } else {
+      keysState[y][x].finger = null;
+    }
   } else if (keyMode === 'press') {
     keysState[y][x].pressing = true;
   }
@@ -841,8 +789,7 @@ function handleKeyUp(x, y) {
     activeUserOscillators.delete(keyStr);
   }
   if (keyMode === 'press') {
-    // Start fade if enabled
-    startFade(x, y, 'press');
+    keysState[y][x].pressing = false;
   }
   stopNoteRecording(x, y);
   drawTablature();
@@ -861,7 +808,6 @@ function saveSelection() {
       if (keysState[y][x].marker) {
         const noteName = getNoteName(x, y);
         const octave = getNoteOctave(x, y);
-        // Removed row and string references:
         plainTextNotes.push(`${noteName}${octave}`);
       }
     }
@@ -917,6 +863,131 @@ function saveSelection() {
     populateLibrary();
   };
   img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+}
+
+/**
+ * Save chord to file (does NOT add to library)
+ */
+function saveChordToFile(index) {
+  const chord = chordSlots[index];
+  if (chord.keys.length === 0) {
+    alert("Cannot save an empty chord.");
+    return;
+  }
+  const chordName = prompt("Enter a name for this chord:", chord.name);
+  if (!chordName) return;
+
+  const data = {
+    type: "chord",
+    name: chordName,
+    keys: chord.keys.map(k => ({
+      x: k.x,
+      y: k.y,
+      noteName: k.noteName,
+      octave: k.octave
+    })),
+    timestamp: new Date().toISOString()
+  };
+
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${chordName}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Helper to capture a partial chord image with 1 fret margin (up/down).
+ */
+function captureChordImage(chord) {
+  if (!chord || chord.keys.length === 0) return null;
+
+  let minY = Math.min(...chord.keys.map(k => k.y));
+  let maxY = Math.max(...chord.keys.map(k => k.y));
+
+  minY = Math.max(0, minY - 1);
+  maxY = Math.min(numberOfFrets - 1, maxY + 1);
+
+  let minX = Math.min(...chord.keys.map(k => k.x));
+  let maxX = Math.max(...chord.keys.map(k => k.x));
+
+  const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
+  const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
+
+  const svg = document.getElementById("tablature");
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const img = new Image();
+
+  return new Promise(resolve => {
+    img.onload = () => {
+      const fullCanvas = document.createElement("canvas");
+      fullCanvas.width = svg.width.baseVal.value;
+      fullCanvas.height = svg.height.baseVal.value;
+      const fullCtx = fullCanvas.getContext("2d");
+      fullCtx.drawImage(img, 0, 0);
+
+      const yTop = totalHeight - ((maxY * fretSpacing) + fretSpacing/2) - keyHeight;
+      const yBottom = totalHeight - ((minY * fretSpacing) + fretSpacing/2);
+      const chordHeight = yBottom - yTop;
+
+      const xLeft = (minX * stringSpacing) + stringSpacing - 7.5;
+      const xRight = (maxX * stringSpacing) + stringSpacing + 7.5;
+      const chordWidth = xRight - xLeft;
+
+      const chordCanvas = document.createElement("canvas");
+      chordCanvas.width = chordWidth;
+      chordCanvas.height = chordHeight;
+      const chordCtx = chordCanvas.getContext("2d");
+      chordCtx.drawImage(
+        fullCanvas,
+        xLeft, yTop,
+        chordWidth, chordHeight,
+        0, 0,
+        chordWidth, chordHeight
+      );
+
+      resolve(chordCanvas.toDataURL("image/png"));
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+  });
+}
+
+/**
+ * Sends chord to the library with a bounding-box image and the current model.
+ */
+async function sendChordToLibrary(index) {
+  const chord = chordSlots[index];
+  if (chord.keys.length === 0) {
+    alert("Cannot send an empty chord to library.");
+    return;
+  }
+  const chordName = prompt("Enter a name for this chord:", chord.name);
+  if (!chordName) return;
+
+  chordSlots[index].name = chordName;
+
+  const chordImage = await captureChordImage(chord);
+  const data = {
+    type: "chord",
+    name: chordName,
+    keys: chord.keys.map(k => ({
+      x: k.x,
+      y: k.y,
+      noteName: k.noteName,
+      octave: k.octave
+    })),
+    timestamp: new Date().toISOString(),
+    model: modelSelect.value,
+    image: chordImage || null
+  };
+
+  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+  savedSelections.push(data);
+  localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
+
+  populateLibrary();
 }
 
 function loadSelection(data) {
@@ -1233,6 +1304,7 @@ function loadLibrary() {
   input.click();
 }
 
+// Scale filter helper
 function isDigit(ch) {
   return ch >= '0' && ch <= '9';
 }
@@ -1244,7 +1316,6 @@ function allNotesInCurrentScale(notesArray) {
   for (const noteStr of notesArray) {
     const firstSpace = noteStr.indexOf(" ");
     if (firstSpace < 0) {
-      // If there's no space, parse something like "A4"
       const noteData = noteStr.match(/^([A-G]#?)(\d*)$/);
       if (!noteData) return false;
       const rawNoteName = noteData[1];
@@ -1252,7 +1323,6 @@ function allNotesInCurrentScale(notesArray) {
       if (noteIndex < 0) return false;
       if (!scaleSet.has(noteIndex)) return false;
     } else {
-      // original logic
       const noteNameOct = noteStr.substring(0, firstSpace); 
       let i = noteNameOct.length - 1;
       while (i >= 0 && isDigit(noteNameOct[i])) {
@@ -1727,14 +1797,7 @@ document.addEventListener("DOMContentLoaded", () => {
         stopOscillator(note.oscObj);
         note.oscObj = null;
         note.isPlaying = false;
-        // fade or remove
-        if (fadeNotesEnabled) {
-          startFade(note.x, note.y, 'seq');
-        } else {
-          keysState[note.y][note.x].sequencerPlaying = false;
-          keysState[note.y][note.x].fadeAlpha = 0;
-          keysState[note.y][note.x].fadeStartTime = 0;
-        }
+        keysState[note.y][note.x].sequencerPlaying = false;
       }
     });
     drawTablature();
@@ -1868,13 +1931,7 @@ document.addEventListener("DOMContentLoaded", () => {
         stopOscillator(note.oscObj);
         note.oscObj = null;
         note.isPlaying = false;
-        if (fadeNotesEnabled) {
-          startFade(note.x, note.y, 'seq');
-        } else {
-          keysState[note.y][note.x].sequencerPlaying = false;
-          keysState[note.y][note.x].fadeStartTime = 0;
-          keysState[note.y][note.x].fadeAlpha = 0;
-        }
+        keysState[note.y][note.x].sequencerPlaying = false;
       }
     });
     drawTablature();
@@ -1942,14 +1999,7 @@ document.addEventListener("DOMContentLoaded", () => {
             stopOscillator(note.oscObj);
             note.oscObj = null;
           }
-          // fade out or remove
-          if (fadeNotesEnabled) {
-            startFade(note.x, note.y, 'seq');
-          } else {
-            keysState[note.y][note.x].sequencerPlaying = false;
-            keysState[note.y][note.x].fadeStartTime = 0;
-            keysState[note.y][note.x].fadeAlpha = 0;
-          }
+          keysState[note.y][note.x].sequencerPlaying = false;
           drawTablature();
         }
       });
@@ -1999,21 +2049,16 @@ document.addEventListener("DOMContentLoaded", () => {
     drawTablature();
   });
 
-  // NEW: scale highlight mode select
   const scaleHighlightModeSelect = document.getElementById("scaleHighlightModeSelect");
   scaleHighlightModeSelect.addEventListener("change", (e) => {
     scaleHighlightMode = e.target.value;
     drawTablature();
   });
 
-  // NEW: fade notes toggles
-  const fadeNotesCheckbox = document.getElementById("fadeNotesEnabled");
-  fadeNotesCheckbox.addEventListener("change", (e) => {
-    fadeNotesEnabled = e.target.checked;
-  });
-  const fadeTimeInput = document.getElementById("fadeTimeInput");
-  fadeTimeInput.addEventListener("input", (e) => {
-    fadeTimeMs = parseInt(e.target.value, 10) || 300;
+  const fingerOverlayColorPicker = document.getElementById("fingerOverlayColorPicker");
+  fingerOverlayColorPicker.addEventListener("input", (e) => {
+    fingerOverlayColor = e.target.value;
+    drawTablature();
   });
 
   const importScalesBtn = document.getElementById("importScalesBtn");
@@ -2041,6 +2086,7 @@ document.addEventListener("DOMContentLoaded", () => {
     reader.readAsText(file);
   });
 
+  // "Save Configuration File" (Advanced Config only)
   document.getElementById("saveProjectBtn").addEventListener("click", () => {
     const advancedOptions = {
       cursorColor: cursorColorPicker.value,
@@ -2048,36 +2094,23 @@ document.addEventListener("DOMContentLoaded", () => {
       scaleHighlightColor,
       scaleHighlightAlpha,
       scaleHighlightMode,
+      fingerOverlayColor
     };
-    const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
-    const chordPalette = chordSlots;
-    const sequencerData = {
-      bpm: SEQUENCER_CONFIG.bpm,
-      notes: recordedNotes,
-      pitchMappings
+    const dataToSave = {
+      advancedOptions
     };
-    const scalesData = loadedScales;
-
-    const projectData = {
-      advancedOptions,
-      library,
-      chordPalette,
-      sequencerData,
-      scalesData
-    };
-    const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(dataToSave)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'harpejji_project.json';
+    a.download = 'harpejji_config.json';
     a.click();
     URL.revokeObjectURL(url);
   });
 
+  // "Load Configuration File" (Advanced Config only)
   document.getElementById("loadProjectBtn").addEventListener("click", () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
+    const input = document.getElementById('loadProjectFile');
     input.onchange = (event) => {
       const file = event.target.files[0];
       if (!file) return;
@@ -2109,12 +2142,115 @@ document.addEventListener("DOMContentLoaded", () => {
               scaleHighlightMode = ao.scaleHighlightMode;
               scaleHighlightModeSelect.value = ao.scaleHighlightMode;
             }
+            if (ao.fingerOverlayColor) {
+              fingerOverlayColor = ao.fingerOverlayColor;
+              fingerOverlayColorPicker.value = ao.fingerOverlayColor;
+            }
             drawTablature();
           }
+          alert("Configuration loaded successfully.");
+        } catch (error) {
+          alert("Error loading configuration file: " + error.message);
+        }
+        input.value = "";
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  });
+
+  // High-Level Save/Load (entire state)
+  document.getElementById("saveHighLevelProjectBtn").addEventListener("click", () => {
+    const advancedOptions = {
+      cursorColor: cursorColorPicker.value,
+      rowSpacing: fretSpacing,
+      scaleHighlightColor,
+      scaleHighlightAlpha,
+      scaleHighlightMode,
+      fingerOverlayColor
+    };
+    const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
+    const chordPalette = chordSlots;
+    const sequencerData = {
+      bpm: SEQUENCER_CONFIG.bpm,
+      notes: recordedNotes,
+      pitchMappings
+    };
+    const scalesData = loadedScales;
+    // Also include current keysState, model, etc.
+    const highLevelData = {
+      advancedOptions,
+      library,
+      chordPalette,
+      sequencerData,
+      scalesData,
+      keysState,
+      currentModel,
+      showNotes,
+      currentScale,
+      currentRoot,
+      keyMode
+    };
+    const blob = new Blob([JSON.stringify(highLevelData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'harpejji_project.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("loadHighLevelProjectBtn").addEventListener("click", () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+
+          // advanced options
+          if (data.advancedOptions) {
+            const ao = data.advancedOptions;
+            if (ao.cursorColor) {
+              cursorColorPicker.value = ao.cursorColor;
+              document.getElementById("playhead").style.backgroundColor = ao.cursorColor;
+            }
+            if (typeof ao.rowSpacing === 'number') {
+              fretSpacing = ao.rowSpacing;
+              rowSpacingRange.value = ao.rowSpacing;
+              rowSpacingValue.textContent = ao.rowSpacing + ' px';
+            }
+            if (ao.scaleHighlightColor) {
+              scaleHighlightColor = ao.scaleHighlightColor;
+              scaleHighlightColorInput.value = ao.scaleHighlightColor;
+            }
+            if (typeof ao.scaleHighlightAlpha === 'number') {
+              scaleHighlightAlpha = ao.scaleHighlightAlpha;
+              scaleHighlightAlphaRange.value = ao.scaleHighlightAlpha;
+              scaleHighlightAlphaValue.textContent = ao.scaleHighlightAlpha;
+            }
+            if (ao.scaleHighlightMode) {
+              scaleHighlightMode = ao.scaleHighlightMode;
+              scaleHighlightModeSelect.value = ao.scaleHighlightMode;
+            }
+            if (ao.fingerOverlayColor) {
+              fingerOverlayColor = ao.fingerOverlayColor;
+              fingerOverlayColorPicker.value = ao.fingerOverlayColor;
+            }
+            drawTablature();
+          }
+
+          // library
           if (data.library && Array.isArray(data.library)) {
             localStorage.setItem('harpejjiSelections', JSON.stringify(data.library));
             populateLibrary();
           }
+
+          // chord palette
           if (data.chordPalette && Array.isArray(data.chordPalette)) {
             chordSlots.forEach((slot, idx) => {
               if (data.chordPalette[idx]) {
@@ -2124,19 +2260,56 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             updateChordPaletteUI();
           }
+
+          // sequencer
           if (data.sequencerData) {
             SEQUENCER_CONFIG.bpm = data.sequencerData.bpm || 120;
             recordedNotes = data.sequencerData.notes || [];
+            pitchMappings = data.sequencerData.pitchMappings || {};
             document.getElementById("tempoSlider").value = SEQUENCER_CONFIG.bpm;
             document.getElementById("tempoValue").textContent = `${SEQUENCER_CONFIG.bpm} BPM`;
-            pitchMappings = data.sequencerData.pitchMappings || {};
             stopPlayback();
             drawSequencerGrid();
           }
+
+          // scales
           if (data.scalesData) {
             loadedScales = data.scalesData;
             populateScaleDropdown();
           }
+
+          // keysState
+          if (data.keysState) {
+            keysState = data.keysState;
+            drawTablature();
+          }
+
+          // model, showNotes, scale, root, keyMode
+          if (data.currentModel) {
+            currentModel = data.currentModel;
+            numberOfStrings = currentModel.numberOfStrings;
+            numberOfFrets = currentModel.numberOfFrets;
+            BASE_NOTE = currentModel.startNote;
+            BASE_OCTAVE = currentModel.startOctave;
+            drawTablature();
+            drawPianoRoll();
+            drawSequencerGrid();
+          }
+          if (typeof data.showNotes === 'boolean') {
+            showNotes = data.showNotes;
+          }
+          if (data.currentScale) {
+            currentScale = data.currentScale;
+          }
+          if (data.currentRoot) {
+            currentRoot = data.currentRoot;
+          }
+          if (data.keyMode) {
+            keyMode = data.keyMode;
+            document.getElementById('toggleKeyModeBtn').textContent = 
+              keyMode === 'press' ? "Key Mode: Press" : "Key Mode: Toggle";
+          }
+
           alert("Project loaded successfully.");
         } catch (error) {
           alert("Error loading project: " + error.message);
@@ -2172,8 +2345,6 @@ document.addEventListener("DOMContentLoaded", () => {
       saveChordToFile(idx);
     });
   });
-
-  // The "Send chord to library" button
   document.querySelectorAll('.chord-send-lib-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.getAttribute('data-chord-index'), 10);
@@ -2468,12 +2639,18 @@ function shiftSelection(dx, dy) {
     const newY = oldY + dy;
     if (newX >= 0 && newX < numberOfStrings && newY >= 0 && newY < numberOfFrets) {
       keysState[oldY][oldX].marker = false;
+      keysState[oldY][oldX].finger = null;
       keysState[newY][newX].marker = true;
+      // When newly toggled on, finger assignment is lost unless user sets again
+      // (as per requirement "must be set again subsequently if they so desire")
     }
   });
   drawTablature();
 }
 
+// ==============================
+// Event Listeners for Library Filters
+// ==============================
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('input[name="libraryFilter"]').forEach(radio => {
     radio.addEventListener('change', populateLibrary);
@@ -2485,128 +2662,3 @@ document.addEventListener("DOMContentLoaded", () => {
     modelFilterSelect.addEventListener("change", populateLibrary);
   }
 });
-
-/**
- * Save chord to file (does NOT add to library)
- */
-function saveChordToFile(index) {
-  const chord = chordSlots[index];
-  if (chord.keys.length === 0) {
-    alert("Cannot save an empty chord.");
-    return;
-  }
-  const chordName = prompt("Enter a name for this chord:", chord.name);
-  if (!chordName) return;
-
-  const data = {
-    type: "chord",
-    name: chordName,
-    keys: chord.keys.map(k => ({
-      x: k.x,
-      y: k.y,
-      noteName: k.noteName,
-      octave: k.octave
-    })),
-    timestamp: new Date().toISOString()
-  };
-
-  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${chordName}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Sends chord to the library with a bounding-box image and the current model.
- */
-async function sendChordToLibrary(index) {
-  const chord = chordSlots[index];
-  if (chord.keys.length === 0) {
-    alert("Cannot send an empty chord to library.");
-    return;
-  }
-  const chordName = prompt("Enter a name for this chord:", chord.name);
-  if (!chordName) return;
-
-  chordSlots[index].name = chordName;
-
-  const chordImage = await captureChordImage(chord);
-  const data = {
-    type: "chord",
-    name: chordName,
-    keys: chord.keys.map(k => ({
-      x: k.x,
-      y: k.y,
-      noteName: k.noteName,
-      octave: k.octave
-    })),
-    timestamp: new Date().toISOString(),
-    model: modelSelect.value,
-    image: chordImage || null
-  };
-
-  const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
-  savedSelections.push(data);
-  localStorage.setItem('harpejjiSelections', JSON.stringify(savedSelections));
-
-  populateLibrary();
-}
-
-/**
- * Helper to capture a partial chord image
- */
-function captureChordImage(chord) {
-  if (!chord || chord.keys.length === 0) return null;
-
-  let minY = Math.min(...chord.keys.map(k => k.y));
-  let maxY = Math.max(...chord.keys.map(k => k.y));
-
-  minY = Math.max(0, minY - 1);
-  maxY = Math.min(numberOfFrets - 1, maxY + 1);
-
-  let minX = Math.min(...chord.keys.map(k => k.x));
-  let maxX = Math.max(...chord.keys.map(k => k.x));
-
-  const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
-  const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
-
-  const svg = document.getElementById("tablature");
-  const svgData = new XMLSerializer().serializeToString(svg);
-  const img = new Image();
-
-  return new Promise(resolve => {
-    img.onload = () => {
-      const fullCanvas = document.createElement("canvas");
-      fullCanvas.width = svg.width.baseVal.value;
-      fullCanvas.height = svg.height.baseVal.value;
-      const fullCtx = fullCanvas.getContext("2d");
-      fullCtx.drawImage(img, 0, 0);
-
-      const yTop = totalHeight - ((maxY * fretSpacing) + fretSpacing/2) - keyHeight;
-      const yBottom = totalHeight - ((minY * fretSpacing) + fretSpacing/2);
-      const chordHeight = yBottom - yTop;
-
-      const xLeft = (minX * stringSpacing) + stringSpacing - 7.5;
-      const xRight = (maxX * stringSpacing) + stringSpacing + 7.5;
-      const chordWidth = xRight - xLeft;
-
-      const chordCanvas = document.createElement("canvas");
-      chordCanvas.width = chordWidth;
-      chordCanvas.height = chordHeight;
-      const chordCtx = chordCanvas.getContext("2d");
-      chordCtx.drawImage(
-        fullCanvas,
-        xLeft, yTop,
-        chordWidth, chordHeight,
-        0, 0,
-        chordWidth, chordHeight
-      );
-
-      resolve(chordCanvas.toDataURL("image/png"));
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
-  });
-}
