@@ -962,8 +962,7 @@ function saveChordToFile(index) {
 }
 
 /**
- * Helper to capture a partial chord image with 2-string margin (left/right)
- * and 2-row margin (top/bottom).
+ * Helper to capture a partial chord image with 1 fret margin (up/down).
  */
 function captureChordImage(chord) {
   if (!chord || chord.keys.length === 0) return null;
@@ -971,14 +970,11 @@ function captureChordImage(chord) {
   let minY = Math.min(...chord.keys.map(k => k.y));
   let maxY = Math.max(...chord.keys.map(k => k.y));
 
-  minY = Math.max(0, minY - 2);
-  maxY = Math.min(numberOfFrets - 1, maxY + 2);
+  minY = Math.max(0, minY - 1);
+  maxY = Math.min(numberOfFrets - 1, maxY + 1);
 
   let minX = Math.min(...chord.keys.map(k => k.x));
   let maxX = Math.max(...chord.keys.map(k => k.x));
-
-  minX = Math.max(0, minX - 2);
-  maxX = Math.min(numberOfStrings - 1, maxX + 2);
 
   const totalWidth = (numberOfStrings * stringSpacing) + stringSpacing + 10;
   const totalHeight = (numberOfFrets * fretSpacing) + keyHeight + fretSpacing/2 + 10;
@@ -2816,23 +2812,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==============================
-// Print Library (NEW)
+// Print Library (UPDATED)
 // ==============================
-document.addEventListener("DOMContentLoaded", () => {
-  const printBtn = document.createElement("button");
-  printBtn.id = "printLibraryBtn";
-  printBtn.className = "px-3 py-1 rounded bg-pink-500 text-white hover:bg-pink-600";
-  printBtn.textContent = "Print Library";
-
-  // Insert into library controls row
-  const libraryControls = document.querySelector("#librarySlideover .mb-4.flex.flex-wrap.gap-2");
-  if (libraryControls) {
-    libraryControls.appendChild(printBtn);
-  }
-
-  printBtn.addEventListener("click", printLibrary);
-});
-
 function printLibrary() {
   const savedSelections = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
   if (!savedSelections.length) {
@@ -2840,6 +2821,8 @@ function printLibrary() {
     return;
   }
   
+  const highVis = document.getElementById("highVisCheckbox").checked;
+
   // Create new window for printing
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
@@ -2847,7 +2830,56 @@ function printLibrary() {
     return;
   }
 
-  // Simple styling for 2 columns x 4 rows grid
+  // We check if highVis is enabled. If so, we print 1 item per sheet
+  // with a high-contrast (dark background, bright text) so the blue dot stands out.
+  let styleRules = "";
+
+  if (!highVis) {
+    // Default: 2 columns x 4 rows
+    styleRules = `
+      .print-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-gap: 20px;
+      }
+      .print-item {
+        border: 1px solid #ccc;
+        padding: 10px;
+        page-break-inside: avoid;
+        text-align: center;
+      }
+      .print-item img {
+        width: 200px;
+        height: 200px;
+        object-fit: contain;
+        margin-bottom: 10px;
+      }
+    `;
+  } else {
+    // High-visibility: 1 item per page, dark background, bright text
+    styleRules = `
+      .print-grid {
+        display: block;
+      }
+      .print-item {
+        border: 2px solid #000;
+        page-break-after: always;
+        padding: 20px;
+        text-align: center;
+        background-color: #000;
+        color: #fff;
+      }
+      .print-item img {
+        display: block;
+        margin: 0 auto 10px auto;
+        width: 80%;
+        height: auto;
+        object-fit: contain;
+      }
+      /* Force a new page after each item */
+    `;
+  }
+
   let htmlContent = `
     <html>
     <head>
@@ -2857,31 +2889,7 @@ function printLibrary() {
           font-family: sans-serif;
           margin: 20px;
         }
-        .print-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          grid-gap: 20px;
-        }
-        .print-item {
-          border: 1px solid #ccc;
-          padding: 10px;
-          page-break-inside: avoid;
-          text-align: center;
-        }
-        .print-item img {
-          width: 200px;
-          height: 200px;
-          object-fit: contain;
-          margin-bottom: 10px;
-        }
-        .print-item h3 {
-          font-size: 1.2rem;
-          margin-bottom: 0.5rem;
-        }
-        .print-item p {
-          font-size: 0.9rem;
-          margin: 0.2rem 0;
-        }
+        ${styleRules}
       </style>
     </head>
     <body>
@@ -2889,8 +2897,6 @@ function printLibrary() {
       <div class="print-grid">
   `;
 
-  // We enlarge chords or tabs by showing bigger images
-  // We'll simply iterate over all items
   savedSelections.forEach((item, idx) => {
     const nameLabel = item.name || `Item ${idx+1}`;
     const imageSrc = item.image ? `<img src="${item.image}" />` : "";
@@ -2939,3 +2945,11 @@ function printLibrary() {
     // printWindow.close();
   };
 }
+
+// Add event listener for "Print Library" button
+document.addEventListener("DOMContentLoaded", () => {
+  const printBtn = document.getElementById("printLibraryBtn");
+  if (printBtn) {
+    printBtn.addEventListener("click", printLibrary);
+  }
+});
