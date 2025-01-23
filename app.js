@@ -2480,7 +2480,7 @@ selectedPositions.forEach(pos => {
 });
 drawTablature();
 }
-
+//4
 // ==============================
 // Event Listeners for Library Filters
 // ==============================
