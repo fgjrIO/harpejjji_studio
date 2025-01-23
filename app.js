@@ -118,7 +118,9 @@ let reverbConvolver;
 let reverbGain;
 
 // user-played oscillators
+// We'll also keep a global set of *all* live oscillators to kill hung notes thoroughly.
 let activeUserOscillators = new Map();
+let allLiveOscillators = new Set();
 
 // Scale Mode
 let currentScale = "none";
@@ -277,24 +279,41 @@ return {
 };
 }
 
+// Keep track of *all* live oscillators in a global set for thorough cleanup
 function createOscillator(frequency, instrument) {
 const soundObj = createInstrumentSound(frequency, instrument);
 const fakeOscObj = {
   osc: { stop: soundObj.stop },
   gain: { disconnect: () => {} }
 };
+allLiveOscillators.add(fakeOscObj);
 return fakeOscObj;
 }
 
-function stopOscillator({ osc }) {
-osc.stop();
+// Updated to remove from the global set as well
+function stopOscillator(oscObj) {
+if (!oscObj) return;
+if (oscObj.osc && typeof oscObj.osc.stop === 'function') {
+  oscObj.osc.stop();
+}
+allLiveOscillators.delete(oscObj);
 }
 
+/**
+* More thorough approach to kill any possible hung notes
+* by stopping all oscillators from allLiveOscillators first,
+* then clearing user/recorded references.
+*/
 function killAllNotes() {
-// Stop user-oscillators
-for (let [key, oscObj] of activeUserOscillators.entries()) {
-  stopOscillator(oscObj);
+// Stop all possible oscillator objects
+for (let obj of allLiveOscillators) {
+  if (obj && obj.osc && typeof obj.osc.stop === 'function') {
+    obj.osc.stop();
+  }
 }
+allLiveOscillators.clear();
+
+// Clear active user oscillators map
 activeUserOscillators.clear();
 
 // Also stop any sequencer notes
@@ -306,6 +325,15 @@ recordedNotes.forEach(note => {
     keysState[note.y][note.x].sequencerPlaying = false;
   }
 });
+
+// Forcefully reset pressing flags so that no chord/hung note
+// remains flagged internally
+for (let y = 0; y < numberOfFrets; y++) {
+  for (let x = 0; x < numberOfStrings; x++) {
+    keysState[y][x].pressing = false;
+  }
+}
+
 drawTablature();
 }
 
@@ -871,7 +899,7 @@ return new Promise(resolve => {
     chordCanvas.height = chordHeight;
     const chordCtx = chordCanvas.getContext("2d");
     chordCtx.drawImage(
-      fullCanvas,
+      fullCtx,
       xLeft, yTop,
       chordWidth, chordHeight,
       0, 0,
@@ -907,7 +935,7 @@ const data = {
     octave: k.octave
   })),
   timestamp: new Date().toISOString(),
-  model: modelSelect.value, // store the model
+  model: modelSelect.value,
   image: chordImage || null
 };
 
@@ -1007,7 +1035,7 @@ const filterActive = scaleFilterCheckbox && scaleFilterCheckbox.checked && curre
 
 // libraryFilter => all, tabs, chords
 const libraryFilter = document.querySelector('input[name="libraryFilter"]:checked').value;
-// modelFilter => all, K24, G16, U12
+// modelFilter => all, K24, G16, G12
 const modelFilterSelect = document.getElementById("modelFilterSelect");
 const modelFilter = modelFilterSelect ? modelFilterSelect.value : "all";
 
@@ -1028,7 +1056,6 @@ for (let index = 0; index < savedSelections.length; index++) {
 
   // Apply model filter if not 'all'
   if (modelFilter !== "all") {
-    // if model is not present, skip
     if (!selection.model || selection.model !== modelFilter) {
       continue;
     }
@@ -1046,17 +1073,23 @@ for (let index = 0; index < savedSelections.length; index++) {
         <div class="text-sm">
           <span class="block text-center font-bold">${selection.name}</span>
           <span class="block text-center text-gray-500">${selection.model}</span>
-          <span class="block text-center text-gray-400 text-xs">
-            ${selection.date || ""} ${selection.time || ""}
-          </span>
         </div>
-        ${
-          selection.notesPlainText && selection.notesPlainText.length
-            ? `<div class="text-xs whitespace-pre-wrap mt-1">${selection.notesPlainText.join("\n")}</div>`
-            : ""
-        }
       </div>
     `;
+    // If there's a plain text note list
+    if (selection.notesPlainText && selection.notesPlainText.length) {
+      const textDiv = document.createElement("div");
+      textDiv.className = "text-xs whitespace-pre-wrap mt-1";
+      textDiv.innerHTML = selection.notesPlainText.join("\n");
+      div.querySelector('.selection-content').appendChild(textDiv);
+    }
+    if (selection.date || selection.time) {
+      const infoDiv = document.createElement("div");
+      infoDiv.className = "block text-center text-gray-400 text-xs";
+      infoDiv.textContent = (selection.date || "") + " " + (selection.time || "");
+      div.querySelector('.selection-content').appendChild(infoDiv);
+    }
+
     div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
   } else if (selection.type === "chord") {
     div.innerHTML = `
@@ -1078,11 +1111,16 @@ for (let index = 0; index < savedSelections.length; index++) {
               : ""
           }
         </div>
-        <div class="text-xs mt-1">
-          ${selection.keys.map(k => `${k.noteName}${k.octave} (row=${k.y}, string=${k.x})`).join("<br>")}
-        </div>
       </div>
     `;
+    // Show the chord keys as well
+    const chordKeysDiv = document.createElement("div");
+    chordKeysDiv.className = "text-xs mt-1";
+    chordKeysDiv.innerHTML = selection.keys
+      .map(k => `${k.noteName}${k.octave} (row=${k.y}, string=${k.x})`)
+      .join("<br>");
+    div.querySelector('.selection-content').appendChild(chordKeysDiv);
+
     div.querySelector('.selection-content').addEventListener('click', () => loadSelection(selection));
   }
 
@@ -2231,7 +2269,7 @@ document.getElementById("saveChordsBtn").addEventListener("click", () => {
   if (!confirmation) return;
   chordSlots.forEach((chord, idx) => {
     if (chord.keys.length > 0) {
-      sendChordToLibrary(idx); // Use library function
+      sendChordToLibrary(idx);
     }
   });
 });
@@ -2480,7 +2518,7 @@ selectedPositions.forEach(pos => {
 });
 drawTablature();
 }
-//4
+
 // ==============================
 // Event Listeners for Library Filters
 // ==============================
