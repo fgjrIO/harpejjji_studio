@@ -1066,7 +1066,18 @@ function loadSelection(data) {
     BASE_NOTE = currentModel.startNote;
     BASE_OCTAVE = currentModel.startOctave;
 
-    keysState = data.keysState;
+    // Re-init keysState to match the model shape, then copy markers
+    initKeysState();
+    if (data.keysState) {
+      for (let y = 0; y < data.keysState.length; y++) {
+        for (let x = 0; x < data.keysState[y].length; x++) {
+          if (y < numberOfFrets && x < numberOfStrings) {
+            keysState[y][x] = data.keysState[y][x];
+          }
+        }
+      }
+    }
+
     drawTablature();
     drawPianoRoll();
     drawSequencerGrid();
@@ -2386,7 +2397,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // keysState
           if (data.keysState) {
-            keysState = data.keysState;
+            // Re-init keysState to match current model shape, then copy
+            initKeysState();
+            for (let y = 0; y < data.keysState.length; y++) {
+              for (let x = 0; x < data.keysState[y].length; x++) {
+                if (y < numberOfFrets && x < numberOfStrings) {
+                  keysState[y][x] = data.keysState[y][x];
+                }
+              }
+            }
             drawTablature();
           }
 
