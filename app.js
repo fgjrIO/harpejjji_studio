@@ -2792,7 +2792,6 @@ function shiftSelection(dx, dy) {
       keysState[oldY][oldX].fadeOutStart = null;
       keysState[newY][newX].marker = true;
       // When newly toggled on, finger assignment is lost unless user sets again
-      // (as per requirement "must be set again subsequently if they so desire")
     }
   });
   drawTablature();
@@ -2822,8 +2821,10 @@ function printLibrary() {
     alert("No items in library to print.");
     return;
   }
-  
-  const highVis = document.getElementById("highVisCheckbox").checked;
+
+  // NEW: Two separate checkboxes for (1) Enlarged printing and (2) High-contrast printing
+  const enlarged = document.getElementById("enlargedCheckbox").checked;
+  const highContrast = document.getElementById("highContrastCheckbox").checked;
 
   // Create new window for printing
   const printWindow = window.open("", "_blank");
@@ -2834,7 +2835,8 @@ function printLibrary() {
 
   let styleRules = "";
 
-  if (!highVis) {
+  // Four possible combinations:
+  if (!enlarged && !highContrast) {
     // Default: 2 columns x 4 rows
     styleRules = `
       .print-grid {
@@ -2855,8 +2857,53 @@ function printLibrary() {
         margin-bottom: 10px;
       }
     `;
+  } else if (enlarged && !highContrast) {
+    // Enlarged only: 1 item per page, normal colors
+    styleRules = `
+      .print-grid {
+        display: block;
+      }
+      .print-item {
+        border: 1px solid #ccc;
+        padding: 20px;
+        page-break-after: always;
+        text-align: center;
+        background-color: #fff;
+        color: #000;
+      }
+      .print-item img {
+        display: block;
+        margin: 0 auto 10px auto;
+        width: 80%;
+        height: auto;
+        object-fit: contain;
+      }
+    `;
+  } else if (!enlarged && highContrast) {
+    // High-contrast only: 2 columns x 4 rows, black background, bright text
+    styleRules = `
+      .print-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-gap: 20px;
+      }
+      .print-item {
+        border: 2px solid #000;
+        page-break-inside: avoid;
+        padding: 10px;
+        text-align: center;
+        background-color: #000;
+        color: #fff;
+      }
+      .print-item img {
+        width: 200px;
+        height: 200px;
+        object-fit: contain;
+        margin-bottom: 10px;
+      }
+    `;
   } else {
-    // High-visibility: 1 item per page, dark background, bright text
+    // Both enlarged and high-contrast: 1 item per page, black background, bright text
     styleRules = `
       .print-grid {
         display: block;
