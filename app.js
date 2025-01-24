@@ -400,6 +400,10 @@ function drawTablature() {
   const g = document.createElementNS("http://www.w3.org/2000/svg","g");
   svg.appendChild(g);
 
+  // Check if high-density is enabled
+  const highDensityCheckbox = document.getElementById("highDensityCheckbox");
+  const highDensity = highDensityCheckbox && highDensityCheckbox.checked;
+
   // Horizontal fret lines
   for (let row = 0; row <= numberOfFrets; row++) {
     const lineY = row * fretSpacing + fretSpacing/2;
@@ -463,7 +467,7 @@ function drawTablature() {
       rect.setAttribute("y", 0);
       rect.setAttribute("width", 15);
       rect.setAttribute("height", keyHeight);
-      rect.setAttribute("stroke", "#666");
+      rect.setAttribute("stroke", highDensity ? "#000" : "#666");
       rect.setAttribute("stroke-width", "1");
       rect.setAttribute("fill", blackKey ? blackKeyColor : "#FFF");
 
@@ -535,6 +539,10 @@ function drawTablature() {
         circ.setAttribute("cy", 12.5);
         circ.setAttribute("r", 7);
         circ.setAttribute("fill", `rgba(0, 153, 255, ${circleAlpha})`);
+        if (highDensity) {
+          circ.setAttribute("stroke", "#000");
+          circ.setAttribute("stroke-width", "1");
+        }
         keyGroup.appendChild(circ);
 
         // If finger assigned, overlay text
@@ -2822,7 +2830,6 @@ function printLibrary() {
     return;
   }
 
-  // NEW: Two separate checkboxes for (1) Enlarged printing and (2) High-contrast printing
   const enlarged = document.getElementById("enlargedCheckbox").checked;
   const highContrast = document.getElementById("highContrastCheckbox").checked;
 

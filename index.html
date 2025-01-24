@@ -10,7 +10,7 @@
   <div class="max-w-6xl mx-auto bg-white rounded shadow p-4">
     <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
 
-    <!-- Reverb, Delay, and Tempo Sliders at the top -->
+    <!-- Reverb, Delay, Tempo, and High-Density Checkbox at the top -->
     <div class="flex flex-wrap items-center gap-4 mb-4">
       <!-- Reverb Slider -->
       <div class="flex items-center gap-2">
@@ -52,6 +52,12 @@
         />
         <span id="tempoValue" class="text-gray-700">120 BPM</span>
       </div>
+
+      <!-- NEW: High Density Checkbox -->
+      <label class="inline-flex items-center space-x-2">
+        <input type="checkbox" id="highDensityCheckbox" />
+        <span>High Density</span>
+      </label>
 
       <!-- Shift Up / Down / Left / Right -->
       <button 
