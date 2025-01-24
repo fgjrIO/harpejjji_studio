@@ -2666,6 +2666,14 @@ document.addEventListener("DOMContentLoaded", () => {
     sequencerSections.push({ startBar, endBar, name });
     drawSequencerGrid();
   });
+
+  // High Density Checkbox => immediately redraw
+  const highDensityCheckbox = document.getElementById("highDensityCheckbox");
+  if (highDensityCheckbox) {
+    highDensityCheckbox.addEventListener("change", () => {
+      drawTablature();
+    });
+  }
 });
 
 // ==============================
