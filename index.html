@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Harpejji Tablature Emulation (Plain JS + Tailwind)</title>
+  <title>Harpejji Tablature Emulation (ES Modules)</title>
   <!-- Tailwind CSS (via CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 pb-[350px]">
   <div class="max-w-6xl mx-auto bg-white rounded shadow p-4">
-    <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (Plain JS)</h1>
+    <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (ES Modules)</h1>
 
     <!-- Reverb, Delay, Tempo, and High-Density Checkbox at the top -->
     <div class="flex flex-wrap items-center gap-4 mb-4">
@@ -53,7 +53,7 @@
         <span id="tempoValue" class="text-gray-700">120 BPM</span>
       </div>
 
-      <!-- NEW: High Density Checkbox -->
+      <!-- High Density Checkbox -->
       <label class="inline-flex items-center space-x-2">
         <input type="checkbox" id="highDensityCheckbox" />
         <span>High Density</span>
@@ -97,7 +97,9 @@
         <label for="modelSelect" class="text-gray-700">Model:</label>
         <select 
           id="modelSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[200px]"
+          class="px-3 py-2 rounded border border-gray-300 bg-white 
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                 focus:outline-none min-w-[200px]"
         >
           <option value="K24">K24 (A0-A5, 24 strings)</option>
           <option value="G16">G16 (C2-C6, 16 strings)</option>
@@ -110,7 +112,9 @@
         <label for="instrumentSelect" class="text-gray-700">Instrument:</label>
         <select 
           id="instrumentSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+          class="px-3 py-2 rounded border border-gray-300 bg-white 
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                 focus:outline-none min-w-[120px]"
         >
           <option value="piano">Piano</option>
           <option value="guitar">Guitar</option>
@@ -124,11 +128,12 @@
         <label for="scaleSelect" class="text-gray-700">Scale:</label>
         <select 
           id="scaleSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+          class="px-3 py-2 rounded border border-gray-300 bg-white 
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                 focus:outline-none min-w-[120px]"
         >
           <option value="none">None</option>
-          <option value="Major">Major</option>
-          <option value="Minor">Minor</option>
+          <!-- Additional scales populated dynamically -->
         </select>
       </div>
 
@@ -137,7 +142,9 @@
         <label for="rootSelect" class="text-gray-700">Root:</label>
         <select 
           id="rootSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          class="px-3 py-2 rounded border border-gray-300 bg-white 
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                 focus:outline-none"
         >
           <option value="C">C</option>
           <option value="C#">C#</option>
@@ -154,12 +161,14 @@
         </select>
       </div>
 
-      <!-- NEW: Finger Assignment Dropdown -->
+      <!-- Finger Assignment Dropdown -->
       <div class="flex items-center gap-2">
         <label for="fingerSelect" class="text-gray-700">Finger:</label>
         <select 
           id="fingerSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none min-w-[120px]"
+          class="px-3 py-2 rounded border border-gray-300 bg-white 
+                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                 focus:outline-none min-w-[120px]"
         >
           <option value="None">None</option>
           <option value="L1">L1</option>
@@ -236,7 +245,7 @@
         Advanced Config
       </button>
 
-      <!-- NEW: High-Level Save/Load Project Buttons -->
+      <!-- High-Level Save/Load Project -->
       <button
         id="saveHighLevelProjectBtn"
         class="px-4 py-2 rounded bg-green-700 text-white hover:bg-green-800"
@@ -250,7 +259,7 @@
         Load Project
       </button>
 
-      <!-- NEW: Find Chord + Play Current Selection Buttons -->
+      <!-- Find Chord + Play Current Selection -->
       <button
         id="findChordBtn"
         class="px-4 py-2 rounded bg-indigo-500 text-white hover:bg-indigo-600"
@@ -265,7 +274,7 @@
       </button>
 
       <span class="text-gray-600 text-sm">
-        Click any key to toggle a marker and play its note.
+        (Click any key to toggle a marker and play its note.)
       </span>
     </div>
 
@@ -275,9 +284,7 @@
       <svg 
         id="tablature" 
         class="border border-gray-400"
-      >
-        <!-- Will be drawn dynamically via JavaScript -->
-      </svg>
+      ></svg>
 
       <!-- Chord Palette -->
       <div class="ml-4 w-64" id="chordPalette">
@@ -291,7 +298,6 @@
           >
             Save Chords
           </button>
-          <!-- NEW separate button to save all chords directly to a single file -->
           <button 
             id="saveChordsToFileBtn"
             class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
@@ -312,12 +318,14 @@
           />
         </div>
 
-        <!-- NEW: Chord Trigger Mode, Strum Pace, Clear Tab on Trigger -->
+        <!-- Chord Trigger Mode, Strum Pace, Clear Tab on Trigger -->
         <div class="mb-2">
           <label for="chordModeSelect" class="text-sm font-semibold mr-1">Chord Mode:</label>
           <select 
             id="chordModeSelect"
-            class="px-2 py-1 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            class="px-2 py-1 rounded border border-gray-300 bg-white 
+                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                   focus:outline-none"
           >
             <option value="press" selected>Press</option>
             <option value="strum">Strum</option>
@@ -334,7 +342,9 @@
           />
           <select 
             id="strumPaceUnit"
-            class="px-2 py-1 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            class="px-2 py-1 rounded border border-gray-300 bg-white 
+                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
+                   focus:outline-none"
           >
             <option value="ms">ms</option>
             <option value="beats">beats</option>
@@ -347,9 +357,8 @@
             <span>Clear Tab on Trigger</span>
           </label>
         </div>
-        <!-- end of NEW UI elements -->
 
-        <!-- 2 column, 4 row grid of chord slots -->
+        <!-- 2 column, 4 row grid of chord slots (8 total) -->
         <div class="grid grid-cols-2 grid-rows-4 gap-4">
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="0">
             <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 1</button>
@@ -451,7 +460,6 @@
         <button id="saveLibraryBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
           Save Library
         </button>
-        <!-- Save Library As Button -->
         <button id="saveLibraryAsBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
           Save Library As
         </button>
@@ -461,7 +469,6 @@
         <button id="clearLibraryBtn" class="px-3 py-1 rounded bg-gray-500 text-white hover:bg-gray-600">
           Clear Library
         </button>
-        <!-- Print Library Button + New Checkboxes -->
         <button id="printLibraryBtn" class="px-3 py-1 rounded bg-pink-500 text-white hover:bg-pink-600">
           Print Library
         </button>
@@ -513,9 +520,7 @@
         </select>
       </div>
 
-      <div id="libraryContent" class="space-y-4 overflow-y-auto h-full">
-        <!-- Thumbnails and names of saved files will be dynamically added here -->
-      </div>
+      <div id="libraryContent" class="space-y-4 overflow-y-auto h-full"></div>
     </div>
   </div>
 
@@ -577,17 +582,20 @@
         <span id="scaleHighlightAlphaValue" class="text-gray-700 text-sm">0.3</span>
       </div>
 
-      <!-- NEW: Scale Highlight Mode (for keys overlay only) -->
-      <div class="mb-4" style="display:block;">
+      <!-- Scale Highlight Mode (for keys overlay) -->
+      <div class="mb-4">
         <label for="scaleHighlightModeSelect" class="block font-semibold mb-1">Scale Highlight Mode:</label>
-        <select id="scaleHighlightModeSelect" class="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none">
+        <select 
+          id="scaleHighlightModeSelect"
+          class="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none"
+        >
           <option value="fill">Fill</option>
           <option value="outline">Outline</option>
           <option value="both">Both</option>
         </select>
       </div>
 
-      <!-- NEW: Finger Overlay Color -->
+      <!-- Finger Overlay Color -->
       <div class="mb-4">
         <label for="fingerOverlayColorPicker" class="block font-semibold mb-1">Finger Overlay Color:</label>
         <input 
@@ -598,13 +606,13 @@
         />
       </div>
 
-      <!-- NEW: Black Key Color Picker -->
+      <!-- Black Key Color Picker -->
       <div class="mb-4">
         <label for="blackKeyColorPicker" class="block font-semibold mb-1">Black Key Color:</label>
         <input 
           type="color" 
           id="blackKeyColorPicker"
-          value="#999"
+          value="#bcbfc4"
           class="w-full h-10 border border-gray-300 rounded"
         />
       </div>
@@ -625,7 +633,7 @@
         />
       </div>
 
-      <!-- Save Configuration File + Load Configuration File Buttons -->
+      <!-- Save/Load Configuration -->
       <div class="space-y-2 mt-4">
         <button
           id="saveProjectBtn"
@@ -647,7 +655,7 @@
         />
       </div>
 
-      <!-- NEW: Fade Notes Toggle -->
+      <!-- Fade Notes Toggle -->
       <div class="mb-4 mt-4">
         <label for="fadeNotesToggle" class="inline-flex items-center space-x-1">
           <input type="checkbox" id="fadeNotesToggle" />
@@ -669,7 +677,7 @@
         <span id="fadeNotesTimeValue" class="text-gray-700 text-sm">1.0</span>
       </div>
 
-      <!-- NEW: Scale Overlay Type (keys or star) -->
+      <!-- Scale Overlay Type (keys vs. star) -->
       <div class="mb-4">
         <label for="scaleOverlayTypeSelect" class="block font-semibold mb-1">Scale Overlay Type:</label>
         <select 
@@ -681,7 +689,7 @@
         </select>
       </div>
 
-      <!-- NEW: Star Overlay Settings -->
+      <!-- Star Overlay Settings -->
       <div id="starOverlaySettings" style="display:none;">
         <div class="mb-4">
           <label for="starOverlayModeSelect" class="block font-semibold mb-1">Star Overlay Mode:</label>
@@ -713,123 +721,120 @@
 
   <!-- Sequencer (hidden by default; toggled by "Sequencer Mode" button) -->
   <div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600 hidden">
-      <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2 items-center">
-          <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-              Play
-          </button>
-          <button id="stop-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
-              Stop
-          </button>
-          <button id="record-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-              Record
-          </button>
-          <span 
-            id="record-indicator"
-            class="text-red-500 font-bold hidden ml-2"
-          >
-            RECORDING
-          </span>
-          <button id="metronome-btn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-              Metronome
-          </button>
-          <button id="save-seq-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
-              Save
-          </button>
-          <button id="load-seq-btn" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
-              Load
-          </button>
-          <input type="file" id="load-seq-file" class="hidden" accept=".json">
+    <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2 items-center">
+      <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+        Play
+      </button>
+      <button id="stop-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+        Stop
+      </button>
+      <button id="record-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+        Record
+      </button>
+      <span 
+        id="record-indicator"
+        class="text-red-500 font-bold hidden ml-2"
+      >
+        RECORDING
+      </span>
+      <button id="metronome-btn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+        Metronome
+      </button>
+      <button id="save-seq-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+        Save
+      </button>
+      <button id="load-seq-btn" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+        Load
+      </button>
+      <input type="file" id="load-seq-file" class="hidden" accept=".json">
 
-          <!-- Song/Step Mode Toggle -->
-          <button
-            id="mode-toggle-btn"
-            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Song Mode
-          </button>
-          <!-- Select Mode Toggle -->
-          <button
-            id="select-mode-btn"
-            class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
-          >
-            Select Mode: Off
-          </button>
+      <!-- Song/Step Mode Toggle -->
+      <button
+        id="mode-toggle-btn"
+        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+      >
+        Song Mode
+      </button>
+      <!-- Select Mode Toggle -->
+      <button
+        id="select-mode-btn"
+        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+      >
+        Select Mode: Off
+      </button>
 
-          <!-- Bar/Beat + Jump -->
-          <div class="flex items-center gap-2 ml-4">
-            <label class="text-white text-sm">Bar:</label>
-            <input
-              id="barInput"
-              type="text"
-              value="1"
-              class="w-14 px-1 py-1 text-sm rounded"
-            />
-            <label class="text-white text-sm">Beat:</label>
-            <input
-              id="beatInput"
-              type="text"
-              value="1"
-              class="w-14 px-1 py-1 text-sm rounded"
-            />
-            <button
-              id="jump-btn"
-              class="px-3 py-1 text-white bg-gray-500 rounded hover:bg-gray-600 text-sm"
-            >
-              Jump
-            </button>
-          </div>
-
-          <!-- Undo / Redo / Delete Buttons -->
-          <button 
-            id="undo-btn" 
-            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Undo
-          </button>
-          <button 
-            id="redo-btn" 
-            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Redo
-          </button>
-          <button 
-            id="delete-notes-btn"
-            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Delete
-          </button>
-
-          <!-- NEW: Add Section Button -->
-          <button 
-            id="add-section-btn"
-            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Add Section
-          </button>
+      <!-- Bar/Beat + Jump -->
+      <div class="flex items-center gap-2 ml-4">
+        <label class="text-white text-sm">Bar:</label>
+        <input
+          id="barInput"
+          type="text"
+          value="1"
+          class="w-14 px-1 py-1 text-sm rounded"
+        />
+        <label class="text-white text-sm">Beat:</label>
+        <input
+          id="beatInput"
+          type="text"
+          value="1"
+          class="w-14 px-1 py-1 text-sm rounded"
+        />
+        <button
+          id="jump-btn"
+          class="px-3 py-1 text-white bg-gray-500 rounded hover:bg-gray-600 text-sm"
+        >
+          Jump
+        </button>
       </div>
-      
-      <div class="flex h-[calc(100%-68px)]">
-          <!-- Piano Roll -->
-          <div class="w-[100px] bg-gray-900 h-full relative overflow-hidden">
-              <div id="piano-roll-wrapper" class="absolute inset-0">
-                  <div id="piano-keys" class="w-full"></div>
-              </div>
-          </div>
-          
-          <!-- Sequencer Grid -->
-          <div 
-            id="sequencer-grid" 
-            class="flex-1 relative overflow-auto bg-gray-900" 
-            onscroll="document.querySelector('#piano-roll-wrapper').style.transform='translateY(-' + this.scrollTop + 'px)'"
-          >
-              <div id="grid-content" class="absolute top-0 left-0"></div>
-              <!-- The playhead -->
-              <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
-          </div>
+
+      <!-- Undo / Redo / Delete Buttons -->
+      <button 
+        id="undo-btn" 
+        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+      >
+        Undo
+      </button>
+      <button 
+        id="redo-btn" 
+        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+      >
+        Redo
+      </button>
+      <button 
+        id="delete-notes-btn"
+        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+      >
+        Delete
+      </button>
+
+      <!-- Add Section -->
+      <button 
+        id="add-section-btn"
+        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+      >
+        Add Section
+      </button>
+    </div>
+    <div class="flex h-[calc(100%-68px)]">
+      <!-- Piano Roll -->
+      <div class="w-[100px] bg-gray-900 h-full relative overflow-hidden">
+        <div id="piano-roll-wrapper" class="absolute inset-0">
+          <div id="piano-keys" class="w-full"></div>
+        </div>
       </div>
+      <!-- Sequencer Grid -->
+      <div 
+        id="sequencer-grid" 
+        class="flex-1 relative overflow-auto bg-gray-900" 
+        onscroll="document.querySelector('#piano-roll-wrapper').style.transform='translateY(-' + this.scrollTop + 'px)'"
+      >
+        <div id="grid-content" class="absolute top-0 left-0"></div>
+        <div id="playhead" class="absolute top-0 w-px bg-white opacity-50 pointer-events-none"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- NEW: Find Chord Popup -->
+  <!-- Find Chord Popup -->
   <div id="findChordPopup" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="bg-white p-4 rounded w-full max-w-md relative">
@@ -845,6 +850,679 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- Main ES Modules -->
+  <script type="module">
+    import { 
+      // From globals.js
+      fretSpacing, setFretSpacing,
+      showNotes, setShowNotes,
+      keyMode, setKeyMode,
+      loadedScales,
+      blackKeyColor, setBlackKeyColor,
+      fingerOverlayColor, setFingerOverlayColor,
+      scaleHighlightColor, setScaleHighlightColor,
+      scaleHighlightAlpha, setScaleHighlightAlpha,
+      scaleHighlightMode, setScaleHighlightMode,
+      scaleOverlayType, setScaleOverlayType,
+      starOverlayMode, setStarOverlayMode,
+      starSize, setStarSize,
+      fadeNotes, setFadeNotes,
+      fadeTime, setFadeTime,
+
+      setCurrentModel,
+      setCurrentInstrument,
+      currentScale, setCurrentScale,
+      currentRoot, setCurrentRoot,
+      initKeysState,
+      keysState,
+      numberOfFrets, 
+      numberOfStrings
+    } from "./globals.js";
+
+    import {
+      initAudio,
+      setDelayAmount,
+      setReverbAmount,
+      killAllNotes
+    } from "./audio.js";
+
+    import {
+      drawTablature,
+      shiftSelection,
+      playNoteTemporary
+    } from "./tablature.js";
+
+    import {
+      chordSlots,
+      chordRecordIndex,
+      toggleChordRecord,
+      clearChordNotes,
+      renameChordSlot,
+      saveChordToFile,
+      sendChordToLibrary,
+      updateChordPaletteUI,
+      chordPressDown,
+      chordPressUp,
+      chordToggle,
+      chordStrum,
+      clearAllTabMarkers,
+      setChordNotesFromKeysState
+    } from "./chordPalette.js";
+
+    import {
+      toggleLibrary,
+      populateLibrary,
+      handleFileLoad as loadSelectionFile,
+      importFiles,
+      saveLibrary,
+      saveLibraryAs,
+      loadLibrary,
+      clearLibrary,
+      printLibrary,
+      loadSelection
+    } from "./library.js";
+
+    import {
+      drawPianoRoll,
+      drawSequencerGrid,
+      recordedNotes,
+      isPlaying,
+      isRecording,
+      metronomeEnabled,
+      stopPlayback,
+      startPlayback,
+      jumpToTime,
+      jumpToPosition,
+      deleteSelectedNotes,
+      addSection,
+      isStepMode,
+      toggleStepMode,
+      setSequencerBPM,
+      pushHistory,
+      undo,
+      redo,
+      SEQUENCER_CONFIG
+    } from "./sequencer.js";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Initial setup
+      initKeysState();
+      drawTablature();
+      drawPianoRoll();
+      drawSequencerGrid();
+      populateLibrary();
+
+      // Model changes
+      document.getElementById("modelSelect").addEventListener("change", (e) => {
+        setCurrentModel(e.target.value);
+        initKeysState();
+        drawTablature();
+        drawPianoRoll();
+        drawSequencerGrid();
+      });
+
+      // Instrument changes
+      document.getElementById("instrumentSelect").addEventListener("change", (e) => {
+        setCurrentInstrument(e.target.value);
+      });
+
+      // Scale dropdown
+      const scaleSelect = document.getElementById("scaleSelect");
+      function populateScaleDropdown() {
+        scaleSelect.innerHTML = `<option value="none">None</option>`;
+        Object.keys(loadedScales).forEach(scaleName => {
+          const opt = document.createElement("option");
+          opt.value = scaleName;
+          opt.textContent = scaleName;
+          scaleSelect.appendChild(opt);
+        });
+      }
+      populateScaleDropdown();
+      scaleSelect.addEventListener("change", (e) => {
+        setCurrentScale(e.target.value);
+        drawTablature();
+      });
+
+      // Root note changes
+      const rootSelect = document.getElementById("rootSelect");
+      rootSelect.addEventListener("change", (e) => {
+        setCurrentRoot(e.target.value);
+        drawTablature();
+      });
+
+      // Toggle note names
+      document.getElementById("toggleNotesBtn").addEventListener("click", () => {
+        setShowNotes(!showNotes);
+        drawTablature();
+      });
+
+      // Clear markers
+      document.getElementById("resetMarkersBtn").addEventListener("click", () => {
+        initKeysState();
+        drawTablature();
+      });
+
+      // Save tab -> uses saveLoadTab.js
+      document.getElementById("saveBtn").addEventListener("click", () => {
+        import("./saveLoadTab.js").then(({ saveSelection }) => {
+          saveSelection();
+        });
+      });
+
+      // Load tab
+      document.getElementById("loadBtn").addEventListener("click", loadSelectionFile);
+
+      // Library toggles
+      document.getElementById("libraryBtn").addEventListener("click", toggleLibrary);
+      document.getElementById("closeLibraryBtn").addEventListener("click", toggleLibrary);
+      document.getElementById("importBtn").addEventListener("click", importFiles);
+      document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
+      document.getElementById("saveLibraryAsBtn").addEventListener("click", saveLibraryAs);
+      document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
+      document.getElementById("clearLibraryBtn").addEventListener("click", clearLibrary);
+      document.getElementById("printLibraryBtn").addEventListener("click", printLibrary);
+
+      // Kill notes
+      document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
+
+      // Sequencer controls
+      document.getElementById("play-btn").addEventListener("click", () => {
+        initAudio();
+        startPlayback();
+      });
+      document.getElementById("stop-btn").addEventListener("click", () => {
+        stopPlayback();
+      });
+      document.getElementById("record-btn").addEventListener("click", () => {
+        isRecording = !isRecording;
+        const recordBtn = document.getElementById("record-btn");
+        recordBtn.classList.toggle("bg-red-600");
+        const indicator = document.getElementById("record-indicator");
+        if (isRecording) {
+          indicator.classList.remove("hidden");
+          if (!isPlaying) {
+            document.getElementById("play-btn").click();
+          }
+        } else {
+          indicator.classList.add("hidden");
+        }
+      });
+      document.getElementById("metronome-btn").addEventListener("click", () => {
+        metronomeEnabled = !metronomeEnabled;
+        document.getElementById("metronome-btn").classList.toggle("bg-blue-600");
+      });
+      document.getElementById("save-seq-btn").addEventListener("click", () => {
+        const fileName = prompt("Enter a name for your sequence:", "My Sequence");
+        if (!fileName) return;
+        const data = {
+          name: fileName,
+          bpm: SEQUENCER_CONFIG.bpm,
+          notes: recordedNotes,
+          timestamp: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName + ".json";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      document.getElementById("load-seq-btn").addEventListener("click", () => {
+        const input = document.getElementById("load-seq-file");
+        input.onchange = (evt) => {
+          const file = evt.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const data = JSON.parse(e.target.result);
+                setSequencerBPM(data.bpm || 120);
+                window.recordedNotes = data.notes || [];
+                document.getElementById("tempoSlider").value = SEQUENCER_CONFIG.bpm;
+                document.getElementById("tempoValue").textContent = `${SEQUENCER_CONFIG.bpm} BPM`;
+                stopPlayback();
+                drawSequencerGrid();
+              } catch (error) {
+                alert("Error loading sequence file");
+              }
+            };
+            reader.readAsText(file);
+          }
+        };
+        input.click();
+      });
+
+      // Toggle Sequencer view
+      document.getElementById("toggleSequencerModeBtn").addEventListener("click", () => {
+        const seqDiv = document.getElementById("sequencer");
+        seqDiv.classList.toggle("hidden");
+      });
+
+      // Key Mode toggle
+      document.getElementById("toggleKeyModeBtn").addEventListener("click", () => {
+        if (keyMode === "toggle") {
+          setKeyMode("press");
+          document.getElementById("toggleKeyModeBtn").textContent = "Key Mode: Press";
+        } else {
+          setKeyMode("toggle");
+          document.getElementById("toggleKeyModeBtn").textContent = "Key Mode: Toggle";
+        }
+      });
+
+      // Step vs. Song Mode
+      document.getElementById("mode-toggle-btn").addEventListener("click", () => {
+        toggleStepMode();
+        document.getElementById("mode-toggle-btn").textContent = isStepMode ? "Step Mode" : "Song Mode";
+      });
+
+      // Possibly implement "select mode" if desired
+      document.getElementById("select-mode-btn").addEventListener("click", () => {
+        // placeholder
+      });
+
+      // Jump to bar/beat
+      document.getElementById("jump-btn").addEventListener("click", () => {
+        const barVal = document.getElementById("barInput").value;
+        const beatVal = document.getElementById("beatInput").value;
+        jumpToPosition(barVal, beatVal);
+      });
+
+      // Undo/Redo
+      document.getElementById("undo-btn").addEventListener("click", () => {
+        undo();
+      });
+      document.getElementById("redo-btn").addEventListener("click", () => {
+        redo();
+      });
+
+      // Delete selected notes
+      document.getElementById("delete-notes-btn").addEventListener("click", () => {
+        deleteSelectedNotes();
+      });
+
+      // Add section
+      document.getElementById("add-section-btn").addEventListener("click", () => {
+        addSection();
+      });
+
+      // Delay & Reverb Sliders
+      document.getElementById("delaySlider").addEventListener("input", (e) => {
+        setDelayAmount(parseFloat(e.target.value));
+      });
+      document.getElementById("reverbSlider").addEventListener("input", (e) => {
+        setReverbAmount(parseFloat(e.target.value));
+      });
+
+      // Tempo slider
+      const tempoSlider = document.getElementById("tempoSlider");
+      const tempoValue  = document.getElementById("tempoValue");
+      tempoSlider.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value, 10);
+        setSequencerBPM(val);
+        tempoValue.textContent = val + " BPM";
+      });
+
+      // Advanced Config Slideover
+      const advBtn = document.getElementById("advancedConfigBtn");
+      const advSlideover = document.getElementById("advancedConfigSlideover");
+      const closeAdvBtn = document.getElementById("closeAdvancedConfigBtn");
+      advBtn.addEventListener("click", () => {
+        advSlideover.classList.toggle("hidden");
+      });
+      closeAdvBtn.addEventListener("click", () => {
+        advSlideover.classList.add("hidden");
+      });
+
+      // Cursor color
+      document.getElementById("cursorColorPicker").addEventListener("input", (e) => {
+        document.getElementById("playhead").style.backgroundColor = e.target.value;
+      });
+
+      // Row Spacing
+      const rowSpacingRange = document.getElementById("rowSpacingRange");
+      const rowSpacingValue = document.getElementById("rowSpacingValue");
+      rowSpacingRange.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value, 10);
+        setFretSpacing(val);
+        rowSpacingValue.textContent = val + " px";
+        drawTablature();
+      });
+
+      // Scale highlight color/alpha/mode
+      document.getElementById("scaleHighlightColor").addEventListener("input", (e) => {
+        setScaleHighlightColor(e.target.value);
+        drawTablature();
+      });
+      const scaleHighlightAlphaRange = document.getElementById("scaleHighlightAlpha");
+      const scaleHighlightAlphaValue = document.getElementById("scaleHighlightAlphaValue");
+      scaleHighlightAlphaRange.addEventListener("input", (e) => {
+        setScaleHighlightAlpha(parseFloat(e.target.value));
+        scaleHighlightAlphaValue.textContent = e.target.value;
+        drawTablature();
+      });
+      document.getElementById("scaleHighlightModeSelect").addEventListener("change", (e) => {
+        setScaleHighlightMode(e.target.value);
+        drawTablature();
+      });
+
+      // Finger overlay color
+      document.getElementById("fingerOverlayColorPicker").addEventListener("input", (e) => {
+        setFingerOverlayColor(e.target.value);
+        drawTablature();
+      });
+
+      // Black key color
+      document.getElementById("blackKeyColorPicker").addEventListener("input", (e) => {
+        setBlackKeyColor(e.target.value);
+        drawTablature();
+      });
+
+      // Import Scales
+      const scaleFileInput = document.getElementById("scaleFileInput");
+      document.getElementById("importScalesBtn").addEventListener("click", () => {
+        scaleFileInput.click();
+      });
+      scaleFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const data = JSON.parse(ev.target.result);
+            // Merge into loadedScales
+            Object.keys(data).forEach(name => {
+              loadedScales[name] = data[name];
+            });
+            populateScaleDropdown();
+            alert("Scales imported successfully.");
+          } catch(err) {
+            alert("Error importing scales: " + err.message);
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      // Fade notes toggle/time
+      const fadeNotesToggle = document.getElementById("fadeNotesToggle");
+      fadeNotesToggle.addEventListener("change", () => {
+        setFadeNotes(fadeNotesToggle.checked);
+      });
+      const fadeNotesTimeRange = document.getElementById("fadeNotesTimeRange");
+      const fadeNotesTimeValue = document.getElementById("fadeNotesTimeValue");
+      fadeNotesTimeRange.addEventListener("input", () => {
+        setFadeTime(parseFloat(fadeNotesTimeRange.value));
+        fadeNotesTimeValue.textContent = parseFloat(fadeNotesTimeRange.value).toFixed(1);
+      });
+
+      // Scale Overlay Type
+      const scaleOverlayTypeSelect = document.getElementById("scaleOverlayTypeSelect");
+      const starOverlaySettings = document.getElementById("starOverlaySettings");
+      scaleOverlayTypeSelect.addEventListener("change", (e) => {
+        setScaleOverlayType(e.target.value);
+        if (e.target.value === "star") {
+          starOverlaySettings.style.display = "block";
+          document.getElementById("scaleHighlightModeSelect").parentElement.style.display = "none";
+        } else {
+          starOverlaySettings.style.display = "none";
+          document.getElementById("scaleHighlightModeSelect").parentElement.style.display = "block";
+        }
+        drawTablature();
+      });
+      // Star overlay mode/size
+      document.getElementById("starOverlayModeSelect").addEventListener("change", (e) => {
+        setStarOverlayMode(e.target.value);
+        drawTablature();
+      });
+      const starSizeRange = document.getElementById("starSizeRange");
+      const starSizeValue = document.getElementById("starSizeValue");
+      starSizeRange.addEventListener("input", (e) => {
+        setStarSize(parseInt(e.target.value,10));
+        starSizeValue.textContent = e.target.value;
+        drawTablature();
+      });
+
+      // Save/Load Config
+      document.getElementById("saveProjectBtn").addEventListener("click", () => {
+        const advancedOptions = {
+          cursorColor: document.getElementById("playhead").style.backgroundColor,
+          rowSpacing: fretSpacing,
+          scaleHighlightColor,
+          scaleHighlightAlpha,
+          scaleHighlightMode,
+          fingerOverlayColor,
+          fadeNotes,
+          fadeTime,
+          blackKeyColor,
+          scaleOverlayType,
+          starOverlayMode,
+          starSize
+        };
+        const dataToSave = { advancedOptions };
+        const blob = new Blob([JSON.stringify(dataToSave)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "harpejji_config.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      document.getElementById("loadProjectBtn").addEventListener("click", () => {
+        const input = document.getElementById("loadProjectFile");
+        input.onchange = (ev) => {
+          const file = ev.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (rEv) => {
+            try {
+              const data = JSON.parse(rEv.target.result);
+              if (data.advancedOptions) {
+                // apply them as needed
+                const ao = data.advancedOptions;
+                // e.g. set rowSpacing, fadeNotes, blackKeyColor, etc.
+                // then call drawTablature()
+              }
+              alert("Configuration loaded successfully.");
+            } catch (err) {
+              alert("Error loading configuration file: " + err.message);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      });
+
+      // High-Level Save/Load Project
+      document.getElementById("saveHighLevelProjectBtn").addEventListener("click", () => {
+        // You'd import a file that handles saving everything (keysState, library, chord palette, sequencer, etc.)
+        // e.g. import("./saveProject.js").then(({ saveHighLevelProject }) => { saveHighLevelProject(); });
+      });
+      document.getElementById("loadHighLevelProjectBtn").addEventListener("click", () => {
+        // Similarly, you can load a previously saved comprehensive project
+      });
+
+      // Chord Palette Buttons
+      document.querySelectorAll(".chord-record-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-chord-index"), 10);
+          toggleChordRecord(idx);
+        });
+      });
+      document.querySelectorAll(".chord-clear-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-chord-index"), 10);
+          clearChordNotes(idx);
+        });
+      });
+      document.querySelectorAll(".chord-rename-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-chord-index"), 10);
+          renameChordSlot(idx);
+        });
+      });
+      document.querySelectorAll(".chord-save-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-chord-index"), 10);
+          saveChordToFile(idx);
+        });
+      });
+      document.querySelectorAll(".chord-send-lib-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-chord-index"), 10);
+          sendChordToLibrary(idx);
+        });
+      });
+
+      const chordButtons = document.querySelectorAll(".chord-button");
+      window.chordModeSelect = document.getElementById("chordModeSelect");
+      window.strumPaceInput = document.getElementById("strumPaceInput");
+      window.strumPaceUnit  = document.getElementById("strumPaceUnit");
+      window.clearTabOnTriggerCheckbox = document.getElementById("clearTabOnTrigger");
+
+      chordButtons.forEach(btn => {
+        const slotDiv = btn.closest(".chord-slot");
+        const idx = parseInt(slotDiv.getAttribute("data-chord-index"), 10);
+        btn.addEventListener("click", () => {
+          if (clearTabOnTriggerCheckbox.checked) {
+            clearAllTabMarkers();
+          }
+          if (chordModeSelect.value === "press") {
+            // If keyMode is "toggle", we do chordToggle
+            if (keyMode === "toggle") {
+              chordToggle(idx);
+            }
+          } else if (chordModeSelect.value === "strum") {
+            let delayMs = parseFloat(strumPaceInput.value) || 100;
+            if (strumPaceUnit.value === "beats") {
+              delayMs = (60 / SEQUENCER_CONFIG.bpm)*1000 * parseFloat(strumPaceInput.value);
+            }
+            chordStrum(idx, delayMs);
+          }
+        });
+        btn.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          if (chordModeSelect.value === "press") {
+            if (clearTabOnTriggerCheckbox.checked) {
+              clearAllTabMarkers();
+            }
+            if (keyMode === "press") {
+              chordPressDown(idx);
+            }
+          }
+        });
+        btn.addEventListener("mouseup", (e) => {
+          e.preventDefault();
+          if (chordModeSelect.value === "press") {
+            if (keyMode === "press") {
+              chordPressUp(idx);
+            }
+          }
+        });
+        btn.addEventListener("mouseleave", (e) => {
+          if (chordModeSelect.value === "press") {
+            if (keyMode === "press" && e.buttons === 1) {
+              chordPressUp(idx);
+            }
+          }
+        });
+      });
+
+      document.getElementById("saveChordsBtn").addEventListener("click", () => {
+        if (!confirm("Save all chords to library?")) return;
+        chordSlots.forEach((chord, i) => {
+          if (chord.keys.length) {
+            sendChordToLibrary(i);
+          }
+        });
+      });
+      document.getElementById("saveChordsToFileBtn").addEventListener("click", () => {
+        const allChordsData = chordSlots.map(ch => ({
+          type: "chord",
+          name: ch.name,
+          keys: ch.keys.map(k => ({
+            x: k.x,
+            y: k.y,
+            noteName: k.noteName,
+            octave: k.octave
+          }))
+        }));
+        const blob = new Blob([JSON.stringify(allChordsData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "harpejji_chords.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      document.getElementById("loadChordsBtn").addEventListener("click", () => {
+        const input = document.getElementById("loadChordsFile");
+        input.onchange = (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const loadedChords = JSON.parse(e.target.result);
+              if (Array.isArray(loadedChords)) {
+                let slotIndex = 0;
+                loadedChords.forEach(chData => {
+                  if (chData.type === "chord" && slotIndex < 8) {
+                    chordSlots[slotIndex].name = chData.name;
+                    chordSlots[slotIndex].keys = chData.keys.map(k => ({
+                      x: k.x,
+                      y: k.y,
+                      noteName: k.noteName,
+                      octave: k.octave
+                    }));
+                    slotIndex++;
+                  }
+                });
+                updateChordPaletteUI();
+                alert("Chords loaded successfully.");
+              } else {
+                throw new Error("Invalid chord file structure.");
+              }
+            } catch (err) {
+              alert("Error loading chord file: " + err.message);
+            }
+            input.value = "";
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      });
+
+      // Reverb/Delay
+      // Already handled above
+
+      // Find Chord
+      document.getElementById("findChordBtn").addEventListener("click", () => {
+        import("./findChord.js").then(({ findChord }) => {
+          findChord();
+        });
+      });
+      document.getElementById("closeChordPopup").addEventListener("click", () => {
+        document.getElementById("findChordPopup").classList.add("hidden");
+      });
+
+      // Play Selection
+      document.getElementById("playSelectionBtn").addEventListener("click", () => {
+        const selectedKeys = [];
+        for (let y = 0; y < numberOfFrets; y++) {
+          for (let x = 0; x < numberOfStrings; x++) {
+            if (keysState[y][x].marker) {
+              selectedKeys.push({ x, y });
+            }
+          }
+        }
+        selectedKeys.forEach(pos => {
+          playNoteTemporary(pos.x, pos.y, 300);
+        });
+      });
+    });
+
+    // Expose shiftSelection for those four shift buttons
+    window.shiftSelection = shiftSelection;
+  </script>
 </body>
 </html>
