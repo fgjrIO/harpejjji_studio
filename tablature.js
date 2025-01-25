@@ -35,6 +35,7 @@ import {
     BASE_OCTAVE,
     blackKeyColor,
     fingerOverlayColor,
+    highDensity,
   
     NOTES,
     mod,
@@ -204,8 +205,8 @@ import {
         rect.setAttribute("width","15");
         rect.setAttribute("height",keyHeight);
         rect.setAttribute("fill", blackKey? blackKeyColor : "#FFF");
-        rect.setAttribute("stroke","#666");
-        rect.setAttribute("stroke-width","1");
+        rect.setAttribute("stroke", highDensity ? "#000" : "#666");
+        rect.setAttribute("stroke-width", highDensity ? "1.5" : "1");
         keyGroup.appendChild(rect);
   
         // scale overlay
@@ -456,4 +457,3 @@ import {
       stopOscillator(oscObj);
     }, duration);
   }
-  

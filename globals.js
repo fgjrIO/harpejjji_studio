@@ -173,6 +173,7 @@ export const keyHeight = 25;
  * blackKeyColor => color for black notes on the tablature
  */
 export let blackKeyColor = "#bcbfc4";
+export let highDensity = false;
 
 /******************************************************
  * Setters for changing global variables at runtime
@@ -212,6 +213,10 @@ export function setFretSpacing(value) {
 
 export function setBlackKeyColor(color) {
   blackKeyColor = color;
+}
+
+export function setHighDensity(enabled) {
+  highDensity = enabled;
 }
 
 export function setFingerOverlayColor(color) {

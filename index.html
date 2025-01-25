@@ -58,6 +58,14 @@
         <input type="checkbox" id="highDensityCheckbox" />
         <span>High Density</span>
       </label>
+      <script type="module">
+        import { setHighDensity } from "./globals.js";
+        import { drawTablature } from "./tablature.js";
+        document.getElementById("highDensityCheckbox").addEventListener("change", (e) => {
+          setHighDensity(e.target.checked);
+          drawTablature();
+        });
+      </script>
 
       <!-- Shift Up / Down / Left / Right -->
       <button 
