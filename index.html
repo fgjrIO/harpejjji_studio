@@ -577,8 +577,8 @@
         <span id="scaleHighlightAlphaValue" class="text-gray-700 text-sm">0.3</span>
       </div>
 
-      <!-- NEW: Scale Highlight Mode -->
-      <div class="mb-4">
+      <!-- NEW: Scale Highlight Mode (for keys overlay only) -->
+      <div class="mb-4" style="display:block;">
         <label for="scaleHighlightModeSelect" class="block font-semibold mb-1">Scale Highlight Mode:</label>
         <select id="scaleHighlightModeSelect" class="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none">
           <option value="fill">Fill</option>
@@ -667,6 +667,46 @@
           class="w-full"
         />
         <span id="fadeNotesTimeValue" class="text-gray-700 text-sm">1.0</span>
+      </div>
+
+      <!-- NEW: Scale Overlay Type (keys or star) -->
+      <div class="mb-4">
+        <label for="scaleOverlayTypeSelect" class="block font-semibold mb-1">Scale Overlay Type:</label>
+        <select 
+          id="scaleOverlayTypeSelect"
+          class="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none"
+        >
+          <option value="keys">Keys Overlay</option>
+          <option value="star">Star Overlay</option>
+        </select>
+      </div>
+
+      <!-- NEW: Star Overlay Settings -->
+      <div id="starOverlaySettings" style="display:none;">
+        <div class="mb-4">
+          <label for="starOverlayModeSelect" class="block font-semibold mb-1">Star Overlay Mode:</label>
+          <select 
+            id="starOverlayModeSelect"
+            class="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none"
+          >
+            <option value="fill">Fill</option>
+            <option value="outline">Outline</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <label for="starSizeRange" class="block font-semibold mb-1">Star Size:</label>
+          <input 
+            type="range"
+            id="starSizeRange"
+            min="4"
+            max="24"
+            step="1"
+            value="8"
+            class="w-full"
+          />
+          <span id="starSizeValue" class="text-gray-700 text-sm">8</span>
+        </div>
       </div>
     </div>
   </div>

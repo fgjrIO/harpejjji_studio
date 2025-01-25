@@ -135,6 +135,13 @@ let scaleHighlightColor = "#ffc107";
 let scaleHighlightAlpha = 0.3;
 let scaleHighlightMode = "fill";
 
+// NEW: scaleOverlayType (keys or star)
+let scaleOverlayType = "keys"; // default to keys
+// NEW: starOverlayMode (fill/outline/both)
+let starOverlayMode = "fill";
+// NEW: starSize
+let starSize = 8;
+
 // NEW: Finger overlay color
 let fingerOverlayColor = "#000000";
 
@@ -473,29 +480,75 @@ function drawTablature() {
 
       keyGroup.appendChild(rect);
 
+      // If in scale, check scaleOverlayType
       if (inScale) {
-        // Depending on mode, either fill, outline, or both
-        if (scaleHighlightMode === "fill" || scaleHighlightMode === "both") {
-          const highlightRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
-          highlightRect.setAttribute("x", 0);
-          highlightRect.setAttribute("y", 0);
-          highlightRect.setAttribute("width", 15);
-          highlightRect.setAttribute("height", keyHeight);
-          highlightRect.setAttribute("fill", scaleHighlightColor);
-          highlightRect.setAttribute("fill-opacity", scaleHighlightAlpha.toString());
-          keyGroup.appendChild(highlightRect);
-        }
-        if (scaleHighlightMode === "outline" || scaleHighlightMode === "both") {
-          const outlineRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
-          outlineRect.setAttribute("x", 0);
-          outlineRect.setAttribute("y", 0);
-          outlineRect.setAttribute("width", 15);
-          outlineRect.setAttribute("height", keyHeight);
-          outlineRect.setAttribute("fill", "none");
-          outlineRect.setAttribute("stroke", scaleHighlightColor);
-          outlineRect.setAttribute("stroke-opacity", scaleHighlightAlpha.toString());
-          outlineRect.setAttribute("stroke-width", "2");
-          keyGroup.appendChild(outlineRect);
+        if (scaleOverlayType === "keys") {
+          // The original approach with fill/outline/both
+          if (scaleHighlightMode === "fill" || scaleHighlightMode === "both") {
+            const highlightRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+            highlightRect.setAttribute("x", 0);
+            highlightRect.setAttribute("y", 0);
+            highlightRect.setAttribute("width", 15);
+            highlightRect.setAttribute("height", keyHeight);
+            highlightRect.setAttribute("fill", scaleHighlightColor);
+            highlightRect.setAttribute("fill-opacity", scaleHighlightAlpha.toString());
+            keyGroup.appendChild(highlightRect);
+          }
+          if (scaleHighlightMode === "outline" || scaleHighlightMode === "both") {
+            const outlineRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+            outlineRect.setAttribute("x", 0);
+            outlineRect.setAttribute("y", 0);
+            outlineRect.setAttribute("width", 15);
+            outlineRect.setAttribute("height", keyHeight);
+            outlineRect.setAttribute("fill", "none");
+            outlineRect.setAttribute("stroke", scaleHighlightColor);
+            outlineRect.setAttribute("stroke-opacity", scaleHighlightAlpha.toString());
+            outlineRect.setAttribute("stroke-width", "2");
+            keyGroup.appendChild(outlineRect);
+          }
+        } else if (scaleOverlayType === "star") {
+          // Draw a star at bottom center
+          // We'll do a simple 5-point star as a polygon or path
+          // Center at (7.5, keyHeight - starSize/2)
+          // We'll use scaleHighlightColor with fill and/or stroke
+          const cx = 7.5;
+          const cy = keyHeight - (starSize / 2);
+
+          // Quick 5-point star generation
+          const points = [];
+          const numPoints = 5;
+          let angle = Math.PI / 2 * 3;
+          const step = Math.PI / numPoints;
+
+          for (let i = 0; i < numPoints; i++) {
+            const xVal = cx + Math.cos(angle) * (starSize / 2);
+            const yVal = cy + Math.sin(angle) * (starSize / 2);
+            points.push(`${xVal},${yVal}`);
+            angle += step;
+            const xVal2 = cx + Math.cos(angle) * (starSize / 6);
+            const yVal2 = cy + Math.sin(angle) * (starSize / 6);
+            points.push(`${xVal2},${yVal2}`);
+            angle += step;
+          }
+
+          const star = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+          star.setAttribute("points", points.join(" "));
+          if (starOverlayMode === "fill" || starOverlayMode === "both") {
+            star.setAttribute("fill", scaleHighlightColor);
+            star.setAttribute("fill-opacity", scaleHighlightAlpha.toString());
+          } else {
+            star.setAttribute("fill", "none");
+          }
+
+          if (starOverlayMode === "outline" || starOverlayMode === "both") {
+            star.setAttribute("stroke", scaleHighlightColor);
+            star.setAttribute("stroke-opacity", scaleHighlightAlpha.toString());
+            star.setAttribute("stroke-width", "1.5");
+          } else {
+            star.setAttribute("stroke", "none");
+          }
+
+          keyGroup.appendChild(star);
         }
       }
 
@@ -2192,7 +2245,11 @@ document.addEventListener("DOMContentLoaded", () => {
       fingerOverlayColor,
       fadeNotes: fadeNotesToggle.checked,
       fadeTime: parseFloat(fadeNotesTimeRange.value),
-      blackKeyColor
+      blackKeyColor,
+      // Also store star overlay settings:
+      scaleOverlayType,
+      starOverlayMode,
+      starSize
     };
     const dataToSave = {
       advancedOptions
@@ -2257,6 +2314,20 @@ document.addEventListener("DOMContentLoaded", () => {
               blackKeyColor = ao.blackKeyColor;
               if (blackKeyColorPicker) blackKeyColorPicker.value = ao.blackKeyColor;
             }
+            // NEW load star overlay settings
+            if (ao.scaleOverlayType) {
+              scaleOverlayType = ao.scaleOverlayType;
+              document.getElementById("scaleOverlayTypeSelect").value = ao.scaleOverlayType;
+            }
+            if (ao.starOverlayMode) {
+              starOverlayMode = ao.starOverlayMode;
+              document.getElementById("starOverlayModeSelect").value = ao.starOverlayMode;
+            }
+            if (typeof ao.starSize === 'number') {
+              starSize = ao.starSize;
+              document.getElementById("starSizeRange").value = ao.starSize;
+              document.getElementById("starSizeValue").textContent = ao.starSize;
+            }
             drawTablature();
           }
           alert("Configuration loaded successfully.");
@@ -2281,7 +2352,10 @@ document.addEventListener("DOMContentLoaded", () => {
       fingerOverlayColor,
       fadeNotes: fadeNotesToggle.checked,
       fadeTime: parseFloat(fadeNotesTimeRange.value),
-      blackKeyColor
+      blackKeyColor,
+      scaleOverlayType,
+      starOverlayMode,
+      starSize
     };
     const library = JSON.parse(localStorage.getItem('harpejjiSelections') || '[]');
     const chordPalette = chordSlots;
@@ -2367,6 +2441,19 @@ document.addEventListener("DOMContentLoaded", () => {
             if (ao.blackKeyColor) {
               blackKeyColor = ao.blackKeyColor;
               if (blackKeyColorPicker) blackKeyColorPicker.value = ao.blackKeyColor;
+            }
+            if (ao.scaleOverlayType) {
+              scaleOverlayType = ao.scaleOverlayType;
+              document.getElementById("scaleOverlayTypeSelect").value = ao.scaleOverlayType;
+            }
+            if (ao.starOverlayMode) {
+              starOverlayMode = ao.starOverlayMode;
+              document.getElementById("starOverlayModeSelect").value = ao.starOverlayMode;
+            }
+            if (typeof ao.starSize === 'number') {
+              starSize = ao.starSize;
+              document.getElementById("starSizeRange").value = ao.starSize;
+              document.getElementById("starSizeValue").textContent = ao.starSize;
             }
             drawTablature();
           }
@@ -3011,3 +3098,44 @@ document.addEventListener("DOMContentLoaded", () => {
     printBtn.addEventListener("click", printLibrary);
   }
 });
+
+// ==============================
+// NEW: Scale Overlay Type handling in Advanced Config
+// (We ensure it only appears once!)
+// ==============================
+const scaleOverlayTypeSelect = document.getElementById("scaleOverlayTypeSelect");
+const starOverlaySettings = document.getElementById("starOverlaySettings");
+const starOverlayModeSelect = document.getElementById("starOverlayModeSelect");
+const starSizeRange = document.getElementById("starSizeRange");
+const starSizeValue = document.getElementById("starSizeValue");
+
+if (scaleOverlayTypeSelect) {
+  scaleOverlayTypeSelect.addEventListener("change", (e) => {
+    scaleOverlayType = e.target.value;
+    if (scaleOverlayType === "star") {
+      starOverlaySettings.style.display = "block";
+      // Hide the existing scaleHighlightModeSelect? 
+      // We'll do it in a simpler way by showing/hiding in CSS:
+      document.getElementById("scaleHighlightModeSelect").parentElement.style.display = "none";
+    } else {
+      starOverlaySettings.style.display = "none";
+      document.getElementById("scaleHighlightModeSelect").parentElement.style.display = "block";
+    }
+    drawTablature();
+  });
+}
+
+if (starOverlayModeSelect) {
+  starOverlayModeSelect.addEventListener("change", (e) => {
+    starOverlayMode = e.target.value;
+    drawTablature();
+  });
+}
+
+if (starSizeRange) {
+  starSizeRange.addEventListener("input", (e) => {
+    starSize = parseInt(e.target.value, 10);
+    starSizeValue.textContent = starSize.toString();
+    drawTablature();
+  });
+}
