@@ -2,12 +2,12 @@
  * sequencer.js
  *
  * Manages:
- *  - The sequencer's note data (`recordedNotes`)
- *  - Play/stop, record, metronome, step vs. song mode
- *  - Drawing the piano roll & grid
- *  - Note dragging/resizing in the grid
- *  - Undo/Redo
- *  - Sections, bar/beat jumping
+ *  - recordedNotes => array of note events
+ *  - play/stop, record, step vs. song mode
+ *  - drawing the piano roll & sequencer grid
+ *  - dragging/resizing notes
+ *  - undo/redo
+ *  - sections, jump to bar/beat
  ******************************************************/
 
 import {
@@ -24,18 +24,18 @@ import {
     numberOfStrings
   } from "./globals.js";
   
-  import {
+  import { 
+    initAudio,
     createOscillator,
     stopOscillator,
-    initAudio,
     killAllNotes
   } from "./audio.js";
   
   import { drawTablature } from "./tablature.js";
   
-  /**
-   * The main config for the sequencer visuals:
-   */
+  /******************************************************
+   * SEQUENCER_CONFIG => visual & timing settings
+   ******************************************************/
   export const SEQUENCER_CONFIG = {
     pixelsPerBeat: 100,
     beatsPerBar: 4,
@@ -45,13 +45,17 @@ import {
   };
   
   /**
-   * The array of note objects:
-   *   { noteName, octave, noteIndex, pitch, startTime, duration, isPlaying, oscObj, x, y, selected }
+   * The recordedNotes array. Each note => {
+   *   noteName, octave, pitch, noteIndex,
+   *   startTime, duration,
+   *   isPlaying, oscObj,
+   *   x, y, selected
+   * }
    */
   export let recordedNotes = [];
   
   /**
-   * For note dragging:
+   * For note dragging/resizing
    */
   let draggingNote = null;
   let dragStartX = 0;
@@ -61,98 +65,102 @@ import {
   let resizingEdge = null; // "left" or "right"
   
   /**
-   * Undo/Redo:
+   * Undo/Redo stacks
    */
   let undoStack = [];
   let redoStack = [];
   
   /**
-   * Step vs. Song mode:
+   * Step vs. Song mode
    */
   export let isStepMode = false;
   let stepModeTime = 0.0;
   
   /**
-   * Playback state:
+   * Playback state
    */
-  export let isSequencerModeOn = false; // toggling the UI
+  export let isSequencerModeOn = false;
   export let isPlaying = false;
   export let isRecording = false;
   export let metronomeEnabled = false;
   export let currentBeat = 0;
-  let audioStartTime = 0;
-  let playheadPosition = 0;
+  let audioStartTime = 0;   // reference time offset
+  let playheadPosition = 0; // in px
   
   /**
-   * We also keep an activeNotes map while recording:
-   *   key = "noteName+octave", value = { startTime, etc. }
+   * activeNotes => track notes while user is recording
    */
   let activeNotes = new Map();
   
   /**
-   * pitchMappings is if we want to re-map certain pitches in the sequencer
-   * to different x/y or frequencies. By default it’s empty.
+   * pitchMappings => optional pitch re-map
    */
   export let pitchMappings = {};
   
   /**
-   * We can define named sections for the timeline if we wish.
+   * We can define sections (startBar, endBar, name)
    */
   export let sequencerSections = [];
   
-  // We'll store a sorted list of unique pitches in the current model
+  /**
+   * The sorted list of unique pitches in the current layout
+   */
   let globalSortedNotes = [];
   let globalNoteToIndexMap = new Map();
   
   /******************************************************
    * buildSortedNotesMapping():
-   * Gathers all x,y => pitch so we can build a piano-roll
-   * from highest pitch to lowest pitch.
+   *   Collect all x,y => pitch => store in descending pitch order
    ******************************************************/
   function buildSortedNotesMapping() {
     let multiMap = {};
-    for (let y = 0; y < numberOfFrets; y++) {
-      for (let x = 0; x < numberOfStrings; x++) {
-        const noteName = getNoteName(x, y);
-        const octave   = getNoteOctave(x, y);
-        const pitch    = getMIDINumber(noteName, octave);
-        if (!multiMap[pitch]) {
-          multiMap[pitch] = [];
+    for (let y=0; y< numberOfFrets; y++){
+      for (let x=0; x< numberOfStrings; x++){
+        const nName= getNoteName(x,y);
+        const oct  = getNoteOctave(x,y);
+        const pitch= getMIDINumber(nName, oct);
+        if(!multiMap[pitch]){
+          multiMap[pitch]= [];
         }
-        multiMap[pitch].push({ x, y, noteName, octave });
+        multiMap[pitch].push({ x, y, noteName:nName, octave: oct });
       }
     }
-    // For each pitch, just pick the first instance
-    let pitchMap = new Map();
-    Object.keys(multiMap).forEach(p => {
-      const pitch = parseInt(p,10);
-      const rep = multiMap[pitch][0];
-      pitchMap.set(pitch, rep);
+    let pitchMap= new Map();
+    Object.keys(multiMap).forEach(pk=>{
+      const pInt= parseInt(pk,10);
+      const rep= multiMap[pInt][0]; // just pick first
+      pitchMap.set(pInt, rep);
     });
   
-    let unique = Array.from(pitchMap.keys()).map(p => {
-      const obj = pitchMap.get(p);
-      return { pitch: p, noteName: obj.noteName, octave: obj.octave, x: obj.x, y: obj.y };
+    let unique= Array.from(pitchMap.keys()).map(pInt=>{
+      const obj= pitchMap.get(pInt);
+      return {
+        pitch: pInt, 
+        noteName: obj.noteName,
+        octave: obj.octave,
+        x: obj.x,
+        y: obj.y
+      };
     });
   
-    // Sort descending pitch
-    unique.sort((a,b)=>b.pitch - a.pitch);
-    globalSortedNotes = unique;
+    // sort descending
+    unique.sort((a,b)=> b.pitch - a.pitch);
+    globalSortedNotes= unique;
     globalNoteToIndexMap.clear();
-    unique.forEach((obj,idx) => {
-      const full = obj.noteName + obj.octave;
+    unique.forEach((o,idx)=>{
+      const full= o.noteName+ o.octave;
       globalNoteToIndexMap.set(full, idx);
     });
   }
   
   /******************************************************
-   * getNoteName(x, y):
-   * Each column => +2 semitones, row => +1 semitone
+   * getNoteName(x,y):
+   *   each column => +2 semitones, row => +1 semitone
    ******************************************************/
-  function getNoteName(x, y) {
-    const noteIndex = NOTES.indexOf(BASE_NOTE);
-    const semitones = x*2 + y;
-    const newIdx = mod(noteIndex + semitones, NOTES.length);
+  function getNoteName(x,y) {
+    const idx= NOTES.indexOf(BASE_NOTE);
+    const sem= x*2 + y;
+    const newIdx= mod(idx+ sem, NOTES.length);
     return NOTES[newIdx];
   }
   
@@ -160,10 +168,10 @@ import {
    * getNoteOctave(x,y)
    ******************************************************/
   function getNoteOctave(x,y) {
-    const noteIndex = NOTES.indexOf(BASE_NOTE);
-    const semitones = x*2 + y;
-    const total = noteIndex + semitones;
-    const octShift = Math.floor(total / NOTES.length);
+    const idx= NOTES.indexOf(BASE_NOTE);
+    const sem= x*2 + y;
+    const total= idx+ sem;
+    const octShift= Math.floor(total/ NOTES.length);
     return BASE_OCTAVE + octShift;
   }
   
@@ -176,148 +184,153 @@ import {
   
   /******************************************************
    * getMIDINumber(noteName, octave):
-   * C-1 => 0, C0 => 12, etc. A4 => 69 if we want that standard
+   *   (octave+1)*12 + noteIndex
    ******************************************************/
   function getMIDINumber(noteName, octave) {
-    const noteIdx = NOTES.indexOf(noteName);
-    return (octave + 1)*12 + noteIdx; 
+    const noteIndex= NOTES.indexOf(noteName);
+    return (octave+1)*12 + noteIndex;
   }
   
   /******************************************************
    * drawPianoRoll():
-   * Builds the left column of note names in descending pitch.
+   *   build the left column of note labels
    ******************************************************/
   export function drawPianoRoll() {
     buildSortedNotesMapping();
     const pianoKeysContainer = document.getElementById("piano-keys");
-    if (!pianoKeysContainer) return;
+    if(!pianoKeysContainer) return;
   
-    pianoKeysContainer.innerHTML = "";
+    pianoKeysContainer.innerHTML= "";
   
-    globalSortedNotes.forEach((obj) => {
-      const { noteName, octave } = obj;
-      const isBlack = noteName.includes("#");
-      const keyDiv = document.createElement("div");
-      keyDiv.style.height = SEQUENCER_CONFIG.noteHeight + "px";
-      keyDiv.className = `
-        border-b border-gray-700 flex items-center px-2 text-xs 
-        ${isBlack ? "bg-gray-800" : "bg-gray-700"}
+    globalSortedNotes.forEach((obj)=>{
+      const { noteName, octave }= obj;
+      const isBlack= noteName.includes("#");
+      const keyDiv= document.createElement("div");
+      keyDiv.style.height= SEQUENCER_CONFIG.noteHeight+"px";
+      keyDiv.className= `
+        border-b border-gray-700 flex items-center px-2 text-xs
+        ${isBlack? "bg-gray-800":"bg-gray-700"}
         text-white
       `;
-      keyDiv.textContent = noteName + octave;
+      keyDiv.textContent= noteName+ octave;
       pianoKeysContainer.appendChild(keyDiv);
     });
   
-    const totalHeight = globalSortedNotes.length * SEQUENCER_CONFIG.noteHeight;
-    pianoKeysContainer.style.height = totalHeight + "px";
-    
-    const pianoRollWrapper = document.getElementById("piano-roll-wrapper");
-    if (pianoRollWrapper) {
-      pianoRollWrapper.style.height = totalHeight + "px";
+    const totalHeight= globalSortedNotes.length * SEQUENCER_CONFIG.noteHeight;
+    pianoKeysContainer.style.height= totalHeight+"px";
+  
+    const pianoRollWrapper= document.getElementById("piano-roll-wrapper");
+    if(pianoRollWrapper) {
+      pianoRollWrapper.style.height= totalHeight+"px";
     }
   }
   
   /******************************************************
    * drawSequencerGrid():
-   * Draws vertical lines for each beat, horizontal lines
-   * for each note row, and all recorded notes as divs.
+   *   Build vertical lines for beats, horizontal lines for note rows,
+   *   plus the note rectangles themselves
    ******************************************************/
   export function drawSequencerGrid() {
-    const gridContent = document.getElementById("grid-content");
-    const playhead = document.getElementById("playhead");
-    if (!gridContent || !playhead) return;
+    const gridContent= document.getElementById("grid-content");
+    const playhead= document.getElementById("playhead");
+    if(!gridContent || !playhead) return;
   
-    gridContent.innerHTML = "";
+    gridContent.innerHTML= "";
   
-    const totalNotes = globalSortedNotes.length;
-    const totalWidth = SEQUENCER_CONFIG.pixelsPerBeat * SEQUENCER_CONFIG.beatsPerBar * SEQUENCER_CONFIG.totalBars;
-    const totalHeight = totalNotes * SEQUENCER_CONFIG.noteHeight;
+    const totalNotes= globalSortedNotes.length;
+    const totalWidth= SEQUENCER_CONFIG.pixelsPerBeat * SEQUENCER_CONFIG.beatsPerBar * SEQUENCER_CONFIG.totalBars;
+    const totalHeight= totalNotes* SEQUENCER_CONFIG.noteHeight;
   
-    gridContent.style.width = totalWidth + "px";
-    gridContent.style.height = totalHeight + "px";
-    playhead.style.height = totalHeight + "px";
+    gridContent.style.width= totalWidth+"px";
+    gridContent.style.height= totalHeight+"px";
+    playhead.style.height= totalHeight+"px";
   
     // vertical beat lines
-    for (let i=0; i<= SEQUENCER_CONFIG.totalBars*SEQUENCER_CONFIG.beatsPerBar; i++){
-      const line = document.createElement("div");
-      line.className = `absolute top-0 w-px h-full ${ (i%SEQUENCER_CONFIG.beatsPerBar===0) ? "bg-gray-500" : "bg-gray-700" }`;
-      line.style.left = (i * SEQUENCER_CONFIG.pixelsPerBeat)+"px";
+    for (let i=0; i<= SEQUENCER_CONFIG.totalBars* SEQUENCER_CONFIG.beatsPerBar; i++){
+      const line= document.createElement("div");
+      line.className= `absolute top-0 w-px h-full ${ (i%SEQUENCER_CONFIG.beatsPerBar===0) ? "bg-gray-500":"bg-gray-700"}`;
+      line.style.left= (i* SEQUENCER_CONFIG.pixelsPerBeat)+"px";
       gridContent.appendChild(line);
     }
   
     // horizontal note lines
     for (let i=0; i<= totalNotes; i++){
-      const line = document.createElement("div");
-      line.className = `absolute left-0 right-0 h-px bg-gray-700`;
-      line.style.top = (i*SEQUENCER_CONFIG.noteHeight)+"px";
+      const line= document.createElement("div");
+      line.className= "absolute left-0 right-0 h-px bg-gray-700";
+      line.style.top= (i* SEQUENCER_CONFIG.noteHeight)+"px";
       gridContent.appendChild(line);
     }
   
     // sections
-    sequencerSections.forEach(section => {
-      const startBeat = (section.startBar -1)*SEQUENCER_CONFIG.beatsPerBar;
-      const endBeat   = section.endBar * SEQUENCER_CONFIG.beatsPerBar;
-      const leftPx = startBeat * SEQUENCER_CONFIG.pixelsPerBeat;
-      const widthPx= (endBeat - startBeat)*SEQUENCER_CONFIG.pixelsPerBeat;
-      const sectionDiv = document.createElement("div");
-      sectionDiv.className = `absolute top-0 border-l border-r border-gray-400 bg-gray-200 bg-opacity-30 text-gray-800 text-xs flex items-center pl-1`;
+    sequencerSections.forEach(sec=>{
+      const startBeat= (sec.startBar-1)* SEQUENCER_CONFIG.beatsPerBar;
+      const endBeat  = sec.endBar* SEQUENCER_CONFIG.beatsPerBar;
+      const leftPx   = startBeat* SEQUENCER_CONFIG.pixelsPerBeat;
+      const widthPx  = (endBeat- startBeat)* SEQUENCER_CONFIG.pixelsPerBeat;
+      const sectionDiv= document.createElement("div");
+      sectionDiv.className= "absolute top-0 border-l border-r border-gray-400 bg-gray-200 bg-opacity-30 text-gray-800 text-xs flex items-center pl-1";
       sectionDiv.style.left= leftPx+"px";
       sectionDiv.style.width= widthPx+"px";
-      sectionDiv.style.height= "20px";
-      sectionDiv.textContent = section.name;
+      sectionDiv.style.height="20px";
+      sectionDiv.textContent= sec.name;
       gridContent.appendChild(sectionDiv);
     });
   
     // draw notes
-    recordedNotes.forEach((note, idx) => {
-      const noteDiv = document.createElement("div");
-      noteDiv.className = "absolute bg-blue-500 opacity-75 rounded cursor-pointer note-event";
+    recordedNotes.forEach((note, idx)=>{
+      const noteDiv= document.createElement("div");
+      noteDiv.className= "absolute bg-blue-500 opacity-75 rounded cursor-pointer note-event";
   
-      const startPx = note.startTime * (SEQUENCER_CONFIG.bpm/60)*SEQUENCER_CONFIG.pixelsPerBeat;
-      const widthPx = note.duration * (SEQUENCER_CONFIG.bpm/60)*SEQUENCER_CONFIG.pixelsPerBeat;
-      const topPx = note.noteIndex * SEQUENCER_CONFIG.noteHeight;
+      const startPx= note.startTime * (SEQUENCER_CONFIG.bpm/60)* SEQUENCER_CONFIG.pixelsPerBeat;
+      const widthPx= note.duration * (SEQUENCER_CONFIG.bpm/60)* SEQUENCER_CONFIG.pixelsPerBeat;
+      const topPx= note.noteIndex* SEQUENCER_CONFIG.noteHeight;
   
-      noteDiv.style.left  = startPx+"px";
-      noteDiv.style.top   = topPx+"px";
-      noteDiv.style.width = widthPx+"px";
+      noteDiv.style.left= startPx+"px";
+      noteDiv.style.top= topPx+"px";
+      noteDiv.style.width= widthPx+"px";
       noteDiv.style.height= SEQUENCER_CONFIG.noteHeight+"px";
-      noteDiv.dataset.noteIdx = idx;
-      if (note.selected) {
+  
+      noteDiv.dataset.noteIdx= idx.toString();
+  
+      if(note.selected){
         noteDiv.classList.add("ring","ring-offset-2","ring-yellow-300");
       }
   
-      // Left handle
-      const leftHandle = document.createElement("div");
-      leftHandle.className = "absolute left-0 top-0 bottom-0 w-2 bg-transparent cursor-w-resize";
+      // left handle
+      const leftHandle= document.createElement("div");
+      leftHandle.className= "absolute left-0 top-0 bottom-0 w-2 bg-transparent cursor-w-resize";
       noteDiv.appendChild(leftHandle);
   
-      // Right handle
-      const rightHandle = document.createElement("div");
-      rightHandle.className = "absolute right-0 top-0 bottom-0 w-2 bg-transparent cursor-e-resize";
+      // right handle
+      const rightHandle= document.createElement("div");
+      rightHandle.className= "absolute right-0 top-0 bottom-0 w-2 bg-transparent cursor-e-resize";
       noteDiv.appendChild(rightHandle);
   
-      // Mousedown => drag or resize
-      noteDiv.addEventListener("mousedown", (e)=>{
+      // mousedown => drag
+      noteDiv.addEventListener("mousedown",(e)=>{
         e.stopPropagation();
-        const rect = noteDiv.getBoundingClientRect();
-        const offsetX = e.clientX - rect.left;
-        draggingNote = note;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        dragOriginalStartTime = note.startTime;
-        dragOriginalNoteIndex = note.noteIndex;
-        resizingEdge = null;
-        if (offsetX<5) {
+        const rect= noteDiv.getBoundingClientRect();
+        const offsetX= e.clientX - rect.left;
+  
+        draggingNote= note;
+        dragStartX= e.clientX;
+        dragStartY= e.clientY;
+        dragOriginalStartTime= note.startTime;
+        dragOriginalNoteIndex= note.noteIndex;
+        resizingEdge= null;
+  
+        if(offsetX<5) {
           resizingEdge="left";
-        } else if (offsetX> rect.width-5) {
+        } else if(offsetX> rect.width-5){
           resizingEdge="right";
         }
       });
   
-      noteDiv.addEventListener("click", (e)=>{
+      // single click => toggle selected
+      noteDiv.addEventListener("click",(e)=>{
         e.stopPropagation();
-        if (!draggingNote) {
-          note.selected = !note.selected;
+        if(!draggingNote) {
+          note.selected= !note.selected;
           drawSequencerGrid();
         }
       });
@@ -327,113 +340,120 @@ import {
   }
   
   /******************************************************
-   * Handle global mousemove for dragging note/resizing
+   * onmousemove => note dragging
    ******************************************************/
   document.addEventListener("mousemove",(e)=>{
-    if (!draggingNote) return;
-    const dx = e.clientX - dragStartX;
-    // Convert dx to time offset in seconds
-    const secPerBeat = 60/SEQUENCER_CONFIG.bpm;
-    const pxPerSec   = SEQUENCER_CONFIG.pixelsPerBeat / secPerBeat;
-    const dt = dx / pxPerSec;
+    if(!draggingNote) return;
+    const dx= e.clientX- dragStartX;
+    const secPerBeat= 60/ SEQUENCER_CONFIG.bpm;
+    const pxPerSec  = SEQUENCER_CONFIG.pixelsPerBeat / secPerBeat;
+    const dt= dx/ pxPerSec;
   
-    if (resizingEdge) {
-      if (resizingEdge==="left") {
-        const newStart = Math.max(dragOriginalStartTime+dt, 0);
-        const oldEnd   = draggingNote.startTime + draggingNote.duration;
+    if(resizingEdge){
+      if(resizingEdge==="left"){
+        const newStart= Math.max(dragOriginalStartTime+ dt, 0);
+        const oldEnd= draggingNote.startTime+ draggingNote.duration;
         draggingNote.startTime= newStart;
-        draggingNote.duration= oldEnd - newStart;
-        if (draggingNote.duration<0.05) draggingNote.duration=0.05;
+        draggingNote.duration= oldEnd- newStart;
+        if(draggingNote.duration< 0.05) draggingNote.duration= 0.05;
       } else {
-        // resizing right
-        const newDur = draggingNote.duration + dt;
-        if (newDur>0.05) {
+        // right
+        const newDur= draggingNote.duration+ dt;
+        if(newDur>0.05){
           draggingNote.duration= newDur;
         }
       }
     } else {
-      // dragging the note horizontally
-      const newStart = Math.max(dragOriginalStartTime+dt,0);
-      draggingNote.startTime = newStart;
+      const newStart= Math.max(dragOriginalStartTime+ dt,0);
+      draggingNote.startTime= newStart;
   
-      // also drag vertically
-      const dy = e.clientY - dragStartY;
-      const rowChange = Math.round(dy/ SEQUENCER_CONFIG.noteHeight);
-      let newIndex = dragOriginalNoteIndex + rowChange;
+      // vertical
+      const dy= e.clientY- dragStartY;
+      const rowChange= Math.round(dy/ SEQUENCER_CONFIG.noteHeight);
+      let newIndex= dragOriginalNoteIndex+ rowChange;
       newIndex= Math.max(0, Math.min(newIndex, globalSortedNotes.length-1));
-      draggingNote.noteIndex = newIndex;
-      const pitchObj = globalSortedNotes[newIndex];
-      if (pitchObj) {
-        draggingNote.noteName = pitchObj.noteName;
-        draggingNote.octave   = pitchObj.octave;
-        draggingNote.pitch    = pitchObj.pitch;
-        draggingNote.x        = pitchObj.x;
-        draggingNote.y        = pitchObj.y;
+      draggingNote.noteIndex= newIndex;
+      const newPitchObj= globalSortedNotes[newIndex];
+      if(newPitchObj){
+        draggingNote.noteName= newPitchObj.noteName;
+        draggingNote.octave  = newPitchObj.octave;
+        draggingNote.pitch   = newPitchObj.pitch;
+        draggingNote.x       = newPitchObj.x;
+        draggingNote.y       = newPitchObj.y;
       }
     }
     drawSequencerGrid();
   });
   
   document.addEventListener("mouseup",()=>{
-    if (draggingNote) {
+    if(draggingNote){
       pushHistory();
-      draggingNote=null;
+      draggingNote= null;
     }
-    resizingEdge=null;
+    resizingEdge= null;
   });
   
   /******************************************************
    * startNoteRecording(x,y):
-   * If isRecording, we store a note object in activeNotes
+   *   if isRecording => store note in activeNotes
    ******************************************************/
   export function startNoteRecording(x,y) {
-    if (!isRecording) return;
-    const noteName = getNoteName(x,y);
-    const octave   = getNoteOctave(x,y);
-    const fullName = noteName + octave;
+    if(!isRecording) return;
+    const noteName= getNoteName(x,y);
+    const octave  = getNoteOctave(x,y);
+    const fullName= noteName+ octave;
+  
     const noteIndex= globalNoteToIndexMap.get(fullName);
-    if (noteIndex===undefined) return;
+    if(noteIndex=== undefined) return;
   
     let now=0;
-    if (isStepMode) now= stepModeTime;
-    else if (window.audioContext) {
-      now= window.audioContext.currentTime - audioStartTime;
+    if(isStepMode){
+      now= stepModeTime;
+    } else {
+      // ensure audio is init
+      initAudio();
+      if(window.audioContext){
+        now= window.audioContext.currentTime- audioStartTime;
+      }
     }
   
-    activeNotes.set(fullName,{
+    activeNotes.set(fullName, {
       noteName, octave, noteIndex,
-      startTime:now, x,y, selected:false
+      startTime: now, x, y, selected:false
     });
   }
   
   /******************************************************
    * stopNoteRecording(x,y):
-   * If isRecording, finalize the note's duration
-   * and push into recordedNotes.
    ******************************************************/
   export function stopNoteRecording(x,y) {
-    if (!isRecording) return;
-    const noteName = getNoteName(x,y);
-    const octave   = getNoteOctave(x,y);
-    const fullName = noteName+octave;
-    if (!activeNotes.has(fullName)) return;
+    if(!isRecording) return;
+    const noteName= getNoteName(x,y);
+    const octave  = getNoteOctave(x,y);
+    const fullName= noteName+ octave;
+  
+    if(!activeNotes.has(fullName)) return;
   
     let now=0;
-    if (isStepMode) now= stepModeTime;
-    else if (window.audioContext) {
-      now= window.audioContext.currentTime - audioStartTime;
+    if(isStepMode){
+      now= stepModeTime;
+    } else {
+      initAudio();
+      if(window.audioContext){
+        now= window.audioContext.currentTime- audioStartTime;
+      }
     }
   
-    const activeN = activeNotes.get(fullName);
-    let dur = now - activeN.startTime;
-    if (isStepMode && dur<=0) {
-      dur= 60/SEQUENCER_CONFIG.bpm; // minimal step
+    const act= activeNotes.get(fullName);
+    let dur= now- act.startTime;
+    if(isStepMode && dur<=0){
+      dur= 60/ SEQUENCER_CONFIG.bpm; // minimal step
     }
   
     recordedNotes.push({
-      ...activeN,
+      ...act,
       duration: dur,
-      isPlaying: false,
+      isPlaying:false,
       oscObj:null
     });
     activeNotes.delete(fullName);
@@ -443,32 +463,27 @@ import {
   }
   
   /******************************************************
-   * Playback
+   * stopPlayback():
+   *   stops all notes, sets isPlaying=false
    ******************************************************/
-  export function startPlayback() {
-    initAudio();
-    isPlaying= true;
-    audioStartTime= window.audioContext.currentTime;
-    currentBeat=0;
-    document.getElementById("play-btn")?.classList.add("bg-green-600");
-    updatePlayhead();
-  }
-  
   export function stopPlayback() {
-    isPlaying=false;
-    isRecording=false;
+    isPlaying= false;
+    isRecording= false;
+    const recInd= document.getElementById("record-indicator");
+    if(recInd) recInd.classList.add("hidden");
     document.getElementById("play-btn")?.classList.remove("bg-green-600");
     document.getElementById("record-btn")?.classList.remove("bg-red-600");
-    document.getElementById("record-indicator")?.classList.add("hidden");
-    document.getElementById("playhead").style.left = "0";
+    const playhead= document.getElementById("playhead");
+    if(playhead) playhead.style.left="0";
     playheadPosition=0;
-    // Stop all playing notes
+  
+    // stop all notes
     recordedNotes.forEach(n=>{
-      if(n.isPlaying && n.oscObj) {
+      if(n.isPlaying && n.oscObj){
         stopOscillator(n.oscObj);
-        n.oscObj=null;
-        n.isPlaying=false;
-        keysState[n.y][n.x].sequencerPlaying=false;
+        n.oscObj= null;
+        n.isPlaying= false;
+        keysState[n.y][n.x].sequencerPlaying= false;
       }
     });
     drawTablature();
@@ -476,91 +491,112 @@ import {
   }
   
   /******************************************************
+   * startPlayback():
+   *   init audio, set isPlaying, schedule updatePlayhead
+   ******************************************************/
+  export function startPlayback() {
+    initAudio();
+    if(!window.audioContext){
+      alert("AudioContext not available. Cannot play.");
+      return;
+    }
+    isPlaying= true;
+    audioStartTime= window.audioContext.currentTime;
+    currentBeat=0;
+    document.getElementById("play-btn")?.classList.add("bg-green-600");
+    updatePlayhead();
+  }
+  
+  /******************************************************
    * updatePlayhead():
-   * Called in a loop while isPlaying to move the "playhead"
+   *   Called on each animation frame while playing
    ******************************************************/
   function updatePlayhead() {
     let now=0;
-    if (isStepMode) {
+    if(isStepMode){
       now= stepModeTime;
-    } else if(window.audioContext && isPlaying){
+    } else {
+      if(!isPlaying || !window.audioContext) {
+        // no further updates
+        return;
+      }
       now= window.audioContext.currentTime - audioStartTime;
     }
   
     // update bar/beat display
-    const barInput = document.getElementById("barInput");
+    const barInput= document.getElementById("barInput");
     const beatInput= document.getElementById("beatInput");
     const totalBeats= now*(SEQUENCER_CONFIG.bpm/60);
-    const bar = Math.floor(totalBeats/ SEQUENCER_CONFIG.beatsPerBar)+1;
+    const bar= Math.floor(totalBeats/ SEQUENCER_CONFIG.beatsPerBar)+1;
     const beat= (totalBeats % SEQUENCER_CONFIG.beatsPerBar)+1;
     if(barInput && beatInput){
       barInput.value= bar.toString();
       beatInput.value= beat.toFixed(2);
     }
   
-    // compute playhead position in px
-    playheadPosition= totalBeats * SEQUENCER_CONFIG.pixelsPerBeat;
+    // move playhead
+    playheadPosition= totalBeats* SEQUENCER_CONFIG.pixelsPerBeat;
     const playhead= document.getElementById("playhead");
-    if (playhead) {
-      playhead.style.left= playheadPosition + "px";
+    if(playhead){
+      playhead.style.left= playheadPosition+"px";
     }
   
-    if(isPlaying && !isStepMode) {
-      // check metronome
-      const currIntBeat = Math.floor(totalBeats);
-      if(currIntBeat> currentBeat){
-        currentBeat= currIntBeat;
-        if(metronomeEnabled) {
+    if(isPlaying && !isStepMode){
+      // metronome
+      const currBeat= Math.floor(totalBeats);
+      if(currBeat> currentBeat){
+        currentBeat= currBeat;
+        if(metronomeEnabled){
           playMetronomeSound();
         }
       }
-      // process note on/off
+      // note on/off
       recordedNotes.forEach(note=>{
         const start= note.startTime;
-        const end  = start+ note.duration;
-        if(now>=start && now<end){
+        const end= start+ note.duration;
+        if(now>=start && now< end){
           if(!note.isPlaying){
             note.isPlaying= true;
             let freq;
-            const mapped = pitchMappings[note.pitch];
-            if(mapped) {
-              const mappedName= getNoteName(mapped.x,mapped.y);
-              const mappedOct = getNoteOctave(mapped.x,mapped.y);
-              freq= noteToFrequency(mappedName,mappedOct);
+            const mapped= pitchMappings[note.pitch];
+            if(mapped){
+              const mappedName= getNoteName(mapped.x, mapped.y);
+              const mappedOct= getNoteOctave(mapped.x, mapped.y);
+              freq= noteToFrequency(mappedName, mappedOct);
             } else {
-              freq= noteToFrequency(note.noteName,note.octave);
+              freq= noteToFrequency(note.noteName, note.octave);
             }
             const osc= createOscillator(freq, currentInstrument);
             note.oscObj= osc;
-            keysState[note.y][note.x].sequencerPlaying=true;
+            keysState[note.y][note.x].sequencerPlaying= true;
             drawTablature();
           }
         } else if(now>=end && note.isPlaying){
-          note.isPlaying=false;
-          if(note.oscObj) {
+          note.isPlaying= false;
+          if(note.oscObj){
             stopOscillator(note.oscObj);
-            note.oscObj=null;
+            note.oscObj= null;
           }
           if(fadeNotes){
-            keysState[note.y][note.x].sequencerPlaying=false;
+            keysState[note.y][note.x].sequencerPlaying= false;
             keysState[note.y][note.x].fading= true;
             keysState[note.y][note.x].fadeOutStart= performance.now();
           } else {
-            keysState[note.y][note.x].sequencerPlaying=false;
+            keysState[note.y][note.x].sequencerPlaying= false;
           }
           drawTablature();
         }
       });
       requestAnimationFrame(updatePlayhead);
-    } else if (isPlaying) {
-      // step mode => we still re-call updatePlayhead but user must manually adv?
+    } else if(isPlaying){
+      // step mode => we request another frame anyway
       requestAnimationFrame(updatePlayhead);
     }
   }
   
   /******************************************************
    * playMetronomeSound():
-   * Quick beep for each beat if metronome is enabled
+   *   simple beep for each beat
    ******************************************************/
   function playMetronomeSound() {
     if(!window.audioContext) return;
@@ -570,27 +606,27 @@ import {
     beepGain.gain.setValueAtTime(0.1, window.audioContext.currentTime);
     beepOsc.connect(beepGain).connect(window.audioContext.destination);
     beepOsc.start(window.audioContext.currentTime);
-    beepOsc.stop(window.audioContext.currentTime+0.05);
+    beepOsc.stop(window.audioContext.currentTime+ 0.05);
   }
   
   /******************************************************
    * jumpToTime(seconds):
-   * forcibly jump the playback to a certain time
+   *   forcibly jump. we also stop any playing notes
    ******************************************************/
   export function jumpToTime(sec) {
-    // stop any currently playing notes
-    recordedNotes.forEach(note=>{
-      if(note.isPlaying && note.oscObj){
-        stopOscillator(note.oscObj);
-        note.oscObj=null;
-        note.isPlaying= false;
-        keysState[note.y][note.x].sequencerPlaying=false;
+    recordedNotes.forEach(n=>{
+      if(n.isPlaying && n.oscObj){
+        stopOscillator(n.oscObj);
+        n.oscObj= null;
+        n.isPlaying= false;
+        keysState[n.y][n.x].sequencerPlaying= false;
       }
     });
     drawTablature();
-    if(isStepMode) {
+    if(isStepMode){
       stepModeTime= sec;
     } else {
+      initAudio();
       if(window.audioContext){
         const now= window.audioContext.currentTime;
         audioStartTime= now- sec;
@@ -602,51 +638,50 @@ import {
   
   /******************************************************
    * updateBarBeatDisplay(sec):
-   * helper for jumpToTime
    ******************************************************/
-  function updateBarBeatDisplay(sec){
+  function updateBarBeatDisplay(sec) {
     const totalBeats= sec*(SEQUENCER_CONFIG.bpm/60);
     const bar= Math.floor(totalBeats/ SEQUENCER_CONFIG.beatsPerBar)+1;
     const beat= (totalBeats % SEQUENCER_CONFIG.beatsPerBar)+1;
-    const barInput = document.getElementById("barInput");
-    const beatInput= document.getElementById("beatInput");
-    if(barInput && beatInput){
-      barInput.value= bar.toString();
-      beatInput.value= beat.toFixed(2);
+  
+    const barInp= document.getElementById("barInput");
+    const beatInp= document.getElementById("beatInput");
+    if(barInp && beatInp){
+      barInp.value= bar.toString();
+      beatInp.value= beat.toFixed(2);
     }
   }
   
   /******************************************************
    * jumpToPosition(barString, beatString):
-   * parse bar/beat => seconds => jump
+   *   parse => seconds => jump
    ******************************************************/
-  export function jumpToPosition(barString, beatString){
-    const bar = parseFloat(barString)||1;
+  export function jumpToPosition(barString, beatString) {
+    const bar= parseFloat(barString)||1;
     const beat= parseFloat(beatString)||1;
-    const totalBeats= (bar-1)*SEQUENCER_CONFIG.beatsPerBar + (beat-1);
-    const timeInSec= totalBeats*(60/ SEQUENCER_CONFIG.bpm);
-    jumpToTime(timeInSec);
+    const totalB= (bar-1)* SEQUENCER_CONFIG.beatsPerBar + (beat-1);
+    const sec= totalB*(60/ SEQUENCER_CONFIG.bpm);
+    jumpToTime(sec);
   }
   
   /******************************************************
    * pushHistory():
-   * Saves a snapshot of recordedNotes for undo
+   *   save current recordedNotes snapshot => undoStack
    ******************************************************/
   export function pushHistory() {
-    const snap = JSON.parse(JSON.stringify(recordedNotes));
+    const snap= JSON.parse(JSON.stringify(recordedNotes));
     undoStack.push(snap);
-    redoStack=[];
+    redoStack= [];
   }
   
   /******************************************************
    * undo():
-   * Revert to previous snapshot
    ******************************************************/
   export function undo() {
     if(!undoStack.length) return;
-    const current = JSON.parse(JSON.stringify(recordedNotes));
+    const current= JSON.parse(JSON.stringify(recordedNotes));
     redoStack.push(current);
-    const prev = undoStack.pop();
+    const prev= undoStack.pop();
     recordedNotes= prev;
     drawSequencerGrid();
   }
@@ -656,20 +691,20 @@ import {
    ******************************************************/
   export function redo() {
     if(!redoStack.length) return;
-    const current = JSON.parse(JSON.stringify(recordedNotes));
+    const current= JSON.parse(JSON.stringify(recordedNotes));
     undoStack.push(current);
-    const next = redoStack.pop();
+    const next= redoStack.pop();
     recordedNotes= next;
     drawSequencerGrid();
   }
   
   /******************************************************
    * deleteSelectedNotes():
-   * remove any notes with selected=true
+   *   remove notes with selected=true
    ******************************************************/
   export function deleteSelectedNotes() {
-    const oldLen = recordedNotes.length;
-    recordedNotes= recordedNotes.filter(n=>!n.selected);
+    const oldLen= recordedNotes.length;
+    recordedNotes= recordedNotes.filter(n=> !n.selected);
     if(recordedNotes.length!== oldLen){
       pushHistory();
       drawSequencerGrid();
@@ -678,14 +713,14 @@ import {
   
   /******************************************************
    * addSection():
-   * define a named section from startBar..endBar
+   *   define a named section (startBar..endBar)
    ******************************************************/
   export function addSection() {
     const startBar= parseInt(prompt("Enter start bar:", "1"),10);
-    const endBar  = parseInt(prompt("Enter end bar:", "2"),10);
-    const name    = prompt("Enter section name:", "Intro");
-    if(isNaN(startBar)||isNaN(endBar)||!name){
-      alert("Invalid section data");
+    const endBar= parseInt(prompt("Enter end bar:", "2"),10);
+    const name= prompt("Enter section name:", "Intro");
+    if(isNaN(startBar)|| isNaN(endBar)|| !name){
+      alert("Invalid section data.");
       return;
     }
     sequencerSections.push({ startBar, endBar, name });
@@ -693,7 +728,7 @@ import {
   }
   
   /******************************************************
-   * toggling step mode vs. song mode
+   * toggleStepMode():
    ******************************************************/
   export function toggleStepMode() {
     isStepMode= !isStepMode;
@@ -707,20 +742,20 @@ import {
   }
   
   /******************************************************
-   * A click in the sequencer-grid => jump
+   * A click in the #sequencer-grid => jump
    ******************************************************/
-  const sequencerGrid = document.getElementById("sequencer-grid");
-  if(sequencerGrid){
-    sequencerGrid.addEventListener("click",(e)=>{
-      const rect = sequencerGrid.getBoundingClientRect();
-      const x = e.clientX - rect.left + sequencerGrid.scrollLeft;
-      const timeInSec= x/( SEQUENCER_CONFIG.pixelsPerBeat*(SEQUENCER_CONFIG.bpm/60));
+  const sequencerGridEl= document.getElementById("sequencer-grid");
+  if(sequencerGridEl){
+    sequencerGridEl.addEventListener("click",(e)=>{
+      const rect= sequencerGridEl.getBoundingClientRect();
+      const x= e.clientX - rect.left + sequencerGridEl.scrollLeft;
+      const timeInSec= x/ ( SEQUENCER_CONFIG.pixelsPerBeat*(SEQUENCER_CONFIG.bpm/60));
       jumpToTime(timeInSec);
     });
   }
   
   /******************************************************
-   * Helper function to read noteName & octave from
-   * pitchMappings if we want. Already integrated above.
+   * Utility: get freq from noteName + octave with optional mapping
+   * We already do that in main logic, so this might not be needed.
    ******************************************************/
   
