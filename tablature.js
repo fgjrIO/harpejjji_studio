@@ -142,8 +142,9 @@ import {
     const g = document.createElementNS("http://www.w3.org/2000/svg","g");
     svg.appendChild(g);
   
-    // horizontal lines
+    // horizontal lines (skip the top line)
     for (let row=0; row<= numberOfFrets; row++){
+      if (row === numberOfFrets) continue; // Skip the top line
       const lineY= row*fretSpacing + (fretSpacing/2);
       const line= document.createElementNS("http://www.w3.org/2000/svg","line");
       line.setAttribute("x1","0");
