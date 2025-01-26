@@ -52,7 +52,13 @@ export const CHORD_DEFINITIONS = [
   { name: "Min13", intervals: [0,3,7,10,2,5,9] },
   { name: "Add9",  intervals: [0,4,7,2] },
   { name: "mAdd9", intervals: [0,3,7,2] },
-  { name: "(#9)", intervals: [0, 3, 4, 7,10] }
+  { name: "(#9)", intervals: [0, 3, 4, 7,10] },
+  { name: "Maj11 (no.2)", intervals: [0, 4, 5, 7, 11] },
+  { name: "Maj11", intervals: [0, 2, 4, 5, 7, 11] },
+  { name: "7Sus4", intervals: [0, 5, 7, 11] },
+  { name: "9Sus4", intervals: [0, 2, 5, 7, 11] },
+  { name: "6/9Sus4", intervals: [0, 2, 5, 7, 9] },
+  { name: "9Sus4", intervals: [0, 2, 5, 7, 11] }
 ];
 
 /**
