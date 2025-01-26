@@ -20,7 +20,10 @@ import {
     numberOfStrings,
     keyMode,
     fadeNotes,
-    currentInstrument
+    currentInstrument,
+    fretSpacing,
+    stringSpacing,
+    keyHeight
   } from "./globals.js";
   
   import { createOscillator, stopOscillator, activeUserOscillators } from "./audio.js";
@@ -386,12 +389,12 @@ import {
     const totalHeight= parseFloat(svg.getAttribute("height"))||0;
   
     // convert row->y coords
-    const yTop= totalHeight - ((maxY* window.fretSpacing)+ window.fretSpacing/2) - window.keyHeight;
-    const yBottom= totalHeight - ((minY* window.fretSpacing)+ window.fretSpacing/2);
-    const chordHeight= yBottom- yTop;
+    const yTop = totalHeight - ((maxY * fretSpacing) + fretSpacing/2) - keyHeight;
+    const yBottom = totalHeight - ((minY * fretSpacing) + fretSpacing/2);
+    const chordHeight = yBottom - yTop;
   
-    const xLeft= (minX* window.stringSpacing)+ window.stringSpacing - 7.5;
-    const xRight= (maxX* window.stringSpacing)+ window.stringSpacing + 7.5;
+    const xLeft = (minX * stringSpacing) + stringSpacing - 7.5;
+    const xRight = (maxX * stringSpacing) + stringSpacing + 7.5;
     const chordWidth= xRight- xLeft;
   
     const cloned= svg.cloneNode(true);
@@ -402,4 +405,3 @@ import {
     const svgData= new XMLSerializer().serializeToString(cloned);
     return "data:image/svg+xml;base64,"+ btoa(svgData);
   }
-  
