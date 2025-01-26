@@ -6,12 +6,12 @@
   <!-- Tailwind CSS (via CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 pb-[350px]">
-  <div class="max-w-6xl mx-auto bg-white rounded shadow p-4">
-    <h1 class="text-2xl font-bold mb-4">Harpejji® Tablature (ES Modules)</h1>
+<body class="bg-slate-50 min-h-screen p-4 pb-[350px]">
+  <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6">
+    <h1 class="text-3xl font-bold mb-6 text-slate-800">Harpejji® Tablature</h1>
 
     <!-- Reverb, Delay, Tempo, and High-Density Checkbox at the top -->
-    <div class="flex flex-wrap items-center gap-4 mb-4">
+    <div class="flex flex-wrap items-center gap-6 mb-6 p-4 bg-slate-50 rounded-lg">
       <!-- Reverb Slider -->
       <div class="flex items-center gap-2">
         <label for="reverbSlider" class="text-gray-700">Reverb:</label>
@@ -22,7 +22,7 @@
           max="1" 
           step="0.01" 
           value="0" 
-          class="w-24"
+          class="w-24 accent-indigo-600"
         />
       </div>
       <!-- Delay Slider -->
@@ -35,7 +35,7 @@
           max="1" 
           step="0.01" 
           value="0" 
-          class="w-24"
+          class="w-24 accent-indigo-600"
         />
       </div>
       <!-- Tempo Slider -->
@@ -48,14 +48,14 @@
           max="300" 
           step="1" 
           value="120" 
-          class="w-24"
+          class="w-24 accent-indigo-600"
         />
         <span id="tempoValue" class="text-gray-700">120 BPM</span>
       </div>
 
       <!-- High Density Checkbox -->
-      <label class="inline-flex items-center space-x-2">
-        <input type="checkbox" id="highDensityCheckbox" />
+      <label class="inline-flex items-center space-x-2 text-slate-700">
+        <input type="checkbox" id="highDensityCheckbox" class="rounded text-indigo-600 focus:ring-indigo-500" />
         <span>High Density</span>
       </label>
       <script type="module">
@@ -70,28 +70,28 @@
       <!-- Shift Up / Down / Left / Right -->
       <button 
         id="shiftUpBtn"
-        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200"
         onclick="shiftSelection(0, 1)"
       >
         Shift Up
       </button>
       <button 
         id="shiftDownBtn"
-        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200"
         onclick="shiftSelection(0, -1)"
       >
         Shift Down
       </button>
       <button 
         id="shiftLeftBtn"
-        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200"
         onclick="shiftSelection(-1, 0)"
       >
         Shift Left
       </button>
       <button 
         id="shiftRightBtn"
-        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200"
         onclick="shiftSelection(1, 0)"
       >
         Shift Right
@@ -99,15 +99,15 @@
     </div>
 
     <!-- Controls -->
-    <div class="flex flex-wrap items-center gap-4 mb-4">
+    <div class="flex flex-wrap items-center gap-6 mb-6 p-4 bg-slate-50 rounded-lg">
       <!-- Model Selector -->
       <div class="flex items-center gap-2">
         <label for="modelSelect" class="text-gray-700">Model:</label>
         <select 
           id="modelSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white 
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                 focus:outline-none min-w-[200px]"
+          class="px-3 py-2 rounded-md border border-slate-300 bg-white 
+                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
+                 focus:outline-none min-w-[200px] shadow-sm"
         >
           <option value="K24">K24 (A0-A5, 24 strings)</option>
           <option value="G16">G16 (C2-C6, 16 strings)</option>
@@ -120,9 +120,9 @@
         <label for="instrumentSelect" class="text-gray-700">Instrument:</label>
         <select 
           id="instrumentSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white 
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                 focus:outline-none min-w-[120px]"
+          class="px-3 py-2 rounded-md border border-slate-300 bg-white 
+                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
+                 focus:outline-none min-w-[120px] shadow-sm"
         >
           <option value="piano">Piano</option>
           <option value="guitar">Guitar</option>
@@ -136,9 +136,9 @@
         <label for="scaleSelect" class="text-gray-700">Scale:</label>
         <select 
           id="scaleSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white 
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                 focus:outline-none min-w-[120px]"
+          class="px-3 py-2 rounded-md border border-slate-300 bg-white 
+                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
+                 focus:outline-none min-w-[120px] shadow-sm"
         >
           <option value="none">None</option>
           <!-- Additional scales populated dynamically -->
@@ -150,9 +150,9 @@
         <label for="rootSelect" class="text-gray-700">Root:</label>
         <select 
           id="rootSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white 
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                 focus:outline-none"
+          class="px-3 py-2 rounded-md border border-slate-300 bg-white 
+                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
+                 focus:outline-none shadow-sm"
         >
           <option value="C">C</option>
           <option value="C#">C#</option>
@@ -174,9 +174,9 @@
         <label for="fingerSelect" class="text-gray-700">Finger:</label>
         <select 
           id="fingerSelect"
-          class="px-3 py-2 rounded border border-gray-300 bg-white 
-                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                 focus:outline-none min-w-[120px]"
+          class="px-3 py-2 rounded-md border border-slate-300 bg-white 
+                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
+                 focus:outline-none min-w-[120px] shadow-sm"
         >
           <option value="None">None</option>
           <option value="L1">L1</option>
@@ -194,31 +194,31 @@
 
       <button 
         id="toggleNotesBtn"
-        class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+        class="px-4 py-2 rounded-md bg-indigo-500 text-white hover:bg-indigo-600 transition-colors duration-200 shadow-sm"
       >
         Toggle Note Names
       </button>
       <button 
         id="resetMarkersBtn"
-        class="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+        class="px-4 py-2 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-colors duration-200 shadow-sm"
       >
         Clear All Markers
       </button>
       <button 
         id="saveBtn"
-        class="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600"
+        class="px-4 py-2 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 transition-colors duration-200 shadow-sm"
       >
         Save Tab
       </button>
       <button 
         id="loadBtn"
-        class="px-4 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600"
+        class="px-4 py-2 rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors duration-200 shadow-sm"
       >
         Load Selection
       </button>
       <button 
         id="libraryBtn"
-        class="px-4 py-2 rounded bg-purple-500 text-white hover:bg-purple-600"
+        class="px-4 py-2 rounded-md bg-purple-500 text-white hover:bg-purple-600 transition-colors duration-200 shadow-sm"
       >
         Open Library
       </button>
@@ -226,13 +226,13 @@
       <!-- Sequencer Mode + Key Mode Buttons -->
       <button
         id="toggleSequencerModeBtn"
-        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200 shadow-sm"
       >
         Sequencer Mode
       </button>
       <button
         id="toggleKeyModeBtn"
-        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200 shadow-sm"
       >
         Key Mode: Toggle
       </button>
@@ -240,7 +240,7 @@
       <!-- Kill Notes Button -->
       <button
         id="killNotesBtn"
-        class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+        class="px-4 py-2 rounded-md bg-rose-600 text-white hover:bg-rose-700 transition-colors duration-200 shadow-sm"
       >
         Kill Notes
       </button>
@@ -248,7 +248,7 @@
       <!-- Advanced Config Button -->
       <button
         id="advancedConfigBtn"
-        class="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200 shadow-sm"
       >
         Advanced Config
       </button>
@@ -256,13 +256,13 @@
       <!-- High-Level Save/Load Project -->
       <button
         id="saveHighLevelProjectBtn"
-        class="px-4 py-2 rounded bg-green-700 text-white hover:bg-green-800"
+        class="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors duration-200 shadow-sm"
       >
         Save Project
       </button>
       <button
         id="loadHighLevelProjectBtn"
-        class="px-4 py-2 rounded bg-yellow-700 text-white hover:bg-yellow-800"
+        class="px-4 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors duration-200 shadow-sm"
       >
         Load Project
       </button>
@@ -270,18 +270,18 @@
       <!-- Find Chord + Play Current Selection -->
       <button
         id="findChordBtn"
-        class="px-4 py-2 rounded bg-indigo-500 text-white hover:bg-indigo-600"
+        class="px-4 py-2 rounded-md bg-indigo-500 text-white hover:bg-indigo-600 transition-colors duration-200 shadow-sm"
       >
         Find Chord
       </button>
       <button
         id="playSelectionBtn"
-        class="px-4 py-2 rounded bg-blue-700 text-white hover:bg-blue-800"
+        class="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shadow-sm"
       >
         Play Current Selection
       </button>
 
-      <span class="text-gray-600 text-sm">
+      <span class="text-slate-600 text-sm italic">
         (Click any key to toggle a marker and play its note.)
       </span>
     </div>
@@ -291,30 +291,30 @@
       <!-- Our Tablature SVG -->
       <svg 
         id="tablature" 
-        class="border border-gray-400"
+        class="border border-slate-200 rounded-lg shadow-sm"
       ></svg>
 
       <!-- Chord Palette -->
-      <div class="ml-4 w-64" id="chordPalette">
-        <h2 class="text-xl font-bold mb-2">Chord Palette</h2>
+      <div class="ml-6 w-64" id="chordPalette">
+        <h2 class="text-xl font-bold mb-4 text-slate-800">Chord Palette</h2>
 
         <!-- Buttons to Save/Load the entire chord palette -->
         <div class="flex gap-2 mb-2">
           <button 
             id="saveChordsBtn" 
-            class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+            class="px-2 py-1 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 text-sm transition-colors duration-200 shadow-sm"
           >
             Save Chords
           </button>
           <button 
             id="saveChordsToFileBtn"
-            class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+            class="px-2 py-1 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 text-sm transition-colors duration-200 shadow-sm"
           >
             Save Chords to File
           </button>
           <button 
             id="loadChordsBtn"
-            class="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+            class="px-2 py-1 bg-amber-500 text-white rounded-md hover:bg-amber-600 text-sm transition-colors duration-200 shadow-sm"
           >
             Load Chords
           </button>
@@ -331,9 +331,9 @@
           <label for="chordModeSelect" class="text-sm font-semibold mr-1">Chord Mode:</label>
           <select 
             id="chordModeSelect"
-            class="px-2 py-1 rounded border border-gray-300 bg-white 
-                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                   focus:outline-none"
+            class="px-2 py-1 rounded-md border border-slate-300 bg-white 
+                   focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
+                   focus:outline-none shadow-sm"
           >
             <option value="press" selected>Press</option>
             <option value="strum">Strum</option>
@@ -350,9 +350,9 @@
           />
           <select 
             id="strumPaceUnit"
-            class="px-2 py-1 rounded border border-gray-300 bg-white 
-                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500 
-                   focus:outline-none"
+            class="px-2 py-1 rounded-md border border-slate-300 bg-white 
+                   focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
+                   focus:outline-none shadow-sm"
           >
             <option value="ms">ms</option>
             <option value="beats">beats</option>
@@ -369,73 +369,73 @@
         <!-- 2 column, 4 row grid of chord slots (8 total) -->
         <div class="grid grid-cols-2 grid-rows-4 gap-4">
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="0">
-            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 1</button>
+            <button class="chord-button bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 w-full transition-colors duration-200 shadow-sm">Chord 1</button>
             <div class="flex space-x-1">
-              <button class="chord-record-btn bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="0">R</button>
-              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="0">C</button>
-              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="0">N</button>
-              <button class="chord-save-btn bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="0">S</button>
-              <button class="chord-send-lib-btn bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="0">L</button>
+              <button class="chord-record-btn bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="0">R</button>
+              <button class="chord-clear-btn bg-slate-400 hover:bg-slate-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="0">C</button>
+              <button class="chord-rename-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="0">N</button>
+              <button class="chord-save-btn bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="0">S</button>
+              <button class="chord-send-lib-btn bg-orange-500 hover:bg-orange-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="0">L</button>
             </div>
           </div>
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="1">
-            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 2</button>
+            <button class="chord-button bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 w-full transition-colors duration-200 shadow-sm">Chord 2</button>
             <div class="flex space-x-1">
-              <button class="chord-record-btn bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="1">R</button>
-              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="1">C</button>
-              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="1">N</button>
-              <button class="chord-save-btn bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="1">S</button>
-              <button class="chord-send-lib-btn bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="1">L</button>
+              <button class="chord-record-btn bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="1">R</button>
+              <button class="chord-clear-btn bg-slate-400 hover:bg-slate-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="1">C</button>
+              <button class="chord-rename-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="1">N</button>
+              <button class="chord-save-btn bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="1">S</button>
+              <button class="chord-send-lib-btn bg-orange-500 hover:bg-orange-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="1">L</button>
             </div>
           </div>
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="2">
-            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 3</button>
+            <button class="chord-button bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 w-full transition-colors duration-200 shadow-sm">Chord 3</button>
             <div class="flex space-x-1">
-              <button class="chord-record-btn bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="2">R</button>
-              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="2">C</button>
-              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="2">N</button>
-              <button class="chord-save-btn bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="2">S</button>
-              <button class="chord-send-lib-btn bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="2">L</button>
+              <button class="chord-record-btn bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="2">R</button>
+              <button class="chord-clear-btn bg-slate-400 hover:bg-slate-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="2">C</button>
+              <button class="chord-rename-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="2">N</button>
+              <button class="chord-save-btn bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="2">S</button>
+              <button class="chord-send-lib-btn bg-orange-500 hover:bg-orange-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="2">L</button>
             </div>
           </div>
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="3">
-            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 4</button>
+            <button class="chord-button bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 w-full transition-colors duration-200 shadow-sm">Chord 4</button>
             <div class="flex space-x-1">
-              <button class="chord-record-btn bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="3">R</button>
-              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="3">C</button>
-              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="3">N</button>
-              <button class="chord-save-btn bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="3">S</button>
-              <button class="chord-send-lib-btn bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="3">L</button>
+              <button class="chord-record-btn bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="3">R</button>
+              <button class="chord-clear-btn bg-slate-400 hover:bg-slate-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="3">C</button>
+              <button class="chord-rename-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="3">N</button>
+              <button class="chord-save-btn bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="3">S</button>
+              <button class="chord-send-lib-btn bg-orange-500 hover:bg-orange-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="3">L</button>
             </div>
           </div>
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="4">
-            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 5</button>
+            <button class="chord-button bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 w-full transition-colors duration-200 shadow-sm">Chord 5</button>
             <div class="flex space-x-1">
-              <button class="chord-record-btn bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="4">R</button>
-              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="4">C</button>
-              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="4">N</button>
-              <button class="chord-save-btn bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="4">S</button>
-              <button class="chord-send-lib-btn bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="4">L</button>
+              <button class="chord-record-btn bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="4">R</button>
+              <button class="chord-clear-btn bg-slate-400 hover:bg-slate-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="4">C</button>
+              <button class="chord-rename-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="4">N</button>
+              <button class="chord-save-btn bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="4">S</button>
+              <button class="chord-send-lib-btn bg-orange-500 hover:bg-orange-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="4">L</button>
             </div>
           </div>
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="5">
-            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 6</button>
+            <button class="chord-button bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 w-full transition-colors duration-200 shadow-sm">Chord 6</button>
             <div class="flex space-x-1">
-              <button class="chord-record-btn bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="5">R</button>
-              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="5">C</button>
-              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="5">N</button>
-              <button class="chord-save-btn bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="5">S</button>
-              <button class="chord-send-lib-btn bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="5">L</button>
+              <button class="chord-record-btn bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="5">R</button>
+              <button class="chord-clear-btn bg-slate-400 hover:bg-slate-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="5">C</button>
+              <button class="chord-rename-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="5">N</button>
+              <button class="chord-save-btn bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="5">S</button>
+              <button class="chord-send-lib-btn bg-orange-500 hover:bg-orange-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="5">L</button>
             </div>
           </div>
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="6">
-            <button class="chord-button bg-gray-200 rounded-lg px-4 py-2 w-full">Chord 7</button>
+            <button class="chord-button bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 w-full transition-colors duration-200 shadow-sm">Chord 7</button>
             <div class="flex space-x-1">
-              <button class="chord-record-btn bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="6">R</button>
-              <button class="chord-clear-btn bg-gray-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="6">C</button>
-              <button class="chord-rename-btn bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="6">N</button>
-              <button class="chord-save-btn bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="6">S</button>
-              <button class="chord-send-lib-btn bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs" data-chord-index="6">L</button>
+              <button class="chord-record-btn bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="6">R</button>
+              <button class="chord-clear-btn bg-slate-400 hover:bg-slate-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="6">C</button>
+              <button class="chord-rename-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="6">N</button>
+              <button class="chord-save-btn bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="6">S</button>
+              <button class="chord-send-lib-btn bg-orange-500 hover:bg-orange-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors duration-200 shadow-sm" data-chord-index="6">L</button>
             </div>
           </div>
           <div class="flex flex-col items-center space-y-2 chord-slot" data-chord-index="7">
@@ -454,30 +454,30 @@
   </div>
 
   <!-- Library Slideover -->
-  <div id="librarySlideover" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
-    <div class="absolute left-0 top-0 bottom-0 bg-white w-64 p-4 overflow-y-auto">
-      <h2 class="text-xl font-bold mb-4">Library</h2>
-      <button id="closeLibraryBtn" class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600">
+  <div id="librarySlideover" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
+    <div class="absolute left-0 top-0 bottom-0 bg-white w-72 p-6 overflow-y-auto shadow-lg">
+      <h2 class="text-2xl font-bold mb-6 text-slate-800">Library</h2>
+      <button id="closeLibraryBtn" class="absolute top-4 right-4 px-2 py-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-colors duration-200">
         Close
       </button>
       <!-- Library Controls -->
       <div class="mb-4 flex flex-wrap gap-2">
-        <button id="importBtn" class="px-3 py-1 rounded bg-green-500 text-white hover:bg-green-600">
+        <button id="importBtn" class="px-3 py-2 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 transition-colors duration-200 shadow-sm text-sm">
           Import Files
         </button>
-        <button id="saveLibraryBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
+        <button id="saveLibraryBtn" class="px-3 py-2 rounded-md bg-indigo-500 text-white hover:bg-indigo-600 transition-colors duration-200 shadow-sm text-sm">
           Save Library
         </button>
-        <button id="saveLibraryAsBtn" class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
+        <button id="saveLibraryAsBtn" class="px-3 py-2 rounded-md bg-indigo-500 text-white hover:bg-indigo-600 transition-colors duration-200 shadow-sm text-sm">
           Save Library As
         </button>
-        <button id="loadLibraryBtn" class="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600">
+        <button id="loadLibraryBtn" class="px-3 py-2 rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors duration-200 shadow-sm text-sm">
           Load Library
         </button>
-        <button id="clearLibraryBtn" class="px-3 py-1 rounded bg-gray-500 text-white hover:bg-gray-600">
+        <button id="clearLibraryBtn" class="px-3 py-2 rounded-md bg-slate-500 text-white hover:bg-slate-600 transition-colors duration-200 shadow-sm text-sm">
           Clear Library
         </button>
-        <button id="printLibraryBtn" class="px-3 py-1 rounded bg-pink-500 text-white hover:bg-pink-600">
+        <button id="printLibraryBtn" class="px-3 py-2 rounded-md bg-purple-500 text-white hover:bg-purple-600 transition-colors duration-200 shadow-sm text-sm">
           Print Library
         </button>
         <label for="enlargedCheckbox" class="inline-flex items-center space-x-1">
@@ -533,10 +533,10 @@
   </div>
 
   <!-- Advanced Config Slideover -->
-  <div id="advancedConfigSlideover" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
-    <div class="absolute right-0 top-0 bottom-0 bg-white w-64 p-4 overflow-y-auto">
-      <h2 class="text-xl font-bold mb-4">Advanced Config</h2>
-      <button id="closeAdvancedConfigBtn" class="absolute top-2 right-2 px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600">
+  <div id="advancedConfigSlideover" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
+    <div class="absolute right-0 top-0 bottom-0 bg-white w-72 p-6 overflow-y-auto shadow-lg">
+      <h2 class="text-2xl font-bold mb-6 text-slate-800">Advanced Config</h2>
+      <button id="closeAdvancedConfigBtn" class="absolute top-4 right-4 px-2 py-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-colors duration-200">
         Close
       </button>
 
@@ -547,7 +547,7 @@
           type="color" 
           id="cursorColorPicker"
           value="#ffffff"
-          class="w-full h-10 border border-gray-300 rounded"
+          class="w-full h-10 border border-slate-300 rounded-md focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none shadow-sm"
         />
       </div>
 
@@ -561,7 +561,7 @@
           max="60"
           step="1"
           value="30"
-          class="w-full"
+          class="w-full accent-indigo-600"
         />
         <span id="rowSpacingValue" class="text-gray-700 text-sm">30 px</span>
       </div>
@@ -595,7 +595,7 @@
         <label for="scaleHighlightModeSelect" class="block font-semibold mb-1">Scale Highlight Mode:</label>
         <select 
           id="scaleHighlightModeSelect"
-          class="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none"
+          class="w-full border border-slate-300 rounded-md px-2 py-1 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none shadow-sm"
         >
           <option value="fill">Fill</option>
           <option value="outline">Outline</option>
@@ -629,7 +629,7 @@
       <div class="space-y-2 mt-4">
         <button
           id="importScalesBtn"
-          class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 w-full"
+          class="px-3 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200 shadow-sm w-full"
         >
           Import Scales
         </button>
@@ -645,13 +645,13 @@
       <div class="space-y-2 mt-4">
         <button
           id="saveProjectBtn"
-          class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 w-full"
+          class="px-3 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors duration-200 shadow-sm w-full"
         >
           Save Configuration File
         </button>
         <button
           id="loadProjectBtn"
-          class="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 w-full"
+          class="px-3 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors duration-200 shadow-sm w-full"
         >
           Load Configuration File
         </button>
@@ -728,30 +728,30 @@
   </div>
 
   <!-- Sequencer (hidden by default; toggled by "Sequencer Mode" button) -->
-  <div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-gray-800 border-t border-gray-600 hidden">
-    <div id="transport-controls" class="p-4 bg-gray-700 border-b border-gray-600 flex gap-2 items-center">
-      <button id="play-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+  <div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-slate-800 border-t border-slate-700 hidden">
+    <div id="transport-controls" class="p-4 bg-slate-700 border-b border-slate-600 flex gap-3 items-center">
+      <button id="play-btn" class="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors duration-200 shadow-sm">
         Play
       </button>
-      <button id="stop-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+      <button id="stop-btn" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors duration-200 shadow-sm">
         Stop
       </button>
-      <button id="record-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+      <button id="record-btn" class="px-4 py-2 bg-rose-500 text-white rounded-md hover:bg-rose-600 transition-colors duration-200 shadow-sm">
         Record
       </button>
       <span 
         id="record-indicator"
-        class="text-red-500 font-bold hidden ml-2"
+        class="text-rose-500 font-bold hidden ml-2"
       >
         RECORDING
       </span>
-      <button id="metronome-btn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+      <button id="metronome-btn" class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200 shadow-sm">
         Metronome
       </button>
-      <button id="save-seq-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+      <button id="save-seq-btn" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors duration-200 shadow-sm">
         Save
       </button>
-      <button id="load-seq-btn" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+      <button id="load-seq-btn" class="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors duration-200 shadow-sm">
         Load
       </button>
       <input type="file" id="load-seq-file" class="hidden" accept=".json">
@@ -759,7 +759,7 @@
       <!-- Song/Step Mode Toggle -->
       <button
         id="mode-toggle-btn"
-        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        class="px-4 py-2 bg-slate-500 text-white rounded-md hover:bg-slate-600 transition-colors duration-200 shadow-sm"
       >
         Song Mode
       </button>
@@ -778,7 +778,7 @@
           id="barInput"
           type="text"
           value="1"
-          class="w-14 px-1 py-1 text-sm rounded"
+          class="w-14 px-2 py-1 text-sm rounded-md border border-slate-300 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none shadow-sm"
         />
         <label class="text-white text-sm">Beat:</label>
         <input
@@ -825,7 +825,7 @@
     </div>
     <div class="flex h-[calc(100%-68px)]">
       <!-- Piano Roll -->
-      <div class="w-[100px] bg-gray-900 h-full relative overflow-hidden">
+      <div class="w-[100px] bg-slate-900 h-full relative overflow-hidden border-r border-slate-700">
         <div id="piano-roll-wrapper" class="absolute inset-0">
           <div id="piano-keys" class="w-full"></div>
         </div>
@@ -833,7 +833,7 @@
       <!-- Sequencer Grid -->
       <div 
         id="sequencer-grid" 
-        class="flex-1 relative overflow-auto bg-gray-900" 
+        class="flex-1 relative overflow-auto bg-slate-900"
         onscroll="document.querySelector('#piano-roll-wrapper').style.transform='translateY(-' + this.scrollTop + 'px)'"
       >
         <div id="grid-content" class="absolute top-0 left-0"></div>
@@ -843,14 +843,14 @@
   </div>
 
   <!-- Find Chord Popup -->
-  <div id="findChordPopup" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden">
+  <div id="findChordPopup" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white p-4 rounded w-full max-w-md relative">
-        <h2 class="text-xl font-bold mb-2">Chord Suggestions</h2>
-        <div id="chordMatches" class="text-sm space-y-2"></div>
+      <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+        <h2 class="text-2xl font-bold mb-4 text-slate-800">Chord Suggestions</h2>
+        <div id="chordMatches" class="text-sm space-y-3 text-slate-600"></div>
         <button 
           id="closeChordPopup" 
-          class="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+          class="absolute top-4 right-4 bg-rose-500 text-white px-2 py-1 rounded-md hover:bg-rose-600 transition-colors duration-200"
         >
           Close
         </button>
