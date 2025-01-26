@@ -936,7 +936,6 @@
       recordedNotes,
       isPlaying,
       isRecording,
-      metronomeEnabled,
       stopPlayback,
       startPlayback,
       jumpToTime,
@@ -1062,10 +1061,14 @@
           indicator.classList.add("hidden");
         }
       });
+
       document.getElementById("metronome-btn").addEventListener("click", () => {
-        metronomeEnabled = !metronomeEnabled;
-        document.getElementById("metronome-btn").classList.toggle("bg-blue-600");
+        // toggles the metronome in sequencer.js
+        import("./sequencer.js").then(({ toggleMetronome }) => {
+          toggleMetronome();
+        });
       });
+
       document.getElementById("save-seq-btn").addEventListener("click", () => {
         const fileName = prompt("Enter a name for your sequence:", "My Sequence");
         if (!fileName) return;
@@ -1226,7 +1229,6 @@
         reader.onload = (ev) => {
           try {
             const data = JSON.parse(ev.target.result);
-            // Merge into loadedScales
             Object.keys(data).forEach(name => {
               loadedScales[name] = data[name];
             });
@@ -1265,7 +1267,6 @@
         }
         drawTablature();
       });
-      // Star overlay mode/size
       document.getElementById("starOverlayModeSelect").addEventListener("change", (e) => {
         setStarOverlayMode(e.target.value);
         drawTablature();
@@ -1314,9 +1315,6 @@
               const data = JSON.parse(rEv.target.result);
               if (data.advancedOptions) {
                 // apply them as needed
-                const ao = data.advancedOptions;
-                // e.g. set rowSpacing, fadeNotes, blackKeyColor, etc.
-                // then call drawTablature()
               }
               alert("Configuration loaded successfully.");
             } catch (err) {
@@ -1386,7 +1384,6 @@
             clearAllTabMarkers();
           }
           if (chordModeSelect.value === "press") {
-            // If keyMode is "toggle", we do chordToggle
             if (keyMode === "toggle") {
               chordToggle(idx);
             }
@@ -1481,10 +1478,10 @@
               } else {
                 throw new Error("Invalid chord file structure.");
               }
+              input.value = "";
             } catch (err) {
               alert("Error loading chord file: " + err.message);
             }
-            input.value = "";
           };
           reader.readAsText(file);
         };

@@ -18,40 +18,19 @@ import {
   fadeTime
 } from "./globals.js";
 
-import { recordedNotes } from "./sequencer.js"; // to kill sequencer notes
+import { recordedNotes } from "./sequencer.js";
 import { drawTablature } from "./tablature.js";
 
-/**
- * We keep a single audioContext & master chain for the entire app.
- * We also keep a global set of all oscillators, so we can forcibly stop them.
- */
-
-// We store it on `window.audioContext` so that the sequencer can refer to it
-// without encountering undefined.
 let masterGain = null;
 let delayNode = null;
 let delayGain = null;
 let reverbConvolver = null;
 let reverbGain = null;
 
-/**
- * A set of all active oscillator objects. 
- * Each object typically has { osc: { stop() }, gain: { ... } }.
- */
 const allLiveOscillators = new Set();
-
-/**
- * A map of user-initiated oscillators by key "x_y".
- */
 export const activeUserOscillators = new Map();
 
-/******************************************************
- * initAudio():
- *  - Creates window.audioContext if not already
- *  - Sets up masterGain, delay, reverb
- ******************************************************/
 export async function initAudio() {
-  // If we already have audioContext on window, do nothing
   if (window.audioContext) return;
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -62,7 +41,6 @@ export async function initAudio() {
 
   window.audioContext = new AudioContextClass();
   
-  // Ensure audioContext is resumed on initialization
   if (window.audioContext.state === 'suspended') {
     try {
       await window.audioContext.resume();
@@ -84,7 +62,7 @@ export async function initAudio() {
 
   // Reverb
   reverbConvolver = window.audioContext.createConvolver();
-  // Build a random impulse
+  // Build a simple random impulse
   const length = window.audioContext.sampleRate * 1.0;
   const impulse = window.audioContext.createBuffer(2, length, window.audioContext.sampleRate);
   for (let c = 0; c < 2; c++) {
@@ -101,15 +79,8 @@ export async function initAudio() {
   reverbGain.connect(masterGain);
 }
 
-/******************************************************
- * createOscillator(frequency, instrument):
- *   - calls createInstrumentSound()
- *   - wraps in a simpler object
- ******************************************************/
 export async function createOscillator(frequency, instrument) {
   if (!window.audioContext) await initAudio();
-  
-  // Double-check context state before creating sound
   if (window.audioContext.state === 'suspended') {
     try {
       await window.audioContext.resume();
@@ -117,7 +88,6 @@ export async function createOscillator(frequency, instrument) {
       console.error('Failed to resume audio context:', error);
     }
   }
-  
   const soundObj = await createInstrumentSound(frequency, instrument);
 
   const oscWrapper = {
@@ -128,11 +98,6 @@ export async function createOscillator(frequency, instrument) {
   return oscWrapper;
 }
 
-/******************************************************
- * stopOscillator(oscObj):
- *   - calls oscObj.osc.stop(), 
- *   - removes it from allLiveOscillators
- ******************************************************/
 export function stopOscillator(oscObj) {
   if (!oscObj) return;
   if (oscObj.osc && typeof oscObj.osc.stop==="function") {
@@ -141,13 +106,7 @@ export function stopOscillator(oscObj) {
   allLiveOscillators.delete(oscObj);
 }
 
-/******************************************************
- * killAllNotes():
- *   - stops all oscillators (user + sequencer)
- *   - resets pressing/fading
- ******************************************************/
 export function killAllNotes() {
-  // Stop all
   for (let o of allLiveOscillators) {
     if(o.osc && typeof o.osc.stop==="function") {
       o.osc.stop();
@@ -155,10 +114,8 @@ export function killAllNotes() {
   }
   allLiveOscillators.clear();
 
-  // Clear user map
   activeUserOscillators.clear();
 
-  // Stop sequencer notes
   recordedNotes.forEach(n=>{
     if(n.isPlaying && n.oscObj) {
       stopOscillator(n.oscObj);
@@ -168,7 +125,6 @@ export function killAllNotes() {
     }
   });
 
-  // Reset pressing/fading
   for (let fy=0; fy<numberOfFrets; fy++){
     for (let fx=0; fx<numberOfStrings; fx++){
       keysState[fy][fx].pressing= false;
@@ -176,14 +132,9 @@ export function killAllNotes() {
       keysState[fy][fx].fadeOutStart= null;
     }
   }
-
   drawTablature();
 }
 
-/******************************************************
- * setDelayAmount(value), setReverbAmount(value):
- *  - allow external UI to control these sends
- ******************************************************/
 export function setDelayAmount(value) {
   if (!delayGain) return;
   delayGain.gain.value = value;
@@ -193,18 +144,11 @@ export function setReverbAmount(value) {
   reverbGain.gain.value = value;
 }
 
-/******************************************************
- * createInstrumentSound(frequency, instrument):
- *   - 2 slightly detuned oscillators
- *   - lowpass filter
- *   - ADSR envelope
- *   - master, delay, reverb sends
- ******************************************************/
 async function createInstrumentSound(frequency, instrument) {
   if (!window.audioContext) await initAudio();
 
   const noteGain = window.audioContext.createGain();
-  noteGain.gain.value= 0; // will fade in via ADSR
+  noteGain.gain.value= 0;
 
   const filter= window.audioContext.createBiquadFilter();
   filter.type= "lowpass";
@@ -233,14 +177,13 @@ async function createInstrumentSound(frequency, instrument) {
       filterFreq= 2000;
   }
 
-  // wave type from instrumentMap
   const waveType= instrumentMap[instrument] || "sine";
   const osc1= window.audioContext.createOscillator();
   const osc2= window.audioContext.createOscillator();
   osc1.type= waveType;
   osc2.type= waveType;
   osc1.frequency.value= frequency;
-  osc2.frequency.value= frequency*1.003; // slight detune
+  osc2.frequency.value= frequency*1.003;
 
   osc1.connect(filter);
   osc2.connect(filter);
