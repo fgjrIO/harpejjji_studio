@@ -1330,11 +1330,14 @@
 
       // High-Level Save/Load Project
       document.getElementById("saveHighLevelProjectBtn").addEventListener("click", () => {
-        // You'd import a file that handles saving everything (keysState, library, chord palette, sequencer, etc.)
-        // e.g. import("./saveProject.js").then(({ saveHighLevelProject }) => { saveHighLevelProject(); });
+        import("./saveProject.js").then(({ saveHighLevelProject }) => {
+          saveHighLevelProject();
+        });
       });
       document.getElementById("loadHighLevelProjectBtn").addEventListener("click", () => {
-        // Similarly, you can load a previously saved comprehensive project
+        import("./saveProject.js").then(({ loadHighLevelProject }) => {
+          loadHighLevelProject();
+        });
       });
 
       // Chord Palette Buttons

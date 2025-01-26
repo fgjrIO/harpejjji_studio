@@ -279,30 +279,27 @@ import {
       });
     }
   
-    // keysState + currentModel
-    if (data.keysState && Array.isArray(data.keysState)) {
-      initKeysState();
-      for (let y=0; y<data.keysState.length; y++){
-        for(let x=0; x<data.keysState[y].length; x++){
-          if(y<numberOfFrets && x<numberOfStrings) {
-            keysState[y][x] = data.keysState[y][x];
-          }
-        }
-      }
-    }
+    // First set the model since it affects keysState dimensions
     if (data.currentModel) {
       const cm = data.currentModel;
-      currentModel.numberOfStrings= cm.numberOfStrings;
-      currentModel.numberOfFrets  = cm.numberOfFrets;
-      currentModel.startNote      = cm.startNote;
-      currentModel.startOctave    = cm.startOctave;
-      currentModel.endNote        = cm.endNote;
-      currentModel.endOctave      = cm.endOctave;
-  
-      window.numberOfStrings= cm.numberOfStrings;
-      window.numberOfFrets  = cm.numberOfFrets;
-      window.BASE_NOTE      = cm.startNote;
-      window.BASE_OCTAVE    = cm.startOctave;
+      setCurrentModel({
+        numberOfStrings: cm.numberOfStrings,
+        numberOfFrets: cm.numberOfFrets,
+        startNote: cm.startNote,
+        startOctave: cm.startOctave,
+        endNote: cm.endNote,
+        endOctave: cm.endOctave
+      });
+    }
+
+    // Then restore keysState using the new model dimensions
+    if (data.keysState && Array.isArray(data.keysState)) {
+      initKeysState();
+      for (let y = 0; y < data.keysState.length && y < currentModel.numberOfFrets; y++) {
+        for (let x = 0; x < data.keysState[y].length && x < currentModel.numberOfStrings; x++) {
+          keysState[y][x] = data.keysState[y][x];
+        }
+      }
     }
   
     // showNotes, currentScale, currentRoot, keyMode
@@ -324,4 +321,3 @@ import {
     drawPianoRoll();
     drawSequencerGrid();
   }
-  
