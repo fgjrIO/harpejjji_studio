@@ -117,11 +117,11 @@ import {
    *   If chordMode="press" and keyMode="press", 
    *   we press & hold all notes until chordPressUp().
    ******************************************************/
-  export function chordPressDown(index) {
+  export async function chordPressDown(index) {
     const chord = chordSlots[index];
-    chord.keys.forEach(k => {
-      handleKeyDownProgrammatically(k.x, k.y);
-    });
+    for (const k of chord.keys) {
+      await handleKeyDownProgrammatically(k.x, k.y);
+    }
   }
   export function chordPressUp(index) {
     const chord = chordSlots[index];
@@ -135,39 +135,34 @@ import {
    *   If chordMode="press" but keyMode="toggle",
    *   we do a quick press & release each note with a short delay.
    ******************************************************/
-  export function chordToggle(index) {
+  export async function chordToggle(index) {
     const chord = chordSlots[index];
-    chord.keys.forEach(k => {
-      handleKeyDownProgrammatically(k.x, k.y);
+    for (const k of chord.keys) {
+      await handleKeyDownProgrammatically(k.x, k.y);
       setTimeout(() => {
         handleKeyUpProgrammatically(k.x, k.y);
       }, 300);
-    });
+    }
   }
   
   /******************************************************
    * chordStrum(index, delayMs):
    *   Sort chord keys left->right, press them one at a time.
    ******************************************************/
-  export function chordStrum(index, delayMs=100) {
+  export async function chordStrum(index, delayMs=100) {
     const chord = chordSlots[index];
     // sort by ascending x, then y
     const sorted = chord.keys.slice().sort((a,b) => (a.x - b.x) || (a.y - b.y));
   
-    let i=0;
-    function pressNext() {
-      if(i>=sorted.length) return;
-      const k= sorted[i];
-      handleKeyDownProgrammatically(k.x, k.y);
-      setTimeout(()=>{
+    for (const k of sorted) {
+      await handleKeyDownProgrammatically(k.x, k.y);
+      setTimeout(() => {
         handleKeyUpProgrammatically(k.x, k.y);
       }, 300);
-      i++;
-      if(i<sorted.length) {
-        setTimeout(pressNext, delayMs);
+      if (sorted.indexOf(k) < sorted.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
-    pressNext();
   }
   
   /******************************************************
@@ -194,13 +189,13 @@ import {
    * handleKeyDownProgrammatically(x, y):
    *   Press a key as if user clicked it. (Used for chord triggers.)
    ******************************************************/
-  function handleKeyDownProgrammatically(x, y) {
-    const noteName= getNoteName(x,y);
-    const octave  = getNoteOctave(x,y);
-    const freq    = noteToFrequency(noteName, octave);
-  
-    const oscObj= createOscillator(freq, currentInstrument);
-    activeUserOscillators.set(`${x}_${y}`, oscObj);
+async function handleKeyDownProgrammatically(x, y) {
+  const noteName= getNoteName(x,y);
+  const octave  = getNoteOctave(x,y);
+  const freq    = noteToFrequency(noteName, octave);
+
+  const oscObj= await createOscillator(freq, currentInstrument);
+  activeUserOscillators.set(`${x}_${y}`, oscObj);
   
     if(keyMode==="toggle"){
       const old= keysState[y][x].marker;

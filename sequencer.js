@@ -473,8 +473,8 @@ export function stopPlayback() {
  * startPlayback():
  *   init audio, set isPlaying, schedule updatePlayhead
  ******************************************************/
-export function startPlayback() {
-  initAudio();
+export async function startPlayback() {
+  await initAudio();
   if(!window.audioContext){
     alert("AudioContext not available. Cannot play.");
     return;
@@ -490,7 +490,7 @@ export function startPlayback() {
  * updatePlayhead():
  *   Called on each animation frame while playing
  ******************************************************/
-function updatePlayhead() {
+async function updatePlayhead() {
   let now=0;
   if(isStepMode){
     now= stepModeTime;
@@ -530,7 +530,7 @@ function updatePlayhead() {
       }
     }
     // note on/off
-    recordedNotes.forEach(note=>{
+    for (const note of recordedNotes) {
       const start= note.startTime;
       const end= start+ note.duration;
       if(now>=start && now< end){
@@ -545,7 +545,7 @@ function updatePlayhead() {
           } else {
             freq= noteToFrequency(note.noteName, note.octave);
           }
-          const osc= createOscillator(freq, currentInstrument);
+          const osc= await createOscillator(freq, currentInstrument);
           note.oscObj= osc;
           keysState[note.y][note.x].sequencerPlaying= true;
           drawTablature();
@@ -565,7 +565,7 @@ function updatePlayhead() {
         }
         drawTablature();
       }
-    });
+    }
     requestAnimationFrame(updatePlayhead);
   } else if(isPlaying){
     // step mode => we request another frame anyway
@@ -751,13 +751,13 @@ if (recordBtn) {
  * startRecording():
  *   Begins recording notes
  ******************************************************/
-export function startRecording() {
+export async function startRecording() {
   if (isPlaying) {
     stopPlayback();
   }
   isRecording = true;
   isPlaying = true;
-  initAudio();
+  await initAudio();
   if (!window.audioContext) {
     alert("AudioContext not available. Cannot record.");
     return;
@@ -860,8 +860,3 @@ export function loadSequence() {
   };
   input.click();
 }
-
-/******************************************************
- * Utility: get freq from noteName + octave with optional mapping
- * We already do that in main logic, so this might not be needed.
- ******************************************************/
