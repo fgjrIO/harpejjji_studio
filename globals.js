@@ -51,7 +51,8 @@ export const CHORD_DEFINITIONS = [
   { name: "Maj13", intervals: [0,4,7,11,2,5,9] },
   { name: "Min13", intervals: [0,3,7,10,2,5,9] },
   { name: "Add9",  intervals: [0,4,7,2] },
-  { name: "mAdd9", intervals: [0,3,7,2] }
+  { name: "mAdd9", intervals: [0,3,7,2] },
+  { name: "(#9)", intervals: [0, 3, 4, 7,10] }
 ];
 
 /**
