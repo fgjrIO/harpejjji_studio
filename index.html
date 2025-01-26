@@ -1030,6 +1030,13 @@
       document.getElementById("clearLibraryBtn").addEventListener("click", clearLibrary);
       document.getElementById("printLibraryBtn").addEventListener("click", printLibrary);
 
+      // Add filter change listeners
+      document.querySelectorAll('input[name="libraryFilter"]').forEach(radio => {
+        radio.addEventListener('change', populateLibrary);
+      });
+      document.getElementById('modelFilterSelect').addEventListener('change', populateLibrary);
+      document.getElementById('scaleFilterCheckbox').addEventListener('change', populateLibrary);
+
       // Kill notes
       document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
 

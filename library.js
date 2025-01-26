@@ -63,9 +63,10 @@ import {
   
     // read filters
     const scaleFilterCheckbox = document.getElementById("scaleFilterCheckbox");
-    const libraryFilterVal = document.querySelector('input[name="libraryFilter"]:checked')?.value || "all";
+    const libraryFilterRadios = document.querySelectorAll('input[name="libraryFilter"]');
+    const libraryFilterVal = Array.from(libraryFilterRadios).find(radio => radio.checked)?.value || "all";
     const modelFilterSel = document.getElementById("modelFilterSelect");
-    const modelFilterVal = modelFilterSel ? modelFilterSel.value : "all";
+    const modelFilterVal = modelFilterSel?.value || "all";
   
     const doScaleFilter = scaleFilterCheckbox && scaleFilterCheckbox.checked && currentScale !== "none";
   
@@ -73,15 +74,16 @@ import {
       const selection = savedSelections[i];
   
       // type filter
-      if (libraryFilterVal!=="all") {
-        const wantType = (libraryFilterVal==="tabs") ? "tab" : "chord";
-        if (selection.type!== wantType) {
+      if (libraryFilterVal !== "all") {
+        const wantType = (libraryFilterVal === "tabs") ? "tab" : "chord";
+        if (selection.type !== wantType) {
           continue;
         }
       }
+      
       // model filter
-      if (modelFilterVal!=="all") {
-        if (!selection.model || selection.model!== modelFilterVal) {
+      if (modelFilterVal !== "all" && modelFilterVal) {
+        if (!selection.model || selection.model !== modelFilterVal) {
           continue;
         }
       }
@@ -597,4 +599,3 @@ import {
     window.BASE_NOTE      = modelData.startNote;
     window.BASE_OCTAVE    = modelData.startOctave;
   }
-  
