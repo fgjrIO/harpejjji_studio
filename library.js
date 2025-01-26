@@ -4,7 +4,7 @@
  * Manages:
  *  - LocalStorage-based library of tab/chord items
  *  - Toggling the library side panel
- *  - Filtering by type (tabs or chords), model filter, scale filter
+ *  - Filtering by type, scale, model
  *  - Loading a selection (tab or chord) back into the app
  *  - Printing, importing, exporting
  ******************************************************/
@@ -225,7 +225,6 @@ function allChordNotesInCurrentScale(keysArray) {
   }
 
   for (const k of keysArray) {
-    // k.noteName might be "C#", "Ab", etc.
     let rawName = mapAccidentalsToSharps(k.noteName);
     const noteIndex = NOTES.indexOf(rawName);
     if (noteIndex < 0) return false;
@@ -469,8 +468,7 @@ export function importFiles() {
 
 /******************************************************
  * printLibrary():
- *  - Open new window, print library items in a
- *    2x4 or 1x1 layout, possibly high-contrast
+ *  - Open new window, print library items
  ******************************************************/
 export function printLibrary() {
   const arr = JSON.parse(localStorage.getItem("harpejjiSelections") || "[]");
@@ -658,4 +656,83 @@ function setCurrentModelData(modelData) {
   window.numberOfFrets   = modelData.numberOfFrets;
   window.BASE_NOTE       = modelData.startNote;
   window.BASE_OCTAVE     = modelData.startOctave;
+}
+
+/* ===========================================================
+   NEW FUNCTION: importFilesScaleLocked()
+   =========================================================== */
+
+/**
+ * importFilesScaleLocked():
+ *  - Lets user select multiple JSON files (tabs/chords)
+ *  - Imports them all at once without prompting after each file
+ *  - Only items that fit the current scale are added
+ *  - Summarizes total imported vs. rejected at the end
+ */
+export function importFilesScaleLocked() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+  input.multiple = true;
+
+  input.onchange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const saved = JSON.parse(localStorage.getItem("harpejjiSelections") || "[]");
+    let importedCount = 0;
+    let rejectedCount = 0;
+    let processed = 0;
+
+    // Process each file
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (rEv) => {
+        try {
+          const data = JSON.parse(rEv.target.result);
+          const items = Array.isArray(data) ? data : [data];
+
+          for (const item of items) {
+            // Must be chord or tab
+            if (item.type !== "tab" && item.type !== "chord") {
+              rejectedCount++;
+              continue;
+            }
+
+            // Check scale consonance
+            let passesScale = false;
+            if (item.type === "tab") {
+              passesScale = allNotesInCurrentScale(item.notesPlainText);
+            } else if (item.type === "chord") {
+              passesScale = allChordNotesInCurrentScale(item.keys);
+            }
+
+            if (passesScale) {
+              saved.push(item);
+              importedCount++;
+            } else {
+              rejectedCount++;
+            }
+          }
+        } catch (err) {
+          console.error("Error importing file:", err);
+          // Entire file is invalid => count as rejected
+          rejectedCount++;
+        }
+        processed++;
+        if (processed === files.length) {
+          // Once all files processed, finalize library
+          localStorage.setItem("harpejjiSelections", JSON.stringify(saved));
+          populateLibrary();
+          alert(
+            `Scale-Locked Import Complete.\nImported: ${importedCount}\nRejected: ${rejectedCount}`
+          );
+        }
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  // Trigger the file chooser
+  input.click();
 }

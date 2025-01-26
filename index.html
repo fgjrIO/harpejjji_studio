@@ -465,6 +465,10 @@
         <button id="importBtn" class="px-3 py-2 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 transition-colors duration-200 shadow-sm text-sm">
           Import Files
         </button>
+        <!-- NEW BUTTON for Scale-Locked Import -->
+        <button id="importScaleLockedBtn" class="px-3 py-2 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 transition-colors duration-200 shadow-sm text-sm">
+          Import Scale-Locked
+        </button>
         <button id="saveLibraryBtn" class="px-3 py-2 rounded-md bg-indigo-500 text-white hover:bg-indigo-600 transition-colors duration-200 shadow-sm text-sm">
           Save Library
         </button>
@@ -861,7 +865,6 @@
   <!-- Main ES Modules -->
   <script type="module">
     import { 
-      // From globals.js
       fretSpacing, setFretSpacing,
       showNotes, setShowNotes,
       keyMode, setKeyMode,
@@ -1023,6 +1026,13 @@
       document.getElementById("libraryBtn").addEventListener("click", toggleLibrary);
       document.getElementById("closeLibraryBtn").addEventListener("click", toggleLibrary);
       document.getElementById("importBtn").addEventListener("click", importFiles);
+
+      // NEW: We'll listen for scale-locked button here (defined in library.js)
+      import("./library.js").then(module => {
+        const importScaleLockedBtn = document.getElementById("importScaleLockedBtn");
+        importScaleLockedBtn.addEventListener("click", module.importFilesScaleLocked);
+      });
+
       document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
       document.getElementById("saveLibraryAsBtn").addEventListener("click", saveLibraryAs);
       document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
@@ -1063,7 +1073,6 @@
       });
 
       document.getElementById("metronome-btn").addEventListener("click", () => {
-        // toggles the metronome in sequencer.js
         import("./sequencer.js").then(({ toggleMetronome }) => {
           toggleMetronome();
         });
