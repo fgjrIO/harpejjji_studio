@@ -50,7 +50,7 @@ export const activeUserOscillators = new Map();
  *  - Creates window.audioContext if not already
  *  - Sets up masterGain, delay, reverb
  ******************************************************/
-export function initAudio() {
+export async function initAudio() {
   // If we already have audioContext on window, do nothing
   if (window.audioContext) return;
 
@@ -61,6 +61,15 @@ export function initAudio() {
   }
 
   window.audioContext = new AudioContextClass();
+  
+  // Ensure audioContext is resumed on initialization
+  if (window.audioContext.state === 'suspended') {
+    try {
+      await window.audioContext.resume();
+    } catch (error) {
+      console.error('Failed to resume audio context:', error);
+    }
+  }
 
   masterGain = window.audioContext.createGain();
   masterGain.gain.value = 0.1;
@@ -97,9 +106,19 @@ export function initAudio() {
  *   - calls createInstrumentSound()
  *   - wraps in a simpler object
  ******************************************************/
-export function createOscillator(frequency, instrument) {
-  if (!window.audioContext) initAudio();
-  const soundObj = createInstrumentSound(frequency, instrument);
+export async function createOscillator(frequency, instrument) {
+  if (!window.audioContext) await initAudio();
+  
+  // Double-check context state before creating sound
+  if (window.audioContext.state === 'suspended') {
+    try {
+      await window.audioContext.resume();
+    } catch (error) {
+      console.error('Failed to resume audio context:', error);
+    }
+  }
+  
+  const soundObj = await createInstrumentSound(frequency, instrument);
 
   const oscWrapper = {
     osc: { stop: soundObj.stop },
@@ -181,8 +200,8 @@ export function setReverbAmount(value) {
  *   - ADSR envelope
  *   - master, delay, reverb sends
  ******************************************************/
-function createInstrumentSound(frequency, instrument) {
-  if (!window.audioContext) initAudio();
+async function createInstrumentSound(frequency, instrument) {
+  if (!window.audioContext) await initAudio();
 
   const noteGain = window.audioContext.createGain();
   noteGain.gain.value= 0; // will fade in via ADSR

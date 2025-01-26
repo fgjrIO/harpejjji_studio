@@ -350,12 +350,12 @@ import {
    * handleKeyDown(x,y):
    *  - Called on mouse down.
    ******************************************************/
-  export function handleKeyDown(x,y) {
+export async function handleKeyDown(x,y) {
     const noteName= getNoteName(x,y);
     const octave  = getNoteOctave(x,y);
     const freq    = noteToFrequency(noteName, octave);
   
-    const oscObj= createOscillator(freq, window.currentInstrument || "piano");
+    const oscObj= await createOscillator(freq, window.currentInstrument || "piano");
     activeUserOscillators.set(`${x}_${y}`, oscObj);
   
     if(keyMode==="toggle"){
@@ -448,11 +448,11 @@ import {
    * playNoteTemporary(x,y, duration=300):
    * For "Play Selection" button, or quick beep of a note.
    ******************************************************/
-  export function playNoteTemporary(x,y, duration=300){
+  export async function playNoteTemporary(x,y, duration=300){
     const noteName= getNoteName(x,y);
     const octave= getNoteOctave(x,y);
     const freq= noteToFrequency(noteName, octave);
-    const oscObj= createOscillator(freq, window.currentInstrument || "piano");
+    const oscObj= await createOscillator(freq, window.currentInstrument || "piano");
     setTimeout(()=> {
       stopOscillator(oscObj);
     }, duration);
