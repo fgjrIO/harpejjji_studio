@@ -21,7 +21,9 @@ import {
     BASE_OCTAVE,
     showNotes,
     numberOfFrets,
-    numberOfStrings
+    numberOfStrings,
+    getNoteName,
+    getNoteOctave
   } from "./globals.js";
 
 import { 
@@ -114,11 +116,16 @@ let globalNoteToIndexMap = new Map();
  ******************************************************/
 function buildSortedNotesMapping() {
   let multiMap = {};
+  const A4_OCT = 4;
+  const A4_Idx = NOTES.indexOf("A");
+  
   for (let y=0; y< numberOfFrets; y++){
     for (let x=0; x< numberOfStrings; x++){
-      const nName= getNoteName(x,y);
-      const oct  = getNoteOctave(x,y);
-      const pitch= getMIDINumber(nName, oct);
+      const nName = getNoteName(x,y);
+      const oct = getNoteOctave(x,y);
+      const noteIdx = NOTES.indexOf(nName);
+      const pitch = (oct - A4_OCT)*12 + (noteIdx - A4_Idx);
+      
       if(!multiMap[pitch]){
         multiMap[pitch]= [];
       }
@@ -151,44 +158,6 @@ function buildSortedNotesMapping() {
     const full= o.noteName+ o.octave;
     globalNoteToIndexMap.set(full, idx);
   });
-}
-
-/******************************************************
- * getNoteName(x,y):
- *   each column => +2 semitones, row => +1 semitone
- ******************************************************/
-function getNoteName(x,y) {
-  const idx= NOTES.indexOf(BASE_NOTE);
-  const sem= x*2 + y;
-  const newIdx= mod(idx+ sem, NOTES.length);
-  return NOTES[newIdx];
-}
-
-/******************************************************
- * getNoteOctave(x,y)
- ******************************************************/
-function getNoteOctave(x,y) {
-  const idx= NOTES.indexOf(BASE_NOTE);
-  const sem= x*2 + y;
-  const total= idx+ sem;
-  const octShift= Math.floor(total/ NOTES.length);
-  return BASE_OCTAVE + octShift;
-}
-
-/******************************************************
- * mod helper
- ******************************************************/
-function mod(n,m) {
-  return ((n%m)+m)%m;
-}
-
-/******************************************************
- * getMIDINumber(noteName, octave):
- *   (octave+1)*12 + noteIndex
- ******************************************************/
-function getMIDINumber(noteName, octave) {
-  const noteIndex= NOTES.indexOf(noteName);
-  return (octave+1)*12 + noteIndex;
 }
 
 /******************************************************
@@ -373,13 +342,18 @@ document.addEventListener("mousemove",(e)=>{
     let newIndex= dragOriginalNoteIndex+ rowChange;
     newIndex= Math.max(0, Math.min(newIndex, globalSortedNotes.length-1));
     draggingNote.noteIndex= newIndex;
-    const newPitchObj= globalSortedNotes[newIndex];
+    const newPitchObj = globalSortedNotes[newIndex];
     if(newPitchObj){
-      draggingNote.noteName= newPitchObj.noteName;
-      draggingNote.octave  = newPitchObj.octave;
-      draggingNote.pitch   = newPitchObj.pitch;
-      draggingNote.x       = newPitchObj.x;
-      draggingNote.y       = newPitchObj.y;
+      const noteIdx = NOTES.indexOf(newPitchObj.noteName);
+      const A4_OCT = 4;
+      const A4_Idx = NOTES.indexOf("A");
+      const pitch = (newPitchObj.octave - A4_OCT)*12 + (noteIdx - A4_Idx);
+      
+      draggingNote.noteName = newPitchObj.noteName;
+      draggingNote.octave = newPitchObj.octave;
+      draggingNote.pitch = pitch;
+      draggingNote.x = newPitchObj.x;
+      draggingNote.y = newPitchObj.y;
     }
   }
   drawSequencerGrid();
@@ -417,8 +391,13 @@ export function startNoteRecording(x,y) {
     }
   }
 
+  const noteIdx = NOTES.indexOf(noteName);
+  const A4_OCT = 4;
+  const A4_Idx = NOTES.indexOf("A");
+  const pitch = (octave - A4_OCT)*12 + (noteIdx - A4_Idx);
+
   activeNotes.set(fullName, {
-    noteName, octave, noteIndex,
+    noteName, octave, noteIndex, pitch,
     startTime: now, x, y, selected:false
   });
 }
@@ -801,6 +780,85 @@ export function stopRecording() {
   if (recInd) recInd.classList.add("hidden");
   document.getElementById("record-btn")?.classList.remove("bg-red-600");
   stopPlayback();
+}
+
+/******************************************************
+ * loadSequence():
+ *   Load a sequence from a file
+ ******************************************************/
+export function loadSequence() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+  input.onchange = (evt) => {
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        const notes = Array.isArray(data) ? data : data.notes;
+        if (!notes || !Array.isArray(notes)) {
+          throw new Error("Invalid sequence file format");
+        }
+
+        // Build note mapping first
+        buildSortedNotesMapping();
+
+        // Process each note
+        const processedNotes = notes.map(note => {
+          // Get the noteIndex from the mapping
+          const fullName = note.noteName + note.octave;
+          const noteIndex = globalNoteToIndexMap.get(fullName);
+          
+          // Calculate pitch using A4 as reference
+          const noteIdx = NOTES.indexOf(note.noteName);
+          const A4_OCT = 4;
+          const A4_Idx = NOTES.indexOf("A");
+          const pitch = (note.octave - A4_OCT)*12 + (noteIdx - A4_Idx);
+
+          return {
+            ...note,
+            noteIndex,
+            pitch,
+            isPlaying: false,
+            oscObj: null,
+            selected: false
+          };
+        });
+
+          // Update BPM if provided
+          if (data.bpm) {
+            setSequencerBPM(data.bpm);
+            const tempoSlider = document.getElementById("tempoSlider");
+            const tempoValue = document.getElementById("tempoValue");
+            if (tempoSlider && tempoValue) {
+              tempoSlider.value = data.bpm;
+              tempoValue.textContent = `${data.bpm} BPM`;
+            }
+          }
+
+          // Stop any playing notes
+          stopPlayback();
+
+          // Replace current notes
+          recordedNotes.splice(0, recordedNotes.length, ...processedNotes);
+          
+          // Clear history
+          undoStack = [];
+          redoStack = [];
+          
+          // Update display
+          drawPianoRoll();
+          drawSequencerGrid();
+
+      } catch (err) {
+        alert("Error loading sequence: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 /******************************************************

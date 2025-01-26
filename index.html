@@ -1077,28 +1077,9 @@
         URL.revokeObjectURL(url);
       });
       document.getElementById("load-seq-btn").addEventListener("click", () => {
-        const input = document.getElementById("load-seq-file");
-        input.onchange = (evt) => {
-          const file = evt.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              try {
-                const data = JSON.parse(e.target.result);
-                setSequencerBPM(data.bpm || 120);
-                window.recordedNotes = data.notes || [];
-                document.getElementById("tempoSlider").value = SEQUENCER_CONFIG.bpm;
-                document.getElementById("tempoValue").textContent = `${SEQUENCER_CONFIG.bpm} BPM`;
-                stopPlayback();
-                drawSequencerGrid();
-              } catch (error) {
-                alert("Error loading sequence file");
-              }
-            };
-            reader.readAsText(file);
-          }
-        };
-        input.click();
+        import("./sequencer.js").then(({ loadSequence }) => {
+          loadSequence();
+        });
       });
 
       // Toggle Sequencer view
