@@ -124,7 +124,6 @@
                  focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
                  focus:outline-none min-w-[120px] shadow-sm"
         >
-          <!-- Replaced old piano/guitar/etc. with synth placeholders: -->
           <option value="piano" selected>Piano</option>
           <option value="guitar">Guitar</option>
           <option value="banjo">Banjo</option>
@@ -1225,7 +1224,9 @@
       chordToggle,
       chordStrum,
       clearAllTabMarkers,
-      setChordNotesFromKeysState
+      setChordNotesFromKeysState,
+      // IMPORTANT: import recordChordNoteIfNeeded
+      recordChordNoteIfNeeded
     } from "./chordPalette.js";
 
     import {
@@ -1280,19 +1281,16 @@
             document.getElementById("noiseOn").checked = false;
             document.getElementById("ampEnvA").value = 0.01;
             document.getElementById("ampEnvD").value = 0.7;
-            document.getElementById("ampEnvS").value = 90; // 70%
+            document.getElementById("ampEnvS").value = 90; 
             document.getElementById("ampEnvR").value = .8;
             document.getElementById("lfoDepth").value = 0.0;
-        
-           
             break;
 
           case "guitar":
             document.getElementById("osc1WaveType").value = "sawtooth";
             document.getElementById("osc2WaveType").value = "square";
             document.getElementById("osc1Tune").value = 0;
-            // 12 semitones up for a higher overtone
-            document.getElementById("osc2Tune").value = 12; 
+            document.getElementById("osc2Tune").value = 12;
             document.getElementById("osc1Mix").value = 70;
             document.getElementById("osc2Mix").value = 30;
             document.getElementById("noiseOn").checked = false;
@@ -1306,8 +1304,7 @@
             document.getElementById("osc1WaveType").value = "sawtooth";
             document.getElementById("osc2WaveType").value = "sawtooth";
             document.getElementById("osc1Tune").value = 0;
-            // Perfect fifth
-            document.getElementById("osc2Tune").value = 7; 
+            document.getElementById("osc2Tune").value = 7;
             document.getElementById("osc1Mix").value = 60;
             document.getElementById("osc2Mix").value = 40;
             document.getElementById("noiseOn").checked = false;
@@ -1320,7 +1317,6 @@
           case "harp":
             document.getElementById("osc1WaveType").value = "sine";
             document.getElementById("osc2WaveType").value = "sine";
-            // two octaves higher for osc2
             document.getElementById("osc1Tune").value = 12;
             document.getElementById("osc2Tune").value = 24;
             document.getElementById("osc1Mix").value = 50;
@@ -1908,7 +1904,7 @@
         document.getElementById("findChordPopup").classList.add("hidden");
       });
 
-      // Play Selection
+      // *** HERE IS THE FIX: we also record chord notes if a slot is armed ***
       document.getElementById("playSelectionBtn").addEventListener("click", () => {
         const selectedKeys = [];
         for (let y = 0; y < numberOfFrets; y++) {
@@ -1919,6 +1915,8 @@
           }
         }
         selectedKeys.forEach(pos => {
+          // Record chord note if chordRecordIndex >= 0
+          recordChordNoteIfNeeded(pos.x, pos.y);
           playNoteTemporary(pos.x, pos.y, 300);
         });
       });
@@ -1932,7 +1930,6 @@
 
 
     // -------- FIX Save/Load Synth Preset Buttons -------- //
-    // We'll dynamically import the needed functions to avoid changing other code.
     document.getElementById("saveSynthSettingsBtn").addEventListener("click", async () => {
       const { getSynthSettingsFromDOM } = await import("./audio.js");
       const settings = getSynthSettingsFromDOM();
