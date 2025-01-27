@@ -186,9 +186,7 @@ export function getSynthSettingsFromDOM() {
 /**
  * createOscillator(frequency, instrument)
  * Called when you press or toggle a key.
- * Instead of separate “piano/guitar,” we’ll interpret
- * ‘instrument’ as “synth1 / 2 / 3 / 4,” but all use
- * the same multi-osc logic with the settings from the UI.
+ * We use the same multi-osc logic with the settings from the UI.
  */
 export async function createOscillator(frequency, instrument) {
   if (!window.audioContext) await initAudio();
@@ -354,9 +352,7 @@ async function createSynthVoice(frequency, synthParams) {
   } else if (synthParams.lfo.routing === "pitch") {
     // We'll modulate each subVoice's oscillator frequencies
     voiceNodes.forEach(sub => {
-      sub.osc1Node.detune.value += 0;
       try { lfoGain.connect(sub.osc1Node.detune); } catch {}
-      sub.osc2Node.detune.value += 0;
       try { lfoGain.connect(sub.osc2Node.detune); } catch {}
     });
   }
@@ -447,8 +443,6 @@ function createSubVoiceOscillators(freq, synthParams, index, totalUnison) {
   }
   const semitoneRatio2 = Math.pow(2, (synthParams.osc2.tune + detuneCents/100) / 12);
   osc2.frequency.value *= semitoneRatio2;
-
-  // Hard Sync not implemented (placeholder)
 
   // Gains
   const osc1Gain = window.audioContext.createGain();

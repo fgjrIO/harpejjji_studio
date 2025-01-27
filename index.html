@@ -141,7 +141,6 @@
                  focus:outline-none min-w-[120px] shadow-sm"
         >
           <option value="none">None</option>
-          <!-- Additional scales populated dynamically -->
         </select>
       </div>
 
@@ -345,7 +344,6 @@
           >
             <option value="press" selected>Press</option>
             <option value="strum">Strum</option>
-            <!-- NEW modes: Strum 2 and Press, Strum 3 and Press -->
             <option value="strum2press">Strum 2 and Press</option>
             <option value="strum3press">Strum 3 and Press</option>
           </select>
@@ -1019,6 +1017,8 @@
       <button id="stop-btn" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors duration-200 shadow-sm">
         Stop
       </button>
+
+      <!-- Updated record button so it calls start/stopRecording -->
       <button id="record-btn" class="px-4 py-2 bg-rose-500 text-white rounded-md hover:bg-rose-600 transition-colors duration-200 shadow-sm">
         Record
       </button>
@@ -1028,9 +1028,14 @@
       >
         RECORDING
       </span>
-      <button id="metronome-btn" class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200 shadow-sm">
-        Metronome
-      </button>
+
+      <!-- Replaced old Metronome button with a toggle -->
+      <label class="flex items-center gap-2 bg-slate-600 text-white px-3 py-2 rounded-md cursor-pointer hover:bg-slate-700 transition-colors duration-200 shadow-sm">
+        <input type="checkbox" id="metronomeToggle" class="hidden" />
+        <span>Metronome</span>
+        <span id="metronomeToggleLabel" class="text-xs">Off</span>
+      </label>
+
       <button id="save-seq-btn" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors duration-200 shadow-sm">
         Save
       </button>
@@ -1230,7 +1235,6 @@
       chordStrum3AndPress,
       clearAllTabMarkers,
       setChordNotesFromKeysState,
-      // IMPORTANT: import recordChordNoteIfNeeded
       recordChordNoteIfNeeded
     } from "./chordPalette.js";
 
@@ -1267,7 +1271,9 @@
       pushHistory,
       undo,
       redo,
-      SEQUENCER_CONFIG
+      SEQUENCER_CONFIG,
+      startRecording,
+      stopRecording
     } from "./sequencer.js";
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -1442,24 +1448,26 @@
       document.getElementById("stop-btn").addEventListener("click", () => {
         stopPlayback();
       });
+
+      // FIX: Use startRecording() / stopRecording() from sequencer.js
       document.getElementById("record-btn").addEventListener("click", () => {
-        isRecording = !isRecording;
-        const recordBtn = document.getElementById("record-btn");
-        recordBtn.classList.toggle("bg-red-600");
-        const indicator = document.getElementById("record-indicator");
-        if (isRecording) {
-          indicator.classList.remove("hidden");
-          if (!isPlaying) {
-            document.getElementById("play-btn").click();
+        import("./sequencer.js").then(({ isRecording, startRecording, stopRecording }) => {
+          if (!isRecording) {
+            startRecording();
+          } else {
+            stopRecording();
           }
-        } else {
-          indicator.classList.add("hidden");
-        }
+        });
       });
 
-      document.getElementById("metronome-btn").addEventListener("click", () => {
+      // NEW: Metronome toggle
+      const metroToggle = document.getElementById("metronomeToggle");
+      const metroLabel  = document.getElementById("metronomeToggleLabel");
+      metroToggle.addEventListener("change", (e) => {
+        const isOn = e.target.checked;
+        metroLabel.textContent = isOn ? "On" : "Off";
         import("./sequencer.js").then(({ toggleMetronome }) => {
-          toggleMetronome();
+          toggleMetronome(isOn);
         });
       });
 
@@ -1914,7 +1922,7 @@
         document.getElementById("findChordPopup").classList.add("hidden");
       });
 
-      // *** HERE IS THE FIX: we also record chord notes if a slot is armed ***
+      // *** Record chord notes if a slot is armed ***
       document.getElementById("playSelectionBtn").addEventListener("click", () => {
         const selectedKeys = [];
         for (let y = 0; y < numberOfFrets; y++) {
