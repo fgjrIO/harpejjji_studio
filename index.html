@@ -512,7 +512,7 @@
         <button id="importBtn" class="px-3 py-2 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 transition-colors duration-200 shadow-sm text-sm">
           Import Files
         </button>
-        <!-- NEW BUTTON for Scale-Locked Import -->
+        <!-- Scale-Locked Import -->
         <button id="importScaleLockedBtn" class="px-3 py-2 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 transition-colors duration-200 shadow-sm text-sm">
           Import Scale-Locked
         </button>
@@ -531,6 +531,13 @@
         <button id="printLibraryBtn" class="px-3 py-2 rounded-md bg-purple-500 text-white hover:bg-purple-600 transition-colors duration-200 shadow-sm text-sm">
           Print Library
         </button>
+
+        <!-- Wide Mode Toggle -->
+        <label for="wideModeCheckbox" class="inline-flex items-center space-x-1">
+          <input type="checkbox" id="wideModeCheckbox" />
+          <span>Wide Mode</span>
+        </label>
+
         <label for="enlargedCheckbox" class="inline-flex items-center space-x-1">
           <input type="checkbox" id="enlargedCheckbox" />
           <span>Enlarged Printing</span>
@@ -909,7 +916,7 @@
     </div>
   </div>
 
-  <!-- NEW: Chord Info Popup -->
+  <!-- Chord Info Popup -->
   <div id="chordInfoPopup" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
@@ -1008,7 +1015,9 @@
       loadLibrary,
       clearLibrary,
       printLibrary,
-      loadSelection
+      loadSelection,
+      importFilesScaleLocked,
+      handleWideModeToggle
     } from "./library.js";
 
     import {
@@ -1105,18 +1114,19 @@
       document.getElementById("libraryBtn").addEventListener("click", toggleLibrary);
       document.getElementById("closeLibraryBtn").addEventListener("click", toggleLibrary);
       document.getElementById("importBtn").addEventListener("click", importFiles);
-
-      // Scale-locked import
-      import("./library.js").then(module => {
-        const importScaleLockedBtn = document.getElementById("importScaleLockedBtn");
-        importScaleLockedBtn.addEventListener("click", module.importFilesScaleLocked);
-      });
+      document.getElementById("importScaleLockedBtn").addEventListener("click", importFilesScaleLocked);
 
       document.getElementById("saveLibraryBtn").addEventListener("click", saveLibrary);
       document.getElementById("saveLibraryAsBtn").addEventListener("click", saveLibraryAs);
       document.getElementById("loadLibraryBtn").addEventListener("click", loadLibrary);
       document.getElementById("clearLibraryBtn").addEventListener("click", clearLibrary);
       document.getElementById("printLibraryBtn").addEventListener("click", printLibrary);
+
+      // Wide Mode Toggle
+      const wideModeCheckbox = document.getElementById("wideModeCheckbox");
+      wideModeCheckbox.addEventListener("change", (e) => {
+        handleWideModeToggle(e.target.checked);
+      });
 
       // Add filter change listeners
       document.querySelectorAll('input[name="libraryFilter"]').forEach(radio => {
@@ -1529,7 +1539,6 @@
             noteName: k.noteName,
             octave: k.octave
           })),
-          // We could also include their favorite/tags if desired:
           favorite: ch.favorite || false,
           tags: ch.tags || "",
           image: ch.image || null

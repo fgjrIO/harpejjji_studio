@@ -3,11 +3,12 @@
  *
  * Manages:
  *  - LocalStorage-based library of tab/chord items
- *  - Toggling the library side panel
+ *  - Toggling the library side panel (#librarySlideover)
  *  - Filtering by type, scale, model
  *  - Loading a selection (tab or chord) back into the app
  *  - Printing, importing, exporting
- *  - NOW includes "Wide Mode" toggle and pagination (4x4 grid)
+ *  - "Wide Mode" toggle => expands the white panel to half the screen
+ *  - 4×4 grid layout with pagination
  ******************************************************/
 
 import {
@@ -35,9 +36,9 @@ import { createOscillator, stopOscillator } from "./audio.js";
 /******************************************************
  * Global pagination & wide mode states
  ******************************************************/
-let libraryPageIndex = 0;    // Which page are we on?
-const itemsPerPage = 16;     // 4×4 grid
-let wideModeEnabled = false; // Toggled via checkbox
+let libraryPageIndex = 0;    // Which page we're on
+const itemsPerPage = 16;     // 4x4 grid
+let wideModeEnabled = false; // toggled by handleWideModeToggle()
 
 /******************************************************
  * toggleLibrary():
@@ -50,27 +51,41 @@ export function toggleLibrary() {
 }
 
 /******************************************************
+ * handleWideModeToggle(enabled):
+ *  - Called when user checks/unchecks "Wide Mode" in index.html
+ ******************************************************/
+export function handleWideModeToggle(enabled) {
+  wideModeEnabled = enabled;
+  libraryPageIndex = 0; // reset pagination back to first page
+  populateLibrary();
+}
+
+/******************************************************
  * populateLibrary():
- *  - Read the array from localStorage => "harpejjiSelections"
- *  - Filter by type, scale, model
- *  - In wide mode => library is half-page wide,
- *    and we show a 4×4 grid with pagination.
+ *  - Filter, paginate, and display items. 
+ *  - If wideModeEnabled, expand the white panel to half-screen
+ *    and show items in a 4x4 grid with pagination.
  ******************************************************/
 export function populateLibrary() {
+  const slideover = document.getElementById("librarySlideover");
+  if (!slideover) return;
+
+  // The white library panel is the child with "absolute" class
+  // (the second div inside #librarySlideover).
+  const libraryPanel = slideover.querySelector("div.absolute.left-0.top-0.bottom-0.bg-white");
+  // If wideModeEnabled => replace w-72 with w-[50vw]
+  if (libraryPanel) {
+    if (wideModeEnabled) {
+      libraryPanel.classList.remove("w-72");
+      libraryPanel.classList.add("w-[50vw]");
+    } else {
+      libraryPanel.classList.remove("w-[50vw]");
+      libraryPanel.classList.add("w-72");
+    }
+  }
+
   const libraryContent = document.getElementById("libraryContent");
   if (!libraryContent) return;
-
-  // Set library slideover width based on wideModeEnabled
-  const slideover = document.getElementById("librarySlideover");
-  if (wideModeEnabled) {
-    // Expand to half the page
-    slideover.classList.add("w-[50vw]");
-    slideover.classList.remove("w-72");
-  } else {
-    // Default narrow mode
-    slideover.classList.remove("w-[50vw]");
-    slideover.classList.add("w-72");
-  }
 
   libraryContent.innerHTML = "";
 
@@ -91,57 +106,44 @@ export function populateLibrary() {
   const doScaleFilter = scaleFilterCheckbox && scaleFilterCheckbox.checked && currentScale !== "none";
 
   // Filter the entire array
-  let filteredSelections = [];
-  for (let i = 0; i < savedSelections.length; i++) {
-    const selection = savedSelections[i];
-
-    // Type filter
+  const filtered = savedSelections.filter((selection) => {
+    // Type filter (tabs vs chords vs all)
     if (libraryFilterVal !== "all") {
       const wantType = (libraryFilterVal === "tabs") ? "tab" : "chord";
-      if (selection.type !== wantType) {
-        continue;
-      }
+      if (selection.type !== wantType) return false;
     }
 
     // Model filter
     if (modelFilterVal !== "all" && modelFilterVal) {
-      if (!selection.model || selection.model !== modelFilterVal) {
-        continue;
-      }
+      if (!selection.model || selection.model !== modelFilterVal) return false;
     }
 
     // Scale filter
     if (doScaleFilter) {
       if (selection.type === "tab") {
-        if (!allNotesInCurrentScale(selection.notesPlainText)) {
-          continue;
-        }
+        if (!allNotesInCurrentScale(selection.notesPlainText)) return false;
       } else if (selection.type === "chord") {
-        if (!allChordNotesInCurrentScale(selection.keys)) {
-          continue;
-        }
+        if (!allChordNotesInCurrentScale(selection.keys)) return false;
       }
     }
 
-    filteredSelections.push(selection);
-  }
+    return true;
+  });
 
-  if (!filteredSelections.length) {
+  if (!filtered.length) {
     libraryContent.innerHTML = '<p class="text-gray-500 text-center">No items match your filter</p>';
     return;
   }
 
-  // PAGINATION: slice the filtered array to show the current page
-  const totalPages = Math.ceil(filteredSelections.length / itemsPerPage);
-  // Ensure page index is in range
+  // PAGINATION
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
   if (libraryPageIndex >= totalPages) libraryPageIndex = totalPages - 1;
   if (libraryPageIndex < 0) libraryPageIndex = 0;
   const start = libraryPageIndex * itemsPerPage;
   const end = start + itemsPerPage;
-  const pageItems = filteredSelections.slice(start, end);
+  const pageItems = filtered.slice(start, end);
 
-  // In wide mode => display in a 4x4 grid
-  // If not wide mode => keep the default vertical layout
+  // If wideMode => 4x4 grid
   if (wideModeEnabled) {
     libraryContent.classList.remove("space-y-4");
     libraryContent.classList.add("grid", "grid-cols-4", "gap-4");
@@ -151,7 +153,7 @@ export function populateLibrary() {
   }
 
   // Build each item in pageItems
-  pageItems.forEach((selection, i) => {
+  pageItems.forEach((selection) => {
     const div = document.createElement("div");
     div.className = "relative p-2 border rounded hover:bg-gray-100";
 
@@ -161,7 +163,7 @@ export function populateLibrary() {
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      deleteSelectionByObject(selection, filteredSelections);
+      deleteSelectionByObject(selection);
     });
     div.appendChild(deleteBtn);
 
@@ -175,12 +177,12 @@ export function populateLibrary() {
     });
     div.appendChild(previewBtn);
 
-    // Content wrapper for clicks => load
+    // Content => load
     const contentDiv = document.createElement("div");
     contentDiv.className = "cursor-pointer selection-content";
     div.appendChild(contentDiv);
 
-    // If there is an image
+    // Image
     if (selection.image) {
       const img = document.createElement("img");
       img.src = selection.image;
@@ -239,7 +241,7 @@ export function populateLibrary() {
       contentDiv.appendChild(dtDiv);
     }
 
-    // Clicking => load selection
+    // Clicking => load
     contentDiv.addEventListener("click", () => {
       loadSelection(selection);
     });
@@ -247,17 +249,19 @@ export function populateLibrary() {
     libraryContent.appendChild(div);
   });
 
-  // If there are multiple pages, add a pagination bar at the bottom
+  // Pagination bar
   if (totalPages > 1) {
     const paginationDiv = document.createElement("div");
-    paginationDiv.className = "flex items-center justify-center mt-4 space-x-4 col-span-4";
-
+    paginationDiv.className = wideModeEnabled
+      ? "flex items-center justify-center mt-4 space-x-4 col-span-4"
+      : "flex items-center justify-center mt-4 space-x-4";
+    
     const pageInfo = document.createElement("span");
     pageInfo.className = "text-sm text-gray-700";
     pageInfo.textContent = `Page ${libraryPageIndex + 1} of ${totalPages}`;
     paginationDiv.appendChild(pageInfo);
 
-    // Prev button
+    // Prev
     if (libraryPageIndex > 0) {
       const prevBtn = document.createElement("button");
       prevBtn.className = "px-3 py-1 bg-slate-500 text-white text-xs rounded hover:bg-slate-600";
@@ -269,7 +273,7 @@ export function populateLibrary() {
       paginationDiv.appendChild(prevBtn);
     }
 
-    // Next button
+    // Next
     if (libraryPageIndex < totalPages - 1) {
       const nextBtn = document.createElement("button");
       nextBtn.className = "px-3 py-1 bg-slate-500 text-white text-xs rounded hover:bg-slate-600";
@@ -286,26 +290,26 @@ export function populateLibrary() {
 }
 
 /******************************************************
- * deleteSelectionByObject(selection, filteredSelections):
- *  - Finds the item in localStorage array that matches,
- *    removes it, repopulates library. 
+ * deleteSelectionByObject(selection):
+ *  - Removes matching item from localStorage 
+ *    then re-populates library.
  ******************************************************/
-function deleteSelectionByObject(selection, filteredSelections) {
+function deleteSelectionByObject(selection) {
   if (!confirm("Are you sure you want to delete this selection?")) return;
   const all = JSON.parse(localStorage.getItem("harpejjiSelections") || "[]");
-  // Attempt to locate "selection" in "all" by reference or ID
-  const idx = all.findIndex(it => it === selection);
-  // If not found by reference, try matching content
-  let realIndex = idx;
-  if (realIndex < 0) {
-    realIndex = all.findIndex(it => 
-      it.name === selection.name &&
+  let index = all.findIndex(it => it === selection);
+
+  // If not found by reference, try to match content
+  if (index < 0) {
+    index = all.findIndex(it =>
       it.type === selection.type &&
+      it.name === selection.name &&
       JSON.stringify(it.keys) === JSON.stringify(selection.keys)
     );
   }
-  if (realIndex >= 0) {
-    all.splice(realIndex, 1);
+
+  if (index >= 0) {
+    all.splice(index, 1);
     localStorage.setItem("harpejjiSelections", JSON.stringify(all));
   }
   populateLibrary();
@@ -313,7 +317,7 @@ function deleteSelectionByObject(selection, filteredSelections) {
 
 /******************************************************
  * previewItem(selection):
- *  - Play a chord or tab directly from the library.
+ *  - Preview chord or tab directly.
  ******************************************************/
 function previewItem(selection) {
   if (selection.type === "chord" && selection.keys) {
@@ -446,7 +450,7 @@ function getScaleSemitones(scaleName, rootNote) {
 
 /******************************************************
  * deleteSelection(index):
- *  - Remove item from localStorage array
+ *  - Remove item from localStorage array by index
  ******************************************************/
 function deleteSelection(index) {
   if (!confirm("Are you sure you want to delete this selection?")) return;
@@ -837,7 +841,7 @@ export function printLibrary() {
 
 /******************************************************
  * setCurrentModelData(data):
- *  - If a tab has modelData => apply to currentModel
+ *  - If a tab has modelData => apply it to currentModel
  ******************************************************/
 function setCurrentModelData(modelData) {
   if (!modelData) return;
@@ -855,16 +859,8 @@ function setCurrentModelData(modelData) {
 }
 
 /* ===========================================================
-   NEW FUNCTION: importFilesScaleLocked()
+   importFilesScaleLocked()
    =========================================================== */
-
-/**
- * importFilesScaleLocked():
- *  - Lets user select multiple JSON files (tabs/chords)
- *  - Imports them all at once without prompting after each file
- *  - Only items that fit the current scale are added
- *  - Summarizes total imported vs. rejected at the end
- */
 export function importFilesScaleLocked() {
   const input = document.createElement("input");
   input.type = "file";
@@ -894,15 +890,13 @@ export function importFilesScaleLocked() {
               rejectedCount++;
               continue;
             }
-
-            // Check scale consonance
-            let passesScale = false;
+            // Scale check
+            let passesScale;
             if (item.type === "tab") {
               passesScale = allNotesInCurrentScale(item.notesPlainText);
-            } else if (item.type === "chord") {
+            } else {
               passesScale = allChordNotesInCurrentScale(item.keys);
             }
-
             if (passesScale) {
               saved.push(item);
               importedCount++;
@@ -912,12 +906,11 @@ export function importFilesScaleLocked() {
           }
         } catch (err) {
           console.error("Error importing file:", err);
-          // Entire file is invalid => count as rejected
+          // entire file invalid => rejected
           rejectedCount++;
         }
         processed++;
         if (processed === files.length) {
-          // Once all files processed, finalize library
           localStorage.setItem("harpejjiSelections", JSON.stringify(saved));
           populateLibrary();
           alert(
@@ -929,17 +922,6 @@ export function importFilesScaleLocked() {
     });
   };
 
-  // Trigger the file chooser
+  // Trigger file chooser
   input.click();
-}
-
-/******************************************************
- * handleWideModeToggle():
- *  - Called by a checkbox in the library to enable/disable
- *    "wide mode" => half page + 4x4 grid
- ******************************************************/
-export function handleWideModeToggle(enabled) {
-  wideModeEnabled = enabled;
-  libraryPageIndex = 0; // reset to first page
-  populateLibrary();
 }

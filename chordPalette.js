@@ -6,8 +6,8 @@
  *  - Recording notes (button "R")
  *  - Clearing chord notes (button "C")
  *  - Renaming chord (button "N")
- *  - Saving to file (button "S")
- *  - Sending chord to library (button "L")
+ *  - Saving to file (button "S") => now includes "model"
+ *  - Sending chord to library (button "L") => also includes "model"
  *  - Press/Toggle/Strum logic for playing chord
  *  - The "i" info button to open a popup for viewing/editing
  *    favorite, tags, and the chord’s image.
@@ -316,6 +316,7 @@ export function updateChordPaletteUI() {
  *     - chord image (freshly captured)
  *     - favorite
  *     - tags
+ *     - model (so library filters work)
  ******************************************************/
 export function saveChordToFile(index) {
   const chord = chordSlots[index];
@@ -333,6 +334,10 @@ export function saveChordToFile(index) {
   const chordImage = captureChordImage(chord) || null;
   chord.image = chordImage;
 
+  // Grab the current model from the UI
+  const currentModelSelect = document.getElementById("modelSelect");
+  const chordModel = currentModelSelect ? currentModelSelect.value : null;
+
   const data = {
     type: "chord",
     name: chordName,
@@ -345,7 +350,9 @@ export function saveChordToFile(index) {
     timestamp: new Date().toISOString(),
     image: chordImage,
     favorite: chord.favorite || false,
-    tags: chord.tags || ""
+    tags: chord.tags || "",
+    // Ensure model is included so library model filters work
+    model: chordModel
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -360,7 +367,8 @@ export function saveChordToFile(index) {
 /******************************************************
  * sendChordToLibrary(index):
  *   Adds chord to localStorage library, capturing
- *   an image snippet from the tablature, plus favorite/tags.
+ *   an image snippet from the tablature, plus favorite/tags,
+ *   and includes the model for library filtering.
  ******************************************************/
 export function sendChordToLibrary(index) {
   const chord = chordSlots[index];
@@ -377,6 +385,10 @@ export function sendChordToLibrary(index) {
   const chordImage = captureChordImage(chord) || null;
   chord.image = chordImage;
 
+  // Grab the current model
+  const currentModelSelect = document.getElementById("modelSelect");
+  const chordModel = currentModelSelect ? currentModelSelect.value : null;
+
   const data = {
     type: "chord",
     name: chordName,
@@ -387,7 +399,7 @@ export function sendChordToLibrary(index) {
       octave: k.octave
     })),
     timestamp: new Date().toISOString(),
-    model: document.getElementById("modelSelect")?.value || null,
+    model: chordModel,
     image: chordImage,
     favorite: chord.favorite || false,
     tags: chord.tags || ""
