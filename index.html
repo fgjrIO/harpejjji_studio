@@ -115,7 +115,7 @@
         </select>
       </div>
 
-      <!-- Instrument Selector -->
+      <!-- Instrument Selector (replaced old instruments with a single Synth) -->
       <div class="flex items-center gap-2">
         <label for="instrumentSelect" class="text-gray-700">Instrument:</label>
         <select 
@@ -124,10 +124,7 @@
                  focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
                  focus:outline-none min-w-[120px] shadow-sm"
         >
-          <option value="piano">Piano</option>
-          <option value="guitar">Guitar</option>
-          <option value="ukulele">Ukulele</option>
-          <option value="harp">Harp</option>
+          <option value="synth">Synth (2 Osc + Noise)</option>
         </select>
       </div>
 
@@ -284,6 +281,16 @@
       <span class="text-slate-600 text-sm italic">
         (Click any key to toggle a marker and play its note.)
       </span>
+    </div>
+
+    <!-- NEW: Synth Settings Button -->
+    <div class="mb-6">
+      <button
+        id="openSynthSettingsBtn"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200 shadow-sm"
+      >
+        Synth Settings
+      </button>
     </div>
 
     <!-- Harpejji board + Chord Palette side by side -->
@@ -661,7 +668,7 @@
         </select>
       </div>
 
-      <!-- Finger Overlay Color -->
+      <!-- Finger overlay color -->
       <div class="mb-4">
         <label for="fingerOverlayColorPicker" class="block font-semibold mb-1">Finger Overlay Color:</label>
         <input 
@@ -780,6 +787,181 @@
             class="w-full"
           />
           <span id="starSizeValue" class="text-gray-700 text-sm">8</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW: Synth Settings Slideover -->
+  <div id="synthSettingsSlideover" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
+    <div class="absolute right-0 top-0 bottom-0 bg-white w-80 p-6 overflow-y-auto shadow-lg">
+      <h2 class="text-2xl font-bold mb-6 text-slate-800">Synth Settings</h2>
+      <button id="closeSynthSettingsBtn" class="absolute top-4 right-4 px-2 py-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-colors duration-200">
+        Close
+      </button>
+
+      <!-- Oscillator 1 -->
+      <h3 class="text-xl font-semibold mb-2 text-slate-700">Oscillator 1</h3>
+      <div class="mb-4 space-y-2">
+        <div>
+          <label class="block text-sm font-medium">Wave Type</label>
+          <select id="osc1Wave" class="w-full rounded border border-gray-300 p-1">
+            <option value="sine">Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth">Saw</option>
+            <option value="pulse">Pulse</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="osc1PulseWidth">Pulse Width (%)</label>
+          <input type="range" id="osc1PulseWidth" min="0" max="100" step="1" value="50" class="w-full accent-indigo-600" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="osc1Tune">Tune (Semitones)</label>
+          <input type="number" id="osc1Tune" value="0" min="-36" max="36" class="w-full border rounded p-1" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="osc1Mix">Osc 1 Mix (%)</label>
+          <input type="range" id="osc1Mix" min="0" max="100" step="1" value="50" class="w-full accent-indigo-600" />
+        </div>
+      </div>
+
+      <!-- Oscillator 2 -->
+      <h3 class="text-xl font-semibold mb-2 text-slate-700">Oscillator 2</h3>
+      <div class="mb-4 space-y-2">
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="osc2TrackToggle" />
+          <label for="osc2TrackToggle" class="text-sm">Osc 2 Track On/Off</label>
+        </div>
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="osc2SyncToggle" />
+          <label for="osc2SyncToggle" class="text-sm">Osc 2 Sync On/Off</label>
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Wave Type</label>
+          <select id="osc2Wave" class="w-full rounded border border-gray-300 p-1">
+            <option value="sine">Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth">Saw</option>
+            <option value="pulse">Pulse</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="osc2PulseWidth">Pulse Width (%)</label>
+          <input type="range" id="osc2PulseWidth" min="0" max="100" step="1" value="50" class="w-full accent-indigo-600" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="osc2Tune">Tune (Semitones)</label>
+          <input type="number" id="osc2Tune" value="0" min="-36" max="36" class="w-full border rounded p-1" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="osc2Mix">Osc 2 Mix (%)</label>
+          <input type="range" id="osc2Mix" min="0" max="100" step="1" value="50" class="w-full accent-indigo-600" />
+        </div>
+      </div>
+
+      <!-- Noise Oscillator -->
+      <h3 class="text-xl font-semibold mb-2 text-slate-700">Noise Oscillator</h3>
+      <div class="mb-4 space-y-2">
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="noiseToggle" />
+          <label for="noiseToggle" class="text-sm">Noise On/Off</label>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="noiseMix">Noise Mix (%)</label>
+          <input type="range" id="noiseMix" min="0" max="100" step="1" value="0" class="w-full accent-indigo-600" />
+        </div>
+      </div>
+
+      <!-- LFO Section -->
+      <h3 class="text-xl font-semibold mb-2 text-slate-700">LFO</h3>
+      <div class="mb-4 space-y-2">
+        <div>
+          <label class="block text-sm font-medium">Routing</label>
+          <select id="lfoRouting" class="w-full rounded border border-gray-300 p-1">
+            <option value="amplitude">Amplitude</option>
+            <option value="filter">Filter</option>
+            <option value="pitch">Pitch</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Wave Type</label>
+          <select id="lfoWave" class="w-full rounded border border-gray-300 p-1">
+            <option value="triangle">Triangle</option>
+            <option value="sine">Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth">Saw</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="lfoFrequency">Frequency (Hz)</label>
+          <input type="number" id="lfoFrequency" value="5" step="0.1" class="w-full border rounded p-1" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="lfoDepth">Depth (%)</label>
+          <input type="range" id="lfoDepth" min="0" max="100" step="1" value="50" class="w-full accent-indigo-600" />
+        </div>
+      </div>
+
+      <!-- Glide & Unison -->
+      <h3 class="text-xl font-semibold mb-2 text-slate-700">Glide & Unison</h3>
+      <div class="mb-4 space-y-2">
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="glideToggle" />
+          <label for="glideToggle" class="text-sm">Glide On/Off</label>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="glideTime">Glide Time (s)</label>
+          <input type="number" id="glideTime" value="0.1" step="0.01" class="w-full border rounded p-1" />
+        </div>
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="unisonToggle" />
+          <label for="unisonToggle" class="text-sm">Unison On/Off</label>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="unisonVoices">Voices</label>
+          <input type="number" id="unisonVoices" value="1" min="1" max="8" class="w-full border rounded p-1" />
+        </div>
+      </div>
+
+      <!-- Filter Section -->
+      <h3 class="text-xl font-semibold mb-2 text-slate-700">Filter</h3>
+      <div class="mb-4 space-y-2">
+        <div>
+          <label class="block text-sm font-medium">Type</label>
+          <select id="filterType" class="w-full rounded border border-gray-300 p-1">
+            <option value="lowpass12">Low-Pass 12dB</option>
+            <option value="lowpass24">Low-Pass 24dB</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="filterResonance">Resonance (%)</label>
+          <input type="range" id="filterResonance" min="0" max="100" step="1" value="0" class="w-full accent-indigo-600" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="filterEnvelopeAmt">Filter Envelope (%)</label>
+          <input type="range" id="filterEnvelopeAmt" min="0" max="100" step="1" value="0" class="w-full accent-indigo-600" />
+        </div>
+      </div>
+
+      <!-- ADSR Section -->
+      <h3 class="text-xl font-semibold mb-2 text-slate-700">ADSR Envelope</h3>
+      <div class="mb-4 space-y-2">
+        <div>
+          <label class="block text-sm font-medium" for="adsrAttack">Attack (s)</label>
+          <input type="number" id="adsrAttack" value="0.01" step="0.01" class="w-full border rounded p-1" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="adsrDecay">Decay (s)</label>
+          <input type="number" id="adsrDecay" value="0.3" step="0.01" class="w-full border rounded p-1" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="adsrSustain">Sustain (%)</label>
+          <input type="range" id="adsrSustain" min="0" max="100" step="1" value="50" class="w-full accent-indigo-600" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="adsrRelease">Release (s)</label>
+          <input type="number" id="adsrRelease" value="0.5" step="0.01" class="w-full border rounded p-1" />
         </div>
       </div>
     </div>
@@ -1615,6 +1797,17 @@
         selectedKeys.forEach(pos => {
           playNoteTemporary(pos.x, pos.y, 300);
         });
+      });
+
+      // NEW: Show/hide Synth Settings Slideover
+      const openSynthBtn = document.getElementById("openSynthSettingsBtn");
+      const synthSlideover = document.getElementById("synthSettingsSlideover");
+      const closeSynthBtn = document.getElementById("closeSynthSettingsBtn");
+      openSynthBtn.addEventListener("click", () => {
+        synthSlideover.classList.remove("hidden");
+      });
+      closeSynthBtn.addEventListener("click", () => {
+        synthSlideover.classList.add("hidden");
       });
     });
 

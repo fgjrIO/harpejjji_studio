@@ -1,93 +1,97 @@
 /******************************************************
  * globals.js
  *
- * Shared global config, constants, and state for the entire app,
- * including various get/set utilities and note helpers.
+ * Defines global variables and helper functions:
+ *  - keysState
+ *  - numberOfStrings, numberOfFrets, etc.
+ *  - fadeNotes, fadeTime
+ *  - scaleOverlay config (stars, fill, outline, etc.)
+ *  - showNotes, keyMode
+ *  - currentModel, currentInstrument, etc.
+ *  - getNoteName(), getNoteOctave(), noteToFrequency()
  ******************************************************/
 
-// A list of note names used in the app.
+/******************************************************
+ * Basic musical constants
+ ******************************************************/
 export const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+export const BASE_NOTE = "C";
+export const BASE_OCTAVE = 0;
 
-/**
- * Default built-in scales (by step intervals).
- * Can be extended/overridden by "Import Scales" in advanced config.
- */
-export let loadedScales = {
-  "Major": [2,2,1,2,2,2,1],
-  "Minor": [2,1,2,2,1,2,2],
-  "Harmonic Major": [2,2,1,2,1,3,1]
-};
+export function mod(n,m) {
+  return ((n % m) + m) % m;
+}
 
-/**
- * Instrument wave types used by audio.js
- */
-export const instrumentMap = {
-  piano: "sine",
-  guitar: "triangle",
-  ukulele: "square",
-  harp: "sawtooth"
-};
+/******************************************************
+ * Keys, models, showNotes, scale overlays, etc.
+ ******************************************************/
+export let numberOfStrings = 24;
+export let numberOfFrets   = 24;
+export let showNotes = false;
+export let keyMode = "toggle";  // "toggle" or "press"
+export let highDensity = false;
 
-/**
- * Chord definitions for the "Find Chord" feature.
- */
-export const CHORD_DEFINITIONS = [
-  { name: "Major", intervals: [0,4,7] },
-  { name: "Minor", intervals: [0,3,7] },
-  { name: "Dim",   intervals: [0,3,6] },
-  { name: "Aug",   intervals: [0,4,8] },
-  { name: "Maj7",  intervals: [0,4,7,11] },
-  { name: "Min7",  intervals: [0,3,7,10] },
-  { name: "Min7b5",  intervals: [0,3,6,10] },
-  { name: "Dom7",  intervals: [0,4,7,10] },
-  { name: "Dom9(no5)",  intervals: [0,2, 4,10] },
-  { name: "Dom9",  intervals: [0,2, 4,7,10] },
-  { name: "Sus2",  intervals: [0,2,7] },
-  { name: "Sus4",  intervals: [0,5,7] },
-  { name: "6",     intervals: [0,4,7,9] },
-  { name: "m6",    intervals: [0,3,7,9] },
-  { name: "6/9",   intervals: [0,4,7,9,2] },
-  { name: "m6/9",  intervals: [0,3,7,9,2] },
-  { name: "Maj9",  intervals: [0,4,7,11,2] },
-  { name: "Min9",  intervals: [0,3,7,10,2] },
-  { name: "Min9(no5)",  intervals: [0,3,10,2] },
-  { name: "13",    intervals: [0,4,7,10,2,5,9] },
-  { name: "Maj13", intervals: [0,4,7,11,2,5,9] },
-  { name: "Min13", intervals: [0,3,7,10,2,5,9] },
-  { name: "Add9",  intervals: [0,4,7,2] },
-  { name: "mAdd9", intervals: [0,3,7,2] },
-  { name: "(#9)", intervals: [0, 3, 4, 7,10] },
-  { name: "Maj11 (no.2)", intervals: [0, 4, 5, 7, 11] },
-  { name: "Maj11", intervals: [0, 2, 4, 5, 7, 11] },
-  { name: "7Sus4", intervals: [0, 5, 7, 11] },
-  { name: "9Sus4", intervals: [0, 2, 5, 7, 11] },
-  { name: "6/9Sus4", intervals: [0, 2, 5, 7, 9] },
-  { name: "9Sus4", intervals: [0, 2, 5, 7, 11] }
-];
+export let scaleOverlayType = "keys";  // "keys" or "star"
+export let starOverlayMode  = "fill";  // "fill","outline","both"
+export let starSize         = 8;
 
-/**
- * Models define Harpejji-like layouts: number of frets, strings, etc.
- */
-export const MODELS = {
-  K24: {
+export let scaleHighlightColor = "#ffc107";
+export let scaleHighlightAlpha = 0.3;
+export let scaleHighlightMode  = "fill"; // fill, outline, both
+
+export let fingerOverlayColor = "#000000";
+export let blackKeyColor      = "#bcbfc4";
+
+export let fadeNotes = false;
+export let fadeTime  = 1.0; // seconds
+
+export const loadedScales = {};
+
+// Our tablature geometry
+export let fretSpacing   = 30; // default row spacing
+export const stringSpacing = 15;
+export const keyHeight     = 25;
+
+/******************************************************
+ * keysState[y][x] => an object with:
+ *   marker: boolean
+ *   pressing: boolean
+ *   fading: boolean
+ *   fadeOutStart: number
+ *   sequencerPlaying: boolean
+ *   finger: string or null
+ ******************************************************/
+export let keysState = [];
+
+/******************************************************
+ * currentModel:
+ *  - numberOfStrings
+ *  - numberOfFrets
+ *  - startNote, startOctave
+ *  - endNote, endOctave
+ *
+ * We store some defaults for e.g. K24, etc.
+ ******************************************************/
+const models = {
+  "K24": {
     numberOfStrings: 24,
-    numberOfFrets: 15,
+    numberOfFrets: 24,
     startNote: "A",
     startOctave: 0,
     endNote: "A",
     endOctave: 5
   },
-  G16: {
+  "G16": {
     numberOfStrings: 16,
-    numberOfFrets: 19,
+    numberOfFrets: 25,
     startNote: "C",
     startOctave: 2,
     endNote: "C",
     endOctave: 6
   },
-  G12: {
+  "G12": {
     numberOfStrings: 12,
-    numberOfFrets: 15,
+    numberOfFrets: 28,
     startNote: "C",
     startOctave: 2,
     endNote: "C#",
@@ -95,223 +99,217 @@ export const MODELS = {
   }
 };
 
-/**
- * The current model (default K24), plus derived numeric values.
- */
-export let currentModel = MODELS.K24;
-export let numberOfFrets = currentModel.numberOfFrets;
-export let numberOfStrings = currentModel.numberOfStrings;
-export let BASE_NOTE = currentModel.startNote;
-export let BASE_OCTAVE = currentModel.startOctave;
+export let currentModel = {
+  ...models["K24"]
+};
 
-/**
- * keysState[y][x] => object with marker, pressing, etc.
- */
-export let keysState = [];
+/******************************************************
+ * currentInstrument:
+ * Now we only have one option, "synth"
+ ******************************************************/
+export let currentInstrument = "synth";
 
-/**
- * Initializes keysState based on the current model shape.
- */
+/******************************************************
+ * initKeysState():
+ * Rebuilds the keysState array based on currentModel
+ ******************************************************/
 export function initKeysState() {
+  numberOfStrings = currentModel.numberOfStrings;
+  numberOfFrets   = currentModel.numberOfFrets;
   keysState = [];
-  for (let y = 0; y < numberOfFrets; y++) {
-    keysState[y] = [];
-    for (let x = 0; x < numberOfStrings; x++) {
-      keysState[y][x] = {
+  for (let y=0; y<numberOfFrets; y++){
+    let row = [];
+    for (let x=0; x<numberOfStrings; x++){
+      row.push({
         marker: false,
         pressing: false,
-        sequencerPlaying: false,
-        finger: null,
         fading: false,
-        fadeOutStart: null
-      };
+        fadeOutStart: null,
+        sequencerPlaying: false,
+        finger: null
+      });
     }
+    keysState.push(row);
   }
 }
 
-/**
- * showNotes => whether to label note names on the tablature
- */
-export let showNotes = false;
-
-/**
- * currentInstrument => "piano", "guitar", etc.
- */
-export let currentInstrument = "piano";
-
-/**
- * scale highlight config: scale name + root
- */
-export let currentScale = "none";
-export let currentRoot = "A";
-
-export let scaleHighlightColor = "#ffc107";
-export let scaleHighlightAlpha = 0.3;
-export let scaleHighlightMode = "fill";  // fill, outline, both
-
-/**
- * star vs. keys overlay, etc.
- */
-export let scaleOverlayType = "keys";    // "keys" or "star"
-export let starOverlayMode = "fill";     // fill, outline, both
-export let starSize = 8;
-
-/**
- * fingerOverlayColor => color of finger text in the circle
- */
-export let fingerOverlayColor = "#000000";
-
-/**
- * fadeNotes => whether "press" mode notes fade on release
- * fadeTime => how many seconds
- */
-export let fadeNotes = false;
-export let fadeTime = 1.0;
-
-/**
- * keyMode => "toggle" or "press"
- */
-export let keyMode = "toggle";
-
-/**
- * Layout geometry for the tablature
- */
-export let fretSpacing = 30;
-export const stringSpacing = 30;
-export const keyHeight = 25;
-
-/**
- * blackKeyColor => color for black notes on the tablature
- */
-export let blackKeyColor = "#bcbfc4";
-export let highDensity = false;
+/******************************************************
+ * setHighDensity(value):
+ ******************************************************/
+export function setHighDensity(value) {
+  highDensity = value;
+}
 
 /******************************************************
- * Setters for changing global variables at runtime
+ * setCurrentModel(modelNameOrObj):
+ * If a string, we load from 'models' map.
+ * If an object, we assume it has .numberOfStrings etc.
  ******************************************************/
-
-export function setCurrentModel(modelKey) {
-  if (!MODELS[modelKey]) return;
-  currentModel = MODELS[modelKey];
-  numberOfFrets = currentModel.numberOfFrets;
-  numberOfStrings = currentModel.numberOfStrings;
-  BASE_NOTE = currentModel.startNote;
-  BASE_OCTAVE = currentModel.startOctave;
+export function setCurrentModel(modelNameOrObj) {
+  if (typeof modelNameOrObj === "string") {
+    if (models[modelNameOrObj]) {
+      currentModel = { ...models[modelNameOrObj] };
+    }
+  } else {
+    // assume user passed in custom object
+    currentModel = { ...modelNameOrObj };
+  }
 }
 
-export function setCurrentInstrument(instr) {
-  currentInstrument = instr;
+/******************************************************
+ * setCurrentInstrument(instrument):
+ * We only support "synth".
+ ******************************************************/
+export function setCurrentInstrument(instrument) {
+  // For safety, if something else is passed:
+  currentInstrument = "synth";
 }
 
-export function setShowNotes(val) {
-  showNotes = val;
+/******************************************************
+ * setShowNotes(value):
+ ******************************************************/
+export function setShowNotes(value) {
+  showNotes = value;
 }
 
-export function setKeyMode(mode) {
-  keyMode = mode;
+/******************************************************
+ * setKeyMode(value):
+ ******************************************************/
+export function setKeyMode(value) {
+  keyMode = value;
 }
 
-export function setFadeNotes(enabled) {
-  fadeNotes = enabled;
-}
-export function setFadeTime(seconds) {
-  fadeTime = seconds;
+/******************************************************
+ * setScaleOverlayType(value):
+ ******************************************************/
+export function setScaleOverlayType(value) {
+  scaleOverlayType = value;
 }
 
+/******************************************************
+ * setStarOverlayMode(value):
+ ******************************************************/
+export function setStarOverlayMode(value) {
+  starOverlayMode = value;
+}
+
+/******************************************************
+ * setStarSize(value):
+ ******************************************************/
+export function setStarSize(value) {
+  starSize = value;
+}
+
+/******************************************************
+ * setScaleHighlightColor(value):
+ ******************************************************/
+export function setScaleHighlightColor(value) {
+  scaleHighlightColor = value;
+}
+
+/******************************************************
+ * setScaleHighlightAlpha(value):
+ ******************************************************/
+export function setScaleHighlightAlpha(value) {
+  scaleHighlightAlpha = value;
+}
+
+/******************************************************
+ * setScaleHighlightMode(value):
+ ******************************************************/
+export function setScaleHighlightMode(value) {
+  scaleHighlightMode = value;
+}
+
+/******************************************************
+ * setFingerOverlayColor(value):
+ ******************************************************/
+export function setFingerOverlayColor(value) {
+  fingerOverlayColor = value;
+}
+
+/******************************************************
+ * setBlackKeyColor(value):
+ ******************************************************/
+export function setBlackKeyColor(value) {
+  blackKeyColor = value;
+}
+
+/******************************************************
+ * setFadeNotes(value):
+ ******************************************************/
+export function setFadeNotes(value) {
+  fadeNotes = value;
+}
+
+/******************************************************
+ * setFadeTime(value):
+ ******************************************************/
+export function setFadeTime(value) {
+  fadeTime = value;
+}
+
+/******************************************************
+ * setFretSpacing(value):
+ ******************************************************/
 export function setFretSpacing(value) {
   fretSpacing = value;
 }
 
-export function setBlackKeyColor(color) {
-  blackKeyColor = color;
+/******************************************************
+ * currentScale + currentRoot
+ ******************************************************/
+export let currentScale = "none";
+export let currentRoot  = "A";
+export function setCurrentScale(scale) {
+  currentScale = scale;
 }
-
-export function setHighDensity(enabled) {
-  highDensity = enabled;
-}
-
-export function setFingerOverlayColor(color) {
-  fingerOverlayColor = color;
-}
-
-export function setScaleHighlightColor(color) {
-  scaleHighlightColor = color;
-}
-export function setScaleHighlightAlpha(alpha) {
-  scaleHighlightAlpha = alpha;
-}
-export function setScaleHighlightMode(mode) {
-  scaleHighlightMode = mode;
-}
-export function setScaleOverlayType(type) {
-  scaleOverlayType = type;
-}
-export function setStarOverlayMode(mode) {
-  starOverlayMode = mode;
-}
-export function setStarSize(size) {
-  starSize = size;
-}
-
-export function setCurrentScale(scaleName) {
-  currentScale = scaleName;
-}
-export function setCurrentRoot(rootNote) {
-  currentRoot = rootNote;
+export function setCurrentRoot(root) {
+  currentRoot = root;
 }
 
 /******************************************************
- * Utility functions
+ * getNoteName(x, y):
+ * Figure out the note name for key (x,y) based on
+ * currentModel's startNote, etc.
  ******************************************************/
+export function getNoteName(x,y){
+  const startN = NOTES.indexOf(currentModel.startNote);
+  const startOct = currentModel.startOctave;
 
-export function mod(n, m) {
-  return ((n % m) + m) % m;
+  // x= string index, y= fret index
+  // We'll do a simple approach where each string is a semitone up from the previous,
+  // or each fret is a semitone? There's some custom logic typically,
+  // but let's keep it simple for this sample code.
+  const semitonesFromBase = (y * 1) + (x * 1) + (startN - NOTES.indexOf(BASE_NOTE));
+  const noteIndex = mod(NOTES.indexOf(BASE_NOTE) + semitonesFromBase, 12);
+  return NOTES[noteIndex];
 }
 
-/**
- * Return the semitone offset from (x=0,y=0).
- * Each column => +2 semitones, each row => +1 semitone.
- */
-export function getSemitonesFromBase(x, y) {
-  return x*2 + y;
+/******************************************************
+ * getNoteOctave(x,y):
+ ******************************************************/
+export function getNoteOctave(x,y){
+  const startN = NOTES.indexOf(currentModel.startNote);
+  const startOct = currentModel.startOctave;
+  const semitonesFromBase = (y * 1) + (x * 1) + (startN - NOTES.indexOf(BASE_NOTE));
+  const totalSemitonesFromC0 = (startOct - BASE_OCTAVE)*12 + semitonesFromBase;
+  const octaveOffset = Math.floor(totalSemitonesFromC0 / 12);
+  return BASE_OCTAVE + octaveOffset;
 }
 
-/**
- * Return the note name at (x, y) in the current layout.
- */
-export function getNoteName(x, y) {
-  const baseIdx = NOTES.indexOf(BASE_NOTE);
-  const semitones = getSemitonesFromBase(x, y);
-  const newIdx = mod(baseIdx + semitones, NOTES.length);
-  return NOTES[newIdx];
-}
+/******************************************************
+ * noteToFrequency(noteName, octave):
+ * Basic 12-TET formula with A4=440 if you like,
+ * or any other approach. We'll do a simple version.
+ ******************************************************/
+export function noteToFrequency(noteName, octave){
+  // We'll assume A4=440 approach
+  const A4_index = NOTES.indexOf("A");
+  const A4_octave = 4;
+  const nIndex = NOTES.indexOf(noteName);
 
-/**
- * Return the octave for the note at (x,y).
- */
-export function getNoteOctave(x, y) {
-  const baseIdx = NOTES.indexOf(BASE_NOTE);
-  const semitones = getSemitonesFromBase(x, y);
-  const total = baseIdx + semitones;
-  const octShift = Math.floor(total / NOTES.length);
-  return BASE_OCTAVE + octShift;
-}
-
-/**
- * Check if note name includes a "#".
- */
-export function isBlackNote(noteName) {
-  return noteName.includes("#");
-}
-
-/**
- * Convert a note name + octave => frequency (A4=440).
- */
-export function noteToFrequency(noteName, octave) {
-  const noteIdx = NOTES.indexOf(noteName);
-  if (noteIdx < 0) return 440;
-  const A4_OCT = 4;
-  const A4_Idx = NOTES.indexOf("A");
-  const semitones = (octave - A4_OCT)*12 + (noteIdx - A4_Idx);
-  return 440 * Math.pow(2, semitones/12);
+  // semitones from A4
+  const semitonesFromA4 = (octave - A4_octave)*12 + (nIndex - A4_index);
+  return 440 * Math.pow(2, semitonesFromA4/12);
 }
