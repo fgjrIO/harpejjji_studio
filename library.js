@@ -342,7 +342,7 @@ async function previewChord(keys) {
   }
   setTimeout(() => {
     oscList.forEach(o => stopOscillator(o));
-  }, 1500);
+  }, 200);
 }
 
 /******************************************************

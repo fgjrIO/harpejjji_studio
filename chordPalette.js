@@ -183,6 +183,62 @@ export async function chordStrum(index, delayMs = 100) {
 }
 
 /******************************************************
+ * NEW FUNCTIONS: chordStrumNAndPress, chordStrum2AndPress,
+ * chordStrum3AndPress.
+ *
+ * The "strumNAndPress" logic:
+ *   - Strum the first N notes (individually, with a delay).
+ *   - Then press the remaining notes simultaneously,
+ *     and release them together after ~300ms.
+ ******************************************************/
+async function chordStrumNAndPress(index, n, delayMs = 100) {
+  const chord = chordSlots[index];
+  const sorted = chord.keys.slice().sort((a,b) => (a.x - b.x) || (a.y - b.y));
+  if (!sorted.length) return;
+
+  // If the chord has N or fewer notes, just strum all individually.
+  if (sorted.length <= n) {
+    return chordStrum(index, delayMs);
+  }
+
+  // 1) Strum the first N notes individually
+  for (let i = 0; i < n; i++) {
+    const k = sorted[i];
+    await handleKeyDownProgrammatically(k.x, k.y);
+    setTimeout(() => {
+      handleKeyUpProgrammatically(k.x, k.y);
+    }, 300);
+    if (i < n - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  // 2) Wait one strum interval before pressing the remainder
+  await new Promise(resolve => setTimeout(resolve, delayMs));
+
+  // 3) Press the remainder simultaneously
+  const remainder = sorted.slice(n);
+  remainder.forEach(k => {
+    handleKeyDownProgrammatically(k.x, k.y);
+  });
+
+  // 4) Release them all after ~300ms
+  setTimeout(() => {
+    remainder.forEach(k => {
+      handleKeyUpProgrammatically(k.x, k.y);
+    });
+  }, 300);
+}
+
+export async function chordStrum2AndPress(index, delayMs = 100) {
+  return chordStrumNAndPress(index, 2, delayMs);
+}
+
+export async function chordStrum3AndPress(index, delayMs = 100) {
+  return chordStrumNAndPress(index, 3, delayMs);
+}
+
+/******************************************************
  * clearAllTabMarkers():
  *   Clears all "marker", "pressing", etc. from keysState.
  ******************************************************/

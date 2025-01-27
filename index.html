@@ -345,6 +345,9 @@
           >
             <option value="press" selected>Press</option>
             <option value="strum">Strum</option>
+            <!-- NEW modes: Strum 2 and Press, Strum 3 and Press -->
+            <option value="strum2press">Strum 2 and Press</option>
+            <option value="strum3press">Strum 3 and Press</option>
           </select>
         </div>
 
@@ -1223,6 +1226,8 @@
       chordPressUp,
       chordToggle,
       chordStrum,
+      chordStrum2AndPress,
+      chordStrum3AndPress,
       clearAllTabMarkers,
       setChordNotesFromKeysState,
       // IMPORTANT: import recordChordNoteIfNeeded
@@ -1783,16 +1788,21 @@
           if (clearTabOnTriggerCheckbox.checked) {
             clearAllTabMarkers();
           }
+          let delayMs = parseFloat(strumPaceInput.value) || 100;
+          if (strumPaceUnit.value === "beats") {
+            delayMs = (60 / SEQUENCER_CONFIG.bpm) * 1000 * parseFloat(strumPaceInput.value);
+          }
+          // Handle chordMode
           if (chordModeSelect.value === "press") {
             if (keyMode === "toggle") {
               chordToggle(idx);
             }
           } else if (chordModeSelect.value === "strum") {
-            let delayMs = parseFloat(strumPaceInput.value) || 100;
-            if (strumPaceUnit.value === "beats") {
-              delayMs = (60 / SEQUENCER_CONFIG.bpm)*1000 * parseFloat(strumPaceInput.value);
-            }
             chordStrum(idx, delayMs);
+          } else if (chordModeSelect.value === "strum2press") {
+            chordStrum2AndPress(idx, delayMs);
+          } else if (chordModeSelect.value === "strum3press") {
+            chordStrum3AndPress(idx, delayMs);
           }
         });
         btn.addEventListener("mousedown", (e) => {
