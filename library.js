@@ -7,10 +7,7 @@
  *  - Filtering by type, scale, model
  *  - Loading a selection (tab or chord) back into the app
  *  - Printing, importing, exporting
- *
- * CHANGES:
- *  - Added a "Preview" button for each library item (both chord & tab).
- *  - The button calls `previewItem(selection)` to play the notes temporarily.
+ *  - NOW includes "Wide Mode" toggle and pagination (4x4 grid)
  ******************************************************/
 
 import {
@@ -33,9 +30,14 @@ import {
 import { drawTablature } from "./tablature.js";
 import { drawPianoRoll, drawSequencerGrid } from "./sequencer.js";
 import { chordSlots } from "./chordPalette.js";
-
-// We need to create/stop oscillators for our preview:
 import { createOscillator, stopOscillator } from "./audio.js";
+
+/******************************************************
+ * Global pagination & wide mode states
+ ******************************************************/
+let libraryPageIndex = 0;    // Which page are we on?
+const itemsPerPage = 16;     // 4×4 grid
+let wideModeEnabled = false; // Toggled via checkbox
 
 /******************************************************
  * toggleLibrary():
@@ -51,11 +53,24 @@ export function toggleLibrary() {
  * populateLibrary():
  *  - Read the array from localStorage => "harpejjiSelections"
  *  - Filter by type, scale, model
- *  - Render items in #libraryContent
+ *  - In wide mode => library is half-page wide,
+ *    and we show a 4×4 grid with pagination.
  ******************************************************/
 export function populateLibrary() {
   const libraryContent = document.getElementById("libraryContent");
   if (!libraryContent) return;
+
+  // Set library slideover width based on wideModeEnabled
+  const slideover = document.getElementById("librarySlideover");
+  if (wideModeEnabled) {
+    // Expand to half the page
+    slideover.classList.add("w-[50vw]");
+    slideover.classList.remove("w-72");
+  } else {
+    // Default narrow mode
+    slideover.classList.remove("w-[50vw]");
+    slideover.classList.add("w-72");
+  }
 
   libraryContent.innerHTML = "";
 
@@ -75,10 +90,12 @@ export function populateLibrary() {
 
   const doScaleFilter = scaleFilterCheckbox && scaleFilterCheckbox.checked && currentScale !== "none";
 
+  // Filter the entire array
+  let filteredSelections = [];
   for (let i = 0; i < savedSelections.length; i++) {
     const selection = savedSelections[i];
 
-    // Type filter (tabs vs. chords vs. all)
+    // Type filter
     if (libraryFilterVal !== "all") {
       const wantType = (libraryFilterVal === "tabs") ? "tab" : "chord";
       if (selection.type !== wantType) {
@@ -106,7 +123,35 @@ export function populateLibrary() {
       }
     }
 
-    // Build DOM element for the library item
+    filteredSelections.push(selection);
+  }
+
+  if (!filteredSelections.length) {
+    libraryContent.innerHTML = '<p class="text-gray-500 text-center">No items match your filter</p>';
+    return;
+  }
+
+  // PAGINATION: slice the filtered array to show the current page
+  const totalPages = Math.ceil(filteredSelections.length / itemsPerPage);
+  // Ensure page index is in range
+  if (libraryPageIndex >= totalPages) libraryPageIndex = totalPages - 1;
+  if (libraryPageIndex < 0) libraryPageIndex = 0;
+  const start = libraryPageIndex * itemsPerPage;
+  const end = start + itemsPerPage;
+  const pageItems = filteredSelections.slice(start, end);
+
+  // In wide mode => display in a 4x4 grid
+  // If not wide mode => keep the default vertical layout
+  if (wideModeEnabled) {
+    libraryContent.classList.remove("space-y-4");
+    libraryContent.classList.add("grid", "grid-cols-4", "gap-4");
+  } else {
+    libraryContent.classList.remove("grid", "grid-cols-4", "gap-4");
+    libraryContent.classList.add("space-y-4");
+  }
+
+  // Build each item in pageItems
+  pageItems.forEach((selection, i) => {
     const div = document.createElement("div");
     div.className = "relative p-2 border rounded hover:bg-gray-100";
 
@@ -116,26 +161,26 @@ export function populateLibrary() {
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      deleteSelection(i);
+      deleteSelectionByObject(selection, filteredSelections);
     });
     div.appendChild(deleteBtn);
 
-    // NEW: Preview button (plays the chord or tab right away)
+    // Preview button
     const previewBtn = document.createElement("button");
     previewBtn.className = "absolute top-2 right-16 px-2 py-1 rounded bg-emerald-500 text-white hover:bg-emerald-600 text-xs";
     previewBtn.textContent = "Preview";
     previewBtn.addEventListener("click", (e) => {
-      e.stopPropagation(); // don’t trigger load
+      e.stopPropagation();
       previewItem(selection);
     });
     div.appendChild(previewBtn);
 
-    // Content wrapper for clicks (loads selection)
+    // Content wrapper for clicks => load
     const contentDiv = document.createElement("div");
     contentDiv.className = "cursor-pointer selection-content";
     div.appendChild(contentDiv);
 
-    // If there is an image, display it
+    // If there is an image
     if (selection.image) {
       const img = document.createElement("img");
       img.src = selection.image;
@@ -144,7 +189,7 @@ export function populateLibrary() {
       contentDiv.appendChild(img);
     }
 
-    // Basic info (name, type, model)
+    // Basic info
     const infoDiv = document.createElement("div");
     infoDiv.className = "text-sm text-center";
     infoDiv.innerHTML = `
@@ -154,7 +199,7 @@ export function populateLibrary() {
     `;
     contentDiv.appendChild(infoDiv);
 
-    // Notes text for tabs
+    // Tab notes
     if (selection.type === "tab" && selection.notesPlainText?.length) {
       const notesDiv = document.createElement("div");
       notesDiv.className = "text-xs whitespace-pre-wrap mt-1 text-center";
@@ -162,7 +207,7 @@ export function populateLibrary() {
       contentDiv.appendChild(notesDiv);
     }
 
-    // Keys info for chords
+    // Chord keys
     if (selection.type === "chord" && selection.keys?.length) {
       const chordKeysDiv = document.createElement("div");
       chordKeysDiv.className = "text-xs mt-1 text-center";
@@ -172,7 +217,7 @@ export function populateLibrary() {
       contentDiv.appendChild(chordKeysDiv);
     }
 
-    // Favorite heart + Tags
+    // Favorite + tags
     if (selection.type === "chord" && selection.favorite) {
       const favDiv = document.createElement("div");
       favDiv.className = "text-sm mt-1 text-center text-red-500";
@@ -194,39 +239,100 @@ export function populateLibrary() {
       contentDiv.appendChild(dtDiv);
     }
 
-    // Clicking the content => load the selection
+    // Clicking => load selection
     contentDiv.addEventListener("click", () => {
       loadSelection(selection);
     });
 
     libraryContent.appendChild(div);
+  });
+
+  // If there are multiple pages, add a pagination bar at the bottom
+  if (totalPages > 1) {
+    const paginationDiv = document.createElement("div");
+    paginationDiv.className = "flex items-center justify-center mt-4 space-x-4 col-span-4";
+
+    const pageInfo = document.createElement("span");
+    pageInfo.className = "text-sm text-gray-700";
+    pageInfo.textContent = `Page ${libraryPageIndex + 1} of ${totalPages}`;
+    paginationDiv.appendChild(pageInfo);
+
+    // Prev button
+    if (libraryPageIndex > 0) {
+      const prevBtn = document.createElement("button");
+      prevBtn.className = "px-3 py-1 bg-slate-500 text-white text-xs rounded hover:bg-slate-600";
+      prevBtn.textContent = "Prev";
+      prevBtn.addEventListener("click", () => {
+        libraryPageIndex--;
+        populateLibrary();
+      });
+      paginationDiv.appendChild(prevBtn);
+    }
+
+    // Next button
+    if (libraryPageIndex < totalPages - 1) {
+      const nextBtn = document.createElement("button");
+      nextBtn.className = "px-3 py-1 bg-slate-500 text-white text-xs rounded hover:bg-slate-600";
+      nextBtn.textContent = "Next";
+      nextBtn.addEventListener("click", () => {
+        libraryPageIndex++;
+        populateLibrary();
+      });
+      paginationDiv.appendChild(nextBtn);
+    }
+
+    libraryContent.appendChild(paginationDiv);
   }
+}
+
+/******************************************************
+ * deleteSelectionByObject(selection, filteredSelections):
+ *  - Finds the item in localStorage array that matches,
+ *    removes it, repopulates library. 
+ ******************************************************/
+function deleteSelectionByObject(selection, filteredSelections) {
+  if (!confirm("Are you sure you want to delete this selection?")) return;
+  const all = JSON.parse(localStorage.getItem("harpejjiSelections") || "[]");
+  // Attempt to locate "selection" in "all" by reference or ID
+  const idx = all.findIndex(it => it === selection);
+  // If not found by reference, try matching content
+  let realIndex = idx;
+  if (realIndex < 0) {
+    realIndex = all.findIndex(it => 
+      it.name === selection.name &&
+      it.type === selection.type &&
+      JSON.stringify(it.keys) === JSON.stringify(selection.keys)
+    );
+  }
+  if (realIndex >= 0) {
+    all.splice(realIndex, 1);
+    localStorage.setItem("harpejjiSelections", JSON.stringify(all));
+  }
+  populateLibrary();
 }
 
 /******************************************************
  * previewItem(selection):
  *  - Play a chord or tab directly from the library.
- *    No need to load or assign it to a chord slot.
  ******************************************************/
-async function previewItem(selection) {
+function previewItem(selection) {
   if (selection.type === "chord" && selection.keys) {
-    await previewChord(selection.keys);
+    previewChord(selection.keys);
   } else if (selection.type === "tab" && selection.notesPlainText) {
-    await previewTab(selection.notesPlainText);
+    previewTab(selection.notesPlainText);
   }
 }
 
 /******************************************************
  * previewChord(keys):
- *  - Create oscillators for each chord note, 
- *    hold for ~1.5 seconds, then stop them.
+ *  - Create oscillators for each chord note,
+ *    hold ~1.5s, then stop.
  ******************************************************/
 async function previewChord(keys) {
   if (!keys || !keys.length) return;
   const oscList = [];
   for (const k of keys) {
     const freq = noteToFrequency(k.noteName, k.octave);
-    // Use "piano" instrument or any other you'd like for preview
     const oscObj = await createOscillator(freq, "piano");
     oscList.push(oscObj);
   }
@@ -237,8 +343,8 @@ async function previewChord(keys) {
 
 /******************************************************
  * previewTab(notesPlainText):
- *  - Each entry in notesPlainText is something like "C#3", "Ab4", etc.
- *    We'll play them all at once for ~1.5 seconds, then stop.
+ *  - Each entry is like "C#3", "Ab4", etc. 
+ *    We'll play them all at once for ~1.5s, then stop.
  ******************************************************/
 async function previewTab(notes) {
   if (!Array.isArray(notes) || !notes.length) return;
@@ -270,8 +376,8 @@ function allNotesInCurrentScale(notesArray) {
 
   function mapAccidentalsToSharps(name) {
     const table = {
-      "Cb": "B", "Db": "C#", "Eb": "D#", "Fb": "E", "Gb": "F#",
-      "Ab": "G#", "Bb": "A#", "E#": "F", "B#": "C"
+      "Cb": "B","Db": "C#","Eb": "D#","Fb": "E","Gb": "F#",
+      "Ab": "G#","Bb": "A#","E#": "F","B#": "C"
     };
     return table[name] || name;
   }
@@ -301,8 +407,8 @@ function allChordNotesInCurrentScale(keysArray) {
 
   function mapAccidentalsToSharps(name) {
     const table = {
-      "Cb": "B", "Db": "C#", "Eb": "D#", "Fb": "E", "Gb": "F#",
-      "Ab": "G#", "Bb": "A#", "E#": "F", "B#": "C"
+      "Cb": "B","Db": "C#","Eb": "D#","Fb": "E","Gb": "F#",
+      "Ab": "G#","Bb": "A#","E#": "F","B#": "C"
     };
     return table[name] || name;
   }
@@ -825,4 +931,15 @@ export function importFilesScaleLocked() {
 
   // Trigger the file chooser
   input.click();
+}
+
+/******************************************************
+ * handleWideModeToggle():
+ *  - Called by a checkbox in the library to enable/disable
+ *    "wide mode" => half page + 4x4 grid
+ ******************************************************/
+export function handleWideModeToggle(enabled) {
+  wideModeEnabled = enabled;
+  libraryPageIndex = 0; // reset to first page
+  populateLibrary();
 }
