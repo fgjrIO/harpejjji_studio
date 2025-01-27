@@ -9,8 +9,8 @@
  *  - Printing, importing, exporting
  *
  * CHANGES:
- *  - Now displays "❤️ Favorite" for chords with favorite===true
- *  - Displays chord.tags if provided
+ *  - Added a "Preview" button for each library item (both chord & tab).
+ *  - The button calls `previewItem(selection)` to play the notes temporarily.
  ******************************************************/
 
 import {
@@ -26,12 +26,16 @@ import {
   initKeysState,
   keysState,
   setCurrentModel,
-  loadedScales
+  loadedScales,
+  noteToFrequency
 } from "./globals.js";
 
 import { drawTablature } from "./tablature.js";
 import { drawPianoRoll, drawSequencerGrid } from "./sequencer.js";
 import { chordSlots } from "./chordPalette.js";
+
+// We need to create/stop oscillators for our preview:
+import { createOscillator, stopOscillator } from "./audio.js";
 
 /******************************************************
  * toggleLibrary():
@@ -89,7 +93,7 @@ export function populateLibrary() {
       }
     }
 
-    // Scale filter (applies to both tab and chord if doScaleFilter is true)
+    // Scale filter
     if (doScaleFilter) {
       if (selection.type === "tab") {
         if (!allNotesInCurrentScale(selection.notesPlainText)) {
@@ -116,12 +120,22 @@ export function populateLibrary() {
     });
     div.appendChild(deleteBtn);
 
-    // Content wrapper for clicks
+    // NEW: Preview button (plays the chord or tab right away)
+    const previewBtn = document.createElement("button");
+    previewBtn.className = "absolute top-2 right-16 px-2 py-1 rounded bg-emerald-500 text-white hover:bg-emerald-600 text-xs";
+    previewBtn.textContent = "Preview";
+    previewBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // don’t trigger load
+      previewItem(selection);
+    });
+    div.appendChild(previewBtn);
+
+    // Content wrapper for clicks (loads selection)
     const contentDiv = document.createElement("div");
     contentDiv.className = "cursor-pointer selection-content";
     div.appendChild(contentDiv);
 
-    // If there is an image (snapshot), display it
+    // If there is an image, display it
     if (selection.image) {
       const img = document.createElement("img");
       img.src = selection.image;
@@ -158,7 +172,7 @@ export function populateLibrary() {
       contentDiv.appendChild(chordKeysDiv);
     }
 
-    // NEW: Show favorite heart + tags if present
+    // Favorite heart + Tags
     if (selection.type === "chord" && selection.favorite) {
       const favDiv = document.createElement("div");
       favDiv.className = "text-sm mt-1 text-center text-red-500";
@@ -172,7 +186,7 @@ export function populateLibrary() {
       contentDiv.appendChild(tagsDiv);
     }
 
-    // Optional date/time (some older code might have used date/time)
+    // Optional date/time
     if (selection.date || selection.time) {
       const dtDiv = document.createElement("div");
       dtDiv.className = "block text-center text-gray-400 text-xs mt-1";
@@ -190,8 +204,62 @@ export function populateLibrary() {
 }
 
 /******************************************************
+ * previewItem(selection):
+ *  - Play a chord or tab directly from the library.
+ *    No need to load or assign it to a chord slot.
+ ******************************************************/
+async function previewItem(selection) {
+  if (selection.type === "chord" && selection.keys) {
+    await previewChord(selection.keys);
+  } else if (selection.type === "tab" && selection.notesPlainText) {
+    await previewTab(selection.notesPlainText);
+  }
+}
+
+/******************************************************
+ * previewChord(keys):
+ *  - Create oscillators for each chord note, 
+ *    hold for ~1.5 seconds, then stop them.
+ ******************************************************/
+async function previewChord(keys) {
+  if (!keys || !keys.length) return;
+  const oscList = [];
+  for (const k of keys) {
+    const freq = noteToFrequency(k.noteName, k.octave);
+    // Use "piano" instrument or any other you'd like for preview
+    const oscObj = await createOscillator(freq, "piano");
+    oscList.push(oscObj);
+  }
+  setTimeout(() => {
+    oscList.forEach(o => stopOscillator(o));
+  }, 1500);
+}
+
+/******************************************************
+ * previewTab(notesPlainText):
+ *  - Each entry in notesPlainText is something like "C#3", "Ab4", etc.
+ *    We'll play them all at once for ~1.5 seconds, then stop.
+ ******************************************************/
+async function previewTab(notes) {
+  if (!Array.isArray(notes) || !notes.length) return;
+  const oscList = [];
+  for (const noteStr of notes) {
+    const match = noteStr.match(/^([A-G](?:#|b)?)(\d+)/);
+    if (!match) continue;
+    const noteName = match[1];
+    const octave   = parseInt(match[2], 10);
+    const freq     = noteToFrequency(noteName, octave);
+    const oscObj   = await createOscillator(freq, "piano");
+    oscList.push(oscObj);
+  }
+  setTimeout(() => {
+    oscList.forEach(o => stopOscillator(o));
+  }, 1500);
+}
+
+/******************************************************
  * allNotesInCurrentScale(notesArray):
- *  - Checks if each tab note in notesArray fits the current scale+root
+ *  - Checks if each tab note fits current scale+root
  ******************************************************/
 function allNotesInCurrentScale(notesArray) {
   if (!notesArray || !notesArray.length) return true;
@@ -222,7 +290,7 @@ function allNotesInCurrentScale(notesArray) {
 
 /******************************************************
  * allChordNotesInCurrentScale(keysArray):
- *  - Checks if each chord note in keysArray fits the current scale+root
+ *  - Checks if each chord note fits current scale+root
  ******************************************************/
 function allChordNotesInCurrentScale(keysArray) {
   if (!keysArray || !keysArray.length) return true;
@@ -289,7 +357,6 @@ function deleteSelection(index) {
  ******************************************************/
 export function loadSelection(data) {
   if (data.type === "tab") {
-    // If there's modelData, apply it
     if (data.modelData) {
       setCurrentModelData(data.modelData);
     } else if (data.model && MODELS[data.model]) {
@@ -311,7 +378,6 @@ export function loadSelection(data) {
     drawPianoRoll();
     drawSequencerGrid();
   } else if (data.type === "chord") {
-    // Prompt chord slot (1-8)
     const slotNum = parseInt(prompt("Which chord slot (1-8)?"), 10);
     if (isNaN(slotNum) || slotNum < 1 || slotNum > 8) {
       alert("Invalid chord slot.");
@@ -325,10 +391,9 @@ export function loadSelection(data) {
       noteName: k.noteName,
       octave: k.octave
     }));
-    // Copy over optional favorite/tags/image
     chordSlots[sIndex].favorite = !!data.favorite;
-    chordSlots[sIndex].tags     = data.tags || "";
-    chordSlots[sIndex].image    = data.image || null;
+    chordSlots[sIndex].tags = data.tags || "";
+    chordSlots[sIndex].image = data.image || null;
 
     import("./chordPalette.js").then(({ updateChordPaletteUI }) => {
       updateChordPaletteUI();
