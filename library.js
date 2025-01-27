@@ -154,6 +154,20 @@ export function populateLibrary() {
       contentDiv.appendChild(chordKeysDiv);
     }
 
+    // NEW: Favorite heart and Tags for chords
+    if (selection.type === "chord" && selection.favorite) {
+      const favDiv = document.createElement("div");
+      favDiv.className = "text-sm mt-1 text-center text-red-500";
+      favDiv.textContent = "❤️ Favorite";
+      contentDiv.appendChild(favDiv);
+    }
+    if (selection.type === "chord" && selection.tags) {
+      const tagsDiv = document.createElement("div");
+      tagsDiv.className = "text-xs mt-1 text-center text-gray-700";
+      tagsDiv.textContent = "Tags: " + selection.tags;
+      contentDiv.appendChild(tagsDiv);
+    }
+
     // Optional date/time
     if (selection.date || selection.time) {
       const dtDiv = document.createElement("div");
@@ -310,6 +324,11 @@ export function loadSelection(data) {
       noteName: k.noteName,
       octave: k.octave
     }));
+    // If the loaded chord has .favorite / .tags / .image, copy them in
+    if (data.favorite) chordSlots[sIndex].favorite = data.favorite;
+    if (data.tags) chordSlots[sIndex].tags = data.tags;
+    if (data.image) chordSlots[sIndex].image = data.image;
+
     import("./chordPalette.js").then(({ updateChordPaletteUI }) => {
       updateChordPaletteUI();
     });
@@ -604,6 +623,12 @@ export function printLibrary() {
           .map(k => `${k.noteName}${k.octave} (r=${k.y}, s=${k.x})`)
           .join("<br>");
         extra += `<p style="margin-top:0.5rem;font-size:0.8rem">${lines}</p>`;
+      }
+      if (item.favorite) {
+        extra += `<p style="color:red;font-size:0.9rem;margin-top:0.5rem">❤️ Favorite</p>`;
+      }
+      if (item.tags) {
+        extra += `<p style="margin-top:0.5rem;font-size:0.8rem">Tags: ${item.tags}</p>`;
       }
     } else if (item.type === "tab") {
       extra += "<p>(Tab)</p>";
