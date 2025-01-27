@@ -125,10 +125,10 @@
                  focus:outline-none min-w-[120px] shadow-sm"
         >
           <!-- Replaced old piano/guitar/etc. with synth placeholders: -->
-          <option value="synth1">Synth 1</option>
-          <option value="synth2">Synth 2</option>
-          <option value="synth3">Synth 3</option>
-          <option value="synth4">Synth 4</option>
+          <option value="piano" selected>Piano</option>
+          <option value="guitar">Guitar</option>
+          <option value="banjo">Banjo</option>
+          <option value="harp">Harp</option>
         </select>
       </div>
 
@@ -1265,6 +1265,76 @@
     } from "./sequencer.js";
 
     document.addEventListener("DOMContentLoaded", () => {
+      // --------------------------------------------------
+      // Function to apply different default settings based on instrument
+      // --------------------------------------------------
+      function applyInstrumentDefaults(instr) {
+        switch (instr) {
+          case "piano":
+            document.getElementById("osc1WaveType").value = "sine";
+            document.getElementById("osc2WaveType").value = "sine";
+            document.getElementById("osc1Tune").value = 0;
+            document.getElementById("osc2Tune").value = 0;
+            document.getElementById("osc1Mix").value = 50;
+            document.getElementById("osc2Mix").value = 50;
+            document.getElementById("noiseOn").checked = false;
+            document.getElementById("ampEnvA").value = 0.01;
+            document.getElementById("ampEnvD").value = 0.7;
+            document.getElementById("ampEnvS").value = 90; // 70%
+            document.getElementById("ampEnvR").value = .8;
+            document.getElementById("lfoDepth").value = 0.0;
+        
+           
+            break;
+
+          case "guitar":
+            document.getElementById("osc1WaveType").value = "sawtooth";
+            document.getElementById("osc2WaveType").value = "square";
+            document.getElementById("osc1Tune").value = 0;
+            // 12 semitones up for a higher overtone
+            document.getElementById("osc2Tune").value = 12; 
+            document.getElementById("osc1Mix").value = 70;
+            document.getElementById("osc2Mix").value = 30;
+            document.getElementById("noiseOn").checked = false;
+            document.getElementById("ampEnvA").value = 0.005;
+            document.getElementById("ampEnvD").value = 0.2;
+            document.getElementById("ampEnvS").value = 50;
+            document.getElementById("ampEnvR").value = 0.5;
+            break;
+
+          case "banjo":
+            document.getElementById("osc1WaveType").value = "sawtooth";
+            document.getElementById("osc2WaveType").value = "sawtooth";
+            document.getElementById("osc1Tune").value = 0;
+            // Perfect fifth
+            document.getElementById("osc2Tune").value = 7; 
+            document.getElementById("osc1Mix").value = 60;
+            document.getElementById("osc2Mix").value = 40;
+            document.getElementById("noiseOn").checked = false;
+            document.getElementById("ampEnvA").value = 0.001;
+            document.getElementById("ampEnvD").value = 0.15;
+            document.getElementById("ampEnvS").value = 40;
+            document.getElementById("ampEnvR").value = 0.3;
+            break;
+
+          case "harp":
+            document.getElementById("osc1WaveType").value = "sine";
+            document.getElementById("osc2WaveType").value = "sine";
+            // two octaves higher for osc2
+            document.getElementById("osc1Tune").value = 12;
+            document.getElementById("osc2Tune").value = 24;
+            document.getElementById("osc1Mix").value = 50;
+            document.getElementById("osc2Mix").value = 30;
+            document.getElementById("noiseOn").checked = true;
+            document.getElementById("noiseMix").value = 20;
+            document.getElementById("ampEnvA").value = 0.01;
+            document.getElementById("ampEnvD").value = 0.3;
+            document.getElementById("ampEnvS").value = 50;
+            document.getElementById("ampEnvR").value = 1.2;
+            break;
+        }
+      }
+
       // Initial setup
       initKeysState();
       drawTablature();
@@ -1285,6 +1355,8 @@
       // Instrument changes
       document.getElementById("instrumentSelect").addEventListener("change", (e) => {
         setCurrentInstrument(e.target.value);
+        // NEW: apply defaults for the selected instrument
+        applyInstrumentDefaults(e.target.value);
       });
 
       // Scale dropdown
@@ -1850,10 +1922,50 @@
           playNoteTemporary(pos.x, pos.y, 300);
         });
       });
+
+      // Finally, apply the default settings for "piano" at load
+      applyInstrumentDefaults("piano");
     });
 
     // Expose shiftSelection for the shift buttons
     window.shiftSelection = shiftSelection;
+
+
+    // -------- FIX Save/Load Synth Preset Buttons -------- //
+    // We'll dynamically import the needed functions to avoid changing other code.
+    document.getElementById("saveSynthSettingsBtn").addEventListener("click", async () => {
+      const { getSynthSettingsFromDOM } = await import("./audio.js");
+      const settings = getSynthSettingsFromDOM();
+      const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "synth_preset.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("loadSynthSettingsBtn").addEventListener("click", () => {
+      document.getElementById("loadSynthSettingsFile").click();
+    });
+
+    document.getElementById("loadSynthSettingsFile").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          // We'll apply these settings via the function in saveProject.js
+          const { applySynthSettingsToDOM } = await import("./saveProject.js");
+          applySynthSettingsToDOM(data);
+          alert("Synth preset loaded successfully!");
+        } catch(err) {
+          alert("Failed to load synth preset: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
   </script>
 </body>
 </html>

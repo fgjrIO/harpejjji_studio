@@ -85,7 +85,7 @@ export async function initAudio() {
  * Reads current synth parameters from the UI (DOM).
  * Returns an object with all relevant settings.
  */
-function getSynthSettingsFromDOM() {
+export function getSynthSettingsFromDOM() {
   // Osc1
   const osc1WaveType    = (document.getElementById("osc1WaveType")?.value) || "sawtooth";
   const osc1PulseWidth  = parseFloat(document.getElementById("osc1PulseWidth")?.value || "50") / 100;
@@ -203,9 +203,6 @@ export async function createOscillator(frequency, instrument) {
   // We'll fetch the current UI-based synth parameters:
   const synthParams = getSynthSettingsFromDOM();
 
-  // For demonstration, we won't treat synth1/2/3/4 differently.
-  // But you could have different preset loading if needed.
-  
   // We'll build the final voice audio node chain
   const voice = await createSynthVoice(frequency, synthParams);
 
@@ -284,12 +281,6 @@ export function setReverbAmount(value) {
  * Internals for building the new multi-osc voice
  ******************************************************/
 
-/**
- * createSynthVoice(frequency, synthParams)
- *  - Creates a single "voice," which may contain multiple
- *    oscillators (unison), plus 2 filters in parallel,
- *    noise, LFO, envelopes, etc.
- */
 async function createSynthVoice(frequency, synthParams) {
   // Create a master node for the entire voice
   const voiceGain = window.audioContext.createGain();
@@ -362,9 +353,8 @@ async function createSynthVoice(frequency, synthParams) {
     lfoGain.connect(filter2.frequency);
   } else if (synthParams.lfo.routing === "pitch") {
     // We'll modulate each subVoice's oscillator frequencies
-    // We can do it by hooking to the detune param
     voiceNodes.forEach(sub => {
-      sub.osc1Node.detune.value += 0; // We must connect param
+      sub.osc1Node.detune.value += 0;
       try { lfoGain.connect(sub.osc1Node.detune); } catch {}
       sub.osc2Node.detune.value += 0;
       try { lfoGain.connect(sub.osc2Node.detune); } catch {}
@@ -373,15 +363,13 @@ async function createSynthVoice(frequency, synthParams) {
 
   lfoOsc.start(window.audioContext.currentTime);
 
-  // For the filter envelope, we apply a standard ADSR shape to filter freq
+  // Filter envelope
   const now = window.audioContext.currentTime;
   const envA = synthParams.filterEnv.a;
   const envD = synthParams.filterEnv.d;
   const envS = synthParams.filterEnv.s;
   const envR = synthParams.filterEnv.r;
 
-  // For each filter, we'll set initial freq, then ramp up, then down to sustain
-  // The effective envelope amount is multiplied by the filter's envAmount param
   const baseF1 = synthParams.filter1.cutoff;
   const baseF2 = synthParams.filter2.cutoff;
   const envAmt1 = synthParams.filter1.envAmount * baseF1;
@@ -409,7 +397,7 @@ async function createSynthVoice(frequency, synthParams) {
   voiceGain.gain.cancelScheduledValues(now);
   voiceGain.gain.setValueAtTime(0, now);
   voiceGain.gain.linearRampToValueAtTime(1.0, now + ampA); // attack
-  voiceGain.gain.linearRampToValueAtTime(ampS, now + ampA + ampD); // decay -> sustain
+  voiceGain.gain.linearRampToValueAtTime(ampS, now + ampA + ampD); // sustain level
 
   return {
     voiceGain,
@@ -427,26 +415,17 @@ async function createSynthVoice(frequency, synthParams) {
   };
 }
 
-/**
- * createSubVoiceOscillators(frequency, synthParams, index, totalUnison)
- *  - For unison, we replicate this multiple times
- */
 function createSubVoiceOscillators(freq, synthParams, index, totalUnison) {
   // We'll sum osc1 + osc2 + (optionally) noise
   const mixNode = window.audioContext.createGain();
-  mixNode.gain.value = 1.0 / totalUnison; // so total doesn't blow up
+  mixNode.gain.value = 1.0 / totalUnison;
 
   // A small unison offset
-  const detuneCents = (index - (totalUnison-1)/2) * 5; // e.g. -5, 0, 5 for 3 voices
+  const detuneCents = (index - (totalUnison-1)/2) * 5; 
 
   // OSC1
   const osc1 = window.audioContext.createOscillator();
   osc1.type = synthParams.osc1.wave === "pulse" ? "square" : synthParams.osc1.wave;
-  // If "pulse," we can implement a PWM with e.g. waveshaper or another method,
-  // but let's keep it simple here.
-
-  // If "glideOn," we could do a freq ramp from old -> freq. 
-  // For simplicity, we'll just set freq. Real portamento is more advanced.
   const startTime = window.audioContext.currentTime;
   if (synthParams.glideOn) {
     osc1.frequency.setValueAtTime(0, startTime);
@@ -454,12 +433,10 @@ function createSubVoiceOscillators(freq, synthParams, index, totalUnison) {
   } else {
     osc1.frequency.value = freq;
   }
-
-  // Add tune + unison detune
   const semitoneRatio = Math.pow(2, (synthParams.osc1.tune + detuneCents/100) / 12);
   osc1.frequency.value *= semitoneRatio;
 
-  // Similarly for oscillator2
+  // OSC2
   const osc2 = window.audioContext.createOscillator();
   osc2.type = synthParams.osc2.wave === "pulse" ? "square" : synthParams.osc2.wave;
   if (synthParams.glideOn) {
@@ -471,12 +448,9 @@ function createSubVoiceOscillators(freq, synthParams, index, totalUnison) {
   const semitoneRatio2 = Math.pow(2, (synthParams.osc2.tune + detuneCents/100) / 12);
   osc2.frequency.value *= semitoneRatio2;
 
-  // For Hard Sync, we need to set one oscillator as the "master." 
-  // We'll skip the actual implementation detail for brevity or do something simple:
-  // If osc2Sync is on, we connect osc1 as the "sync master," but the Web Audio API doesn't have a built-in.
-  // Typically, you'd do custom DSP. We'll skip a real sync.
+  // Hard Sync not implemented (placeholder)
 
-  // We'll create separate gains for each oscillator:
+  // Gains
   const osc1Gain = window.audioContext.createGain();
   osc1Gain.gain.value = synthParams.osc1.mix;
   osc1.connect(osc1Gain);
@@ -513,42 +487,32 @@ function createSubVoiceOscillators(freq, synthParams, index, totalUnison) {
   return {
     osc1Node: osc1,
     osc2Node: osc2,
-    noiseNode: noiseSource, 
+    noiseNode: noiseSource,
     mixNode
   };
 }
 
-/**
- * stopVoice(voice, synthParams)
- *  - Applies the release portion of amplitude & filter envelopes,
- *    then stops all oscillators after release time.
- */
 function stopVoice(voice, synthParams) {
   if (!voice) return;
   const now = window.audioContext.currentTime;
   // amplitude envelope release
   const r = voice.ampEnv.r;
 
-  // We'll release filter envelope, too
-  const filterA = voice.filterEnv.a;
-  const filterD = voice.filterEnv.d;
-  const filterS = voice.filterEnv.s;
+  // Filter envelope release
   const filterR = voice.filterEnv.r;
 
-  // We do an envelope to 0 over release time
+  // Fade out amplitude
   voice.voiceGain.gain.cancelScheduledValues(now);
   const currentVal = voice.voiceGain.gain.value;
   voice.voiceGain.gain.setValueAtTime(currentVal, now);
   voice.voiceGain.gain.linearRampToValueAtTime(0.0001, now + r);
 
-  // Filter freq release as well: 
-  // We'll just ramp both filters back to base freq or something close
+  // Filter freq release
+  const baseF1 = synthParams.filter1.cutoff;
+  const baseF2 = synthParams.filter2.cutoff;
   voice.filter1.frequency.cancelScheduledValues(now);
   voice.filter2.frequency.cancelScheduledValues(now);
 
-  // We'll do a simple linear ramp to base freq
-  const baseF1 = synthParams.filter1.cutoff;
-  const baseF2 = synthParams.filter2.cutoff;
   voice.filter1.frequency.setValueAtTime(voice.filter1.frequency.value, now);
   voice.filter1.frequency.linearRampToValueAtTime(baseF1, now + filterR);
 
