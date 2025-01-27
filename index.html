@@ -124,10 +124,11 @@
                  focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 
                  focus:outline-none min-w-[120px] shadow-sm"
         >
-          <option value="piano">Piano</option>
-          <option value="guitar">Guitar</option>
-          <option value="ukulele">Ukulele</option>
-          <option value="harp">Harp</option>
+          <!-- Replaced old piano/guitar/etc. with synth placeholders: -->
+          <option value="synth1">Synth 1</option>
+          <option value="synth2">Synth 2</option>
+          <option value="synth3">Synth 3</option>
+          <option value="synth4">Synth 4</option>
         </select>
       </div>
 
@@ -251,6 +252,14 @@
         class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200 shadow-sm"
       >
         Advanced Config
+      </button>
+
+      <!-- Synth Settings Button -->
+      <button
+        id="synthSettingsBtn"
+        class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200 shadow-sm"
+      >
+        Synth Settings
       </button>
 
       <!-- High-Level Save/Load Project -->
@@ -785,6 +794,220 @@
     </div>
   </div>
 
+  <!-- Synth Settings Slideover -->
+  <div id="synthConfigSlideover" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
+    <div class="absolute right-0 top-0 bottom-0 bg-white w-96 p-6 overflow-y-auto shadow-lg">
+      <h2 class="text-2xl font-bold mb-6 text-slate-800">Synth Settings</h2>
+      <button id="closeSynthConfigBtn" class="absolute top-4 right-4 px-2 py-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-colors duration-200">
+        Close
+      </button>
+      
+      <!-- Oscillators Section -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-2">Oscillators</h3>
+        <!-- Osc 1 -->
+        <div class="bg-slate-50 p-3 rounded mb-4">
+          <h4 class="font-bold mb-2">Oscillator 1</h4>
+          <label class="block mb-1">Wave Type:
+            <select id="osc1WaveType" class="border rounded px-2 py-1 w-full">
+              <option value="sawtooth">Sawtooth</option>
+              <option value="square">Square</option>
+              <option value="sine">Sine</option>
+              <option value="pulse">Pulse</option>
+            </select>
+          </label>
+          <label class="block mb-1">Pulse Width (%):
+            <input type="range" id="osc1PulseWidth" min="0" max="100" step="1" value="50" class="w-full" />
+          </label>
+          <label class="block mb-1">Tune (semitones):
+            <input type="number" id="osc1Tune" class="border rounded px-2 py-1 w-full" value="0" />
+          </label>
+          <label class="block mb-1">Mix (%):
+            <input type="range" id="osc1Mix" min="0" max="100" step="1" value="50" class="w-full" />
+          </label>
+          <label class="inline-flex items-center mb-1">
+            <input type="checkbox" id="osc1Track" class="mr-2" />
+            Track On/Off
+          </label>
+          <br/>
+          <label class="inline-flex items-center">
+            <input type="checkbox" id="osc1Sync" class="mr-2" />
+            Sync On/Off
+          </label>
+        </div>
+
+        <!-- Osc 2 -->
+        <div class="bg-slate-50 p-3 rounded mb-4">
+          <h4 class="font-bold mb-2">Oscillator 2</h4>
+          <label class="block mb-1">Wave Type:
+            <select id="osc2WaveType" class="border rounded px-2 py-1 w-full">
+              <option value="sawtooth">Sawtooth</option>
+              <option value="square">Square</option>
+              <option value="sine">Sine</option>
+              <option value="pulse">Pulse</option>
+            </select>
+          </label>
+          <label class="block mb-1">Pulse Width (%):
+            <input type="range" id="osc2PulseWidth" min="0" max="100" step="1" value="50" class="w-full" />
+          </label>
+          <label class="block mb-1">Tune (semitones):
+            <input type="number" id="osc2Tune" class="border rounded px-2 py-1 w-full" value="0" />
+          </label>
+          <label class="block mb-1">Mix (%):
+            <input type="range" id="osc2Mix" min="0" max="100" step="1" value="50" class="w-full" />
+          </label>
+          <label class="inline-flex items-center mb-1">
+            <input type="checkbox" id="osc2Track" class="mr-2" />
+            Track On/Off
+          </label>
+          <br/>
+          <label class="inline-flex items-center">
+            <input type="checkbox" id="osc2Sync" class="mr-2" />
+            Sync On/Off
+          </label>
+        </div>
+
+        <!-- Noise -->
+        <div class="bg-slate-50 p-3 rounded">
+          <h4 class="font-bold mb-2">Noise Oscillator</h4>
+          <label class="inline-flex items-center mb-2">
+            <input type="checkbox" id="noiseOn" class="mr-2" />
+            Noise On/Off
+          </label>
+          <label class="block mb-1">Noise Mix (%):
+            <input type="range" id="noiseMix" min="0" max="100" step="1" value="0" class="w-full" />
+          </label>
+        </div>
+      </div>
+
+      <!-- LFO Section -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-2">LFO</h3>
+        <label class="block mb-1">Routing:
+          <select id="lfoRouting" class="border rounded px-2 py-1 w-full">
+            <option value="amplitude">Amplitude</option>
+            <option value="filter">Filter</option>
+            <option value="pitch">Pitch</option>
+          </select>
+        </label>
+        <label class="block mb-1">Wave Type:
+          <select id="lfoWave" class="border rounded px-2 py-1 w-full">
+            <option value="triangle">Triangle</option>
+            <option value="sine">Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth">Sawtooth</option>
+          </select>
+        </label>
+        <label class="block mb-1">Frequency (Hz):
+          <input type="number" id="lfoFrequency" step="0.1" class="border rounded px-2 py-1 w-full" value="5.0" />
+        </label>
+        <label class="block mb-1">Depth (%):
+          <input type="range" id="lfoDepth" min="0" max="100" step="1" value="50" class="w-full" />
+        </label>
+      </div>
+
+      <!-- Glide & Unison -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-2">Glide & Unison</h3>
+        <label class="inline-flex items-center mb-2">
+          <input type="checkbox" id="glideOn" class="mr-2" />
+          Glide On/Off
+        </label>
+        <label class="block mb-1">Glide Time (s):
+          <input type="number" id="glideTime" step="0.01" class="border rounded px-2 py-1 w-full" value="0.2" />
+        </label>
+        <label class="inline-flex items-center mb-2 mt-2">
+          <input type="checkbox" id="unisonOn" class="mr-2" />
+          Unison On/Off
+        </label>
+        <label class="block mb-1">Number of Voices:
+          <input type="number" id="unisonVoices" class="border rounded px-2 py-1 w-full" value="1" min="1" />
+        </label>
+      </div>
+
+      <!-- Filters -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-2">Filters</h3>
+        <!-- Filter 1 (12 dB) -->
+        <div class="bg-slate-50 p-3 rounded mb-4">
+          <h4 class="font-bold mb-2">Filter 1 (12 dB)</h4>
+          <label class="block mb-1">Cutoff (kHz):
+            <input type="number" id="filter1Cutoff" step="0.01" class="border rounded px-2 py-1 w-full" value="2.0" />
+          </label>
+          <label class="block mb-1">Resonance (%):
+            <input type="range" id="filter1Resonance" min="0" max="100" step="1" value="0" class="w-full" />
+          </label>
+          <label class="block mb-1">Envelope Amount (%):
+            <input type="range" id="filter1EnvAmount" min="0" max="100" step="1" value="50" class="w-full" />
+          </label>
+        </div>
+
+        <!-- Filter 2 (24 dB) -->
+        <div class="bg-slate-50 p-3 rounded">
+          <h4 class="font-bold mb-2">Filter 2 (24 dB)</h4>
+          <label class="block mb-1">Cutoff (kHz):
+            <input type="number" id="filter2Cutoff" step="0.01" class="border rounded px-2 py-1 w-full" value="2.0" />
+          </label>
+          <label class="block mb-1">Resonance (%):
+            <input type="range" id="filter2Resonance" min="0" max="100" step="1" value="0" class="w-full" />
+          </label>
+          <label class="block mb-1">Envelope Amount (%):
+            <input type="range" id="filter2EnvAmount" min="0" max="100" step="1" value="50" class="w-full" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Filter Envelope (applies to both filters) -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-2">Filter Envelope</h3>
+        <label class="block mb-1">Attack (s):
+          <input type="text" id="filterEnvA" class="border rounded px-2 py-1 w-full" value="0.1" />
+        </label>
+        <label class="block mb-1">Decay (s):
+          <input type="text" id="filterEnvD" class="border rounded px-2 py-1 w-full" value="0.3" />
+        </label>
+        <label class="block mb-1">Sustain (%):
+          <input type="range" id="filterEnvS" min="0" max="100" step="1" value="70" class="w-full" />
+        </label>
+        <label class="block mb-1">Release (s):
+          <input type="text" id="filterEnvR" class="border rounded px-2 py-1 w-full" value="0.5" />
+        </label>
+      </div>
+
+      <!-- Amplitude Envelope -->
+      <div class="mb-6">
+        <h3 class="text-xl font-semibold mb-2">Amplitude Envelope</h3>
+        <label class="block mb-1">Attack (s):
+          <input type="text" id="ampEnvA" class="border rounded px-2 py-1 w-full" value="0.01" />
+        </label>
+        <label class="block mb-1">Decay (s):
+          <input type="text" id="ampEnvD" class="border rounded px-2 py-1 w-full" value="0.2" />
+        </label>
+        <label class="block mb-1">Sustain (%):
+          <input type="range" id="ampEnvS" min="0" max="100" step="1" value="50" class="w-full" />
+        </label>
+        <label class="block mb-1">Release (s):
+          <input type="text" id="ampEnvR" class="border rounded px-2 py-1 w-full" value="0.5" />
+        </label>
+      </div>
+
+      <!-- Save/Load Synth Settings -->
+      <div>
+        <h3 class="text-xl font-semibold mb-2">Save/Load Synth Presets</h3>
+        <div class="flex gap-2 mb-2">
+          <button id="saveSynthSettingsBtn" class="px-3 py-2 rounded-md bg-indigo-500 text-white hover:bg-indigo-600 transition-colors duration-200 shadow-sm text-sm">
+            Save Synth Preset
+          </button>
+          <button id="loadSynthSettingsBtn" class="px-3 py-2 rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors duration-200 shadow-sm text-sm">
+            Load Synth Preset
+          </button>
+          <input type="file" id="loadSynthSettingsFile" class="hidden" accept=".json" />
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Sequencer (hidden by default; toggled by "Sequencer Mode" button) -->
   <div id="sequencer" class="fixed bottom-0 left-0 right-0 h-[300px] bg-slate-800 border-t border-slate-700 hidden">
     <div id="transport-controls" class="p-4 bg-slate-700 border-b border-slate-600 flex gap-3 items-center">
@@ -1269,6 +1492,17 @@
       });
       closeAdvBtn.addEventListener("click", () => {
         advSlideover.classList.add("hidden");
+      });
+
+      // Synth Settings Slideover
+      const synthSettingsBtn = document.getElementById("synthSettingsBtn");
+      const synthConfigSlideover = document.getElementById("synthConfigSlideover");
+      const closeSynthConfigBtn = document.getElementById("closeSynthConfigBtn");
+      synthSettingsBtn.addEventListener("click", () => {
+        synthConfigSlideover.classList.toggle("hidden");
+      });
+      closeSynthConfigBtn.addEventListener("click", () => {
+        synthConfigSlideover.classList.add("hidden");
       });
 
       // Cursor color
