@@ -1,5 +1,5 @@
 /******************************************************
- * tablature.js
+ * tablature.js1
  *
  * Responsible for:
  *  - Drawing the tablature on <svg id="tablature">
