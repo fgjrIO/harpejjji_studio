@@ -7,6 +7,10 @@
  *  - Filtering by type, scale, model
  *  - Loading a selection (tab or chord) back into the app
  *  - Printing, importing, exporting
+ *
+ * CHANGES:
+ *  - Now displays "❤️ Favorite" for chords with favorite===true
+ *  - Displays chord.tags if provided
  ******************************************************/
 
 import {
@@ -154,7 +158,7 @@ export function populateLibrary() {
       contentDiv.appendChild(chordKeysDiv);
     }
 
-    // NEW: Favorite heart and Tags for chords
+    // NEW: Show favorite heart + tags if present
     if (selection.type === "chord" && selection.favorite) {
       const favDiv = document.createElement("div");
       favDiv.className = "text-sm mt-1 text-center text-red-500";
@@ -168,7 +172,7 @@ export function populateLibrary() {
       contentDiv.appendChild(tagsDiv);
     }
 
-    // Optional date/time
+    // Optional date/time (some older code might have used date/time)
     if (selection.date || selection.time) {
       const dtDiv = document.createElement("div");
       dtDiv.className = "block text-center text-gray-400 text-xs mt-1";
@@ -196,7 +200,6 @@ function allNotesInCurrentScale(notesArray) {
   const scaleSet = getScaleSemitones(currentScale, currentRoot);
   if (!scaleSet.size) return true;
 
-  // Convert flats to sharps for indexing:
   function mapAccidentalsToSharps(name) {
     const table = {
       "Cb": "B", "Db": "C#", "Eb": "D#", "Fb": "E", "Gb": "F#",
@@ -206,7 +209,6 @@ function allNotesInCurrentScale(notesArray) {
   }
 
   for (const noteStr of notesArray) {
-    // Expect something like "C#3", "Ab4", etc.
     const match = noteStr.match(/^([A-G](?:#|b)?)(\d+)/);
     if (!match) return false;
     let rawName = match[1];
@@ -229,7 +231,6 @@ function allChordNotesInCurrentScale(keysArray) {
   const scaleSet = getScaleSemitones(currentScale, currentRoot);
   if (!scaleSet.size) return true;
 
-  // Same accidental mapping:
   function mapAccidentalsToSharps(name) {
     const table = {
       "Cb": "B", "Db": "C#", "Eb": "D#", "Fb": "E", "Gb": "F#",
@@ -288,7 +289,7 @@ function deleteSelection(index) {
  ******************************************************/
 export function loadSelection(data) {
   if (data.type === "tab") {
-    // Set model if needed
+    // If there's modelData, apply it
     if (data.modelData) {
       setCurrentModelData(data.modelData);
     } else if (data.model && MODELS[data.model]) {
@@ -324,10 +325,10 @@ export function loadSelection(data) {
       noteName: k.noteName,
       octave: k.octave
     }));
-    // If the loaded chord has .favorite / .tags / .image, copy them in
-    if (data.favorite) chordSlots[sIndex].favorite = data.favorite;
-    if (data.tags) chordSlots[sIndex].tags = data.tags;
-    if (data.image) chordSlots[sIndex].image = data.image;
+    // Copy over optional favorite/tags/image
+    chordSlots[sIndex].favorite = !!data.favorite;
+    chordSlots[sIndex].tags     = data.tags || "";
+    chordSlots[sIndex].image    = data.image || null;
 
     import("./chordPalette.js").then(({ updateChordPaletteUI }) => {
       updateChordPaletteUI();
@@ -676,7 +677,6 @@ function setCurrentModelData(modelData) {
   currentModel.endNote         = modelData.endNote;
   currentModel.endOctave       = modelData.endOctave;
 
-  // Update the global references in the window scope
   window.numberOfStrings = modelData.numberOfStrings;
   window.numberOfFrets   = modelData.numberOfFrets;
   window.BASE_NOTE       = modelData.startNote;
