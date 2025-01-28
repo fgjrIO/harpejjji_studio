@@ -9,6 +9,7 @@
  *  - Printing, importing, exporting
  *  - "Wide Mode" toggle => expands the white panel to half the screen
  *  - 4×4 grid layout with pagination
+ *  - "Chord Tool" for batch row/col shifting
  ******************************************************/
 
 import {
@@ -39,6 +40,12 @@ import { createOscillator, stopOscillator } from "./audio.js";
 let libraryPageIndex = 0;    // Which page we're on
 const itemsPerPage = 16;     // 4x4 grid
 let wideModeEnabled = false; // toggled by handleWideModeToggle()
+
+/******************************************************
+ * We'll keep a reference to whichever chord the user
+ * wants to apply the "Chord Tool" to.
+ ******************************************************/
+let chordToolSourceChord = null; 
 
 /******************************************************
  * toggleLibrary():
@@ -176,6 +183,19 @@ export function populateLibrary() {
       previewItem(selection);
     });
     div.appendChild(previewBtn);
+
+    // If it's a chord, add a "Chord Tool" button all the way on the left
+    if (selection.type === "chord") {
+      const chordToolBtn = document.createElement("button");
+      // "left" instead of "right" so it doesn't overlap preview
+      chordToolBtn.className = "absolute top-2 left-2 px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs";
+      chordToolBtn.textContent = "Chord Tool";
+      chordToolBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openChordToolPopup(selection);
+      });
+      div.appendChild(chordToolBtn);
+    }
 
     // Content => load
     const contentDiv = document.createElement("div");
@@ -330,7 +350,7 @@ function previewItem(selection) {
 /******************************************************
  * previewChord(keys):
  *  - Create oscillators for each chord note,
- *    hold ~1.5s, then stop.
+ *    hold ~200ms, then stop.
  ******************************************************/
 async function previewChord(keys) {
   if (!keys || !keys.length) return;
@@ -449,18 +469,6 @@ function getScaleSemitones(scaleName, rootNote) {
 }
 
 /******************************************************
- * deleteSelection(index):
- *  - Remove item from localStorage array by index
- ******************************************************/
-function deleteSelection(index) {
-  if (!confirm("Are you sure you want to delete this selection?")) return;
-  const arr = JSON.parse(localStorage.getItem("harpejjiSelections") || "[]");
-  arr.splice(index, 1);
-  localStorage.setItem("harpejjiSelections", JSON.stringify(arr));
-  populateLibrary();
-}
-
-/******************************************************
  * loadSelection(data):
  *  - If it's a tab => switch models, copy keysState, re-draw
  *  - If it's a chord => prompt which chord slot to load
@@ -510,6 +518,25 @@ export function loadSelection(data) {
     });
   }
   toggleLibrary();
+}
+
+/******************************************************
+ * setCurrentModelData(data):
+ *  - If a tab has modelData => apply it to currentModel
+ ******************************************************/
+function setCurrentModelData(modelData) {
+  if (!modelData) return;
+  currentModel.numberOfStrings = modelData.numberOfStrings;
+  currentModel.numberOfFrets   = modelData.numberOfFrets;
+  currentModel.startNote       = modelData.startNote;
+  currentModel.startOctave     = modelData.startOctave;
+  currentModel.endNote         = modelData.endNote;
+  currentModel.endOctave       = modelData.endOctave;
+
+  window.numberOfStrings = modelData.numberOfStrings;
+  window.numberOfFrets   = modelData.numberOfFrets;
+  window.BASE_NOTE       = modelData.startNote;
+  window.BASE_OCTAVE     = modelData.startOctave;
 }
 
 /******************************************************
@@ -840,27 +867,10 @@ export function printLibrary() {
 }
 
 /******************************************************
- * setCurrentModelData(data):
- *  - If a tab has modelData => apply it to currentModel
+ * importFilesScaleLocked()
+ *  - Import multiple chord/tab .json files
+ *    but only keep items that fit the current scale
  ******************************************************/
-function setCurrentModelData(modelData) {
-  if (!modelData) return;
-  currentModel.numberOfStrings = modelData.numberOfStrings;
-  currentModel.numberOfFrets   = modelData.numberOfFrets;
-  currentModel.startNote       = modelData.startNote;
-  currentModel.startOctave     = modelData.startOctave;
-  currentModel.endNote         = modelData.endNote;
-  currentModel.endOctave       = modelData.endOctave;
-
-  window.numberOfStrings = modelData.numberOfStrings;
-  window.numberOfFrets   = modelData.numberOfFrets;
-  window.BASE_NOTE       = modelData.startNote;
-  window.BASE_OCTAVE     = modelData.startOctave;
-}
-
-/* ===========================================================
-   importFilesScaleLocked()
-   =========================================================== */
 export function importFilesScaleLocked() {
   const input = document.createElement("input");
   input.type = "file";
@@ -924,4 +934,194 @@ export function importFilesScaleLocked() {
 
   // Trigger file chooser
   input.click();
+}
+
+/* ********************************************************************
+ *  CHORD TOOL FUNCTIONALITY
+ *    1) openChordToolPopup(selection)
+ *    2) build transformation rows
+ *    3) on "Generate", create each new chord, prompt user, save as file
+ ********************************************************************* */
+function openChordToolPopup(chordSelection) {
+  chordToolSourceChord = chordSelection;
+  const popup = document.getElementById("chordToolPopup");
+  if (!popup) return;
+
+  // Clear existing transformation rows
+  const transformContainer = document.getElementById("chordToolTransformations");
+  transformContainer.innerHTML = "";
+
+  // Show the chord tool popup
+  popup.classList.remove("hidden");
+
+  // Add 1 initial row
+  addTransformationRow();
+
+  // Set up close button
+  const closeBtn = document.getElementById("closeChordToolPopup");
+  closeBtn.onclick = () => {
+    chordToolSourceChord = null; // reset
+    popup.classList.add("hidden");
+  };
+
+  // Add transformation button
+  document.getElementById("addTransformationBtn").onclick = () => {
+    addTransformationRow();
+  };
+
+  // Generate button
+  document.getElementById("generateChordsBtn").onclick = () => {
+    generateBatchChords();
+  };
+}
+
+function addTransformationRow() {
+  const container = document.getElementById("chordToolTransformations");
+  const rowDiv = document.createElement("div");
+  rowDiv.className = "flex items-center gap-2";
+
+  // Col shift
+  const colInput = document.createElement("input");
+  colInput.type = "number";
+  colInput.placeholder = "Col Shift";
+  colInput.className = "w-20 border rounded px-2 py-1 text-sm";
+  colInput.value = "0";
+
+  // Row shift
+  const rowInput = document.createElement("input");
+  rowInput.type = "number";
+  rowInput.placeholder = "Row Shift";
+  rowInput.className = "w-20 border rounded px-2 py-1 text-sm";
+  rowInput.value = "0";
+
+  // Remove button
+  const removeBtn = document.createElement("button");
+  removeBtn.textContent = "-";
+  removeBtn.className = "px-2 py-1 bg-rose-500 text-white rounded hover:bg-rose-600 text-sm";
+  removeBtn.onclick = () => {
+    container.removeChild(rowDiv);
+  };
+
+  rowDiv.appendChild(document.createTextNode("Col:"));
+  rowDiv.appendChild(colInput);
+  rowDiv.appendChild(document.createTextNode("Row:"));
+  rowDiv.appendChild(rowInput);
+  rowDiv.appendChild(removeBtn);
+
+  container.appendChild(rowDiv);
+}
+
+async function generateBatchChords() {
+  if (!chordToolSourceChord) return;
+
+  const transformContainer = document.getElementById("chordToolTransformations");
+  const rows = transformContainer.querySelectorAll("div.flex.items-center");
+  if (!rows.length) {
+    alert("No transformations specified.");
+    return;
+  }
+
+  // We'll parse each row, apply transformation, generate a chord
+  const originalName = chordToolSourceChord.name || "Chord";
+  const originalKeys = chordToolSourceChord.keys || [];
+  if (!originalKeys.length) {
+    alert("No keys found in the chord to transform.");
+    return;
+  }
+
+  // Preserve the chord's image if any
+  const originalImage = chordToolSourceChord.image || null;
+
+  // For each transformation, we:
+  // 1) shift the chord
+  // 2) build a new name
+  // 3) briefly play it
+  // 4) prompt "Ready to save next chord?"
+  // 5) if user OK => auto-download .json with appended name + same image
+  for (let i = 0; i < rows.length; i++) {
+    const inputs = rows[i].querySelectorAll("input");
+    const colShiftVal = parseInt(inputs[0].value, 10) || 0;
+    const rowShiftVal = parseInt(inputs[1].value, 10) || 0;
+
+    // Build a new chord name
+    // e.g. CMajor_rowshift_minus1_colshift_plus1
+    let nameSuffix = "";
+    if (rowShiftVal !== 0) {
+      nameSuffix += "_rowshift_" + (rowShiftVal > 0 ? "plus" + rowShiftVal : "minus" + Math.abs(rowShiftVal));
+    }
+    if (colShiftVal !== 0) {
+      nameSuffix += "_colshift_" + (colShiftVal > 0 ? "plus" + colShiftVal : "minus" + Math.abs(colShiftVal));
+    }
+    if (!nameSuffix) {
+      nameSuffix = "_shift_none";
+    }
+
+    const newName = originalName + nameSuffix;
+
+    // Apply the shift
+    const newKeys = applyRowColShift(originalKeys, rowShiftVal, colShiftVal);
+
+    if (!newKeys.length) {
+      alert(`Skipping transformation #${i+1} because all notes ended up out of range.`);
+      continue;
+    }
+
+    // Briefly play the new chord
+    await previewChord(newKeys);
+
+    // Confirm user wants to save
+    const ok = confirm(`Transformation #${i+1}:\n"${newName}"\nSave this chord as a file?`);
+    if (!ok) {
+      // if user hits Cancel, skip saving
+      continue;
+    }
+
+    // Auto-save as .json
+    // Include the same image so the new chord has it
+    const chordData = {
+      type: "chord",
+      name: newName,
+      keys: newKeys,
+      model: chordToolSourceChord.model || "",
+      image: originalImage // preserve original image
+    };
+    const blob = new Blob([JSON.stringify(chordData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = newName.replace(/\s+/g, "_") + ".json"; // remove spaces
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Done. Hide chord tool popup.
+  document.getElementById("chordToolPopup").classList.add("hidden");
+  chordToolSourceChord = null;
+}
+
+/******************************************************
+ * applyRowColShift(keys, rowShift, colShift)
+ *   - keys[] => { x, y, noteName, octave }
+ *   - we shift x by colShift, y by rowShift
+ *   - if out of range => drop that note
+ ******************************************************/
+function applyRowColShift(originalKeys, rowShift, colShift) {
+  const newKeys = [];
+  for (const k of originalKeys) {
+    const newX = k.x + colShift;
+    const newY = k.y + rowShift;
+    if (
+      newX >= 0 && newX < numberOfStrings &&
+      newY >= 0 && newY < numberOfFrets
+    ) {
+      // Keep it
+      newKeys.push({
+        x: newX,
+        y: newY,
+        noteName: k.noteName,
+        octave: k.octave
+      });
+    }
+  }
+  return newKeys;
 }

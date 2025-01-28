@@ -595,6 +595,8 @@
         </select>
       </div>
 
+      <!-- (Removed the old "Chord Tool" button that was here) -->
+
       <div id="libraryContent" class="space-y-4 overflow-y-auto h-full"></div>
     </div>
   </div>
@@ -1177,6 +1179,45 @@
     </div>
   </div>
 
+  <!-- Chord Tool Popup -->
+  <div id="chordToolPopup" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+        <h2 class="text-2xl font-bold mb-4 text-slate-800">Chord Tool</h2>
+        <p class="mb-4 text-sm text-slate-600">
+          Add transformations to shift the chord by row/column.
+        </p>
+
+        <!-- Container where we dynamically add row/col shift inputs -->
+        <div id="chordToolTransformations" class="space-y-2 mb-4">
+          <!-- Each transformation row gets appended here by library.js -->
+        </div>
+
+        <button 
+          id="addTransformationBtn"
+          class="mb-4 px-2 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 text-sm"
+        >
+          + Add Transformation
+        </button>
+
+        <div class="flex space-x-2">
+          <button 
+            id="generateChordsBtn"
+            class="px-3 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 text-sm"
+          >
+            Generate
+          </button>
+          <button 
+            id="closeChordToolPopup"
+            class="px-3 py-2 bg-rose-500 text-white rounded hover:bg-rose-600 text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Main ES Modules -->
   <script type="module">
     import { 
@@ -1430,13 +1471,6 @@
         handleWideModeToggle(e.target.checked);
       });
 
-      // Add filter change listeners
-      document.querySelectorAll('input[name="libraryFilter"]').forEach(radio => {
-        radio.addEventListener('change', populateLibrary);
-      });
-      document.getElementById('modelFilterSelect').addEventListener('change', populateLibrary);
-      document.getElementById('scaleFilterCheckbox').addEventListener('change', populateLibrary);
-
       // Kill notes
       document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
 
@@ -1449,7 +1483,7 @@
         stopPlayback();
       });
 
-      // FIX: Use startRecording() / stopRecording() from sequencer.js
+      // Record button
       document.getElementById("record-btn").addEventListener("click", () => {
         import("./sequencer.js").then(({ isRecording, startRecording, stopRecording }) => {
           if (!isRecording) {
@@ -1460,7 +1494,7 @@
         });
       });
 
-      // NEW: Metronome toggle
+      // Metronome toggle
       const metroToggle = document.getElementById("metronomeToggle");
       const metroLabel  = document.getElementById("metronomeToggleLabel");
       metroToggle.addEventListener("change", (e) => {
@@ -1933,7 +1967,6 @@
           }
         }
         selectedKeys.forEach(pos => {
-          // Record chord note if chordRecordIndex >= 0
           recordChordNoteIfNeeded(pos.x, pos.y);
           playNoteTemporary(pos.x, pos.y, 300);
         });
@@ -1947,7 +1980,7 @@
     window.shiftSelection = shiftSelection;
 
 
-    // -------- FIX Save/Load Synth Preset Buttons -------- //
+    // -------- Save/Load Synth Preset Buttons -------- //
     document.getElementById("saveSynthSettingsBtn").addEventListener("click", async () => {
       const { getSynthSettingsFromDOM } = await import("./audio.js");
       const settings = getSynthSettingsFromDOM();
@@ -1971,7 +2004,6 @@
       reader.onload = async (ev) => {
         try {
           const data = JSON.parse(ev.target.result);
-          // We'll apply these settings via the function in saveProject.js
           const { applySynthSettingsToDOM } = await import("./saveProject.js");
           applySynthSettingsToDOM(data);
           alert("Synth preset loaded successfully!");
