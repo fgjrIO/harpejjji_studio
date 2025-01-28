@@ -1471,6 +1471,19 @@
         handleWideModeToggle(e.target.checked);
       });
 
+      // NEW: Add event listeners for the library filters so they update immediately
+      document.querySelectorAll('input[name="libraryFilter"]').forEach(radio => {
+        radio.addEventListener("change", () => {
+          populateLibrary();
+        });
+      });
+      document.getElementById("scaleFilterCheckbox").addEventListener("change", () => {
+        populateLibrary();
+      });
+      document.getElementById("modelFilterSelect").addEventListener("change", () => {
+        populateLibrary();
+      });
+
       // Kill notes
       document.getElementById("killNotesBtn").addEventListener("click", killAllNotes);
 

@@ -1044,7 +1044,6 @@ async function generateBatchChords() {
     const rowShiftVal = parseInt(inputs[1].value, 10) || 0;
 
     // Build a new chord name
-    // e.g. CMajor_rowshift_minus1_colshift_plus1
     let nameSuffix = "";
     if (rowShiftVal !== 0) {
       nameSuffix += "_rowshift_" + (rowShiftVal > 0 ? "plus" + rowShiftVal : "minus" + Math.abs(rowShiftVal));
@@ -1077,7 +1076,6 @@ async function generateBatchChords() {
     }
 
     // Auto-save as .json
-    // Include the same image so the new chord has it
     const chordData = {
       type: "chord",
       name: newName,
