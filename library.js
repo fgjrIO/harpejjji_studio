@@ -33,6 +33,7 @@ import { drawTablature } from "./tablature.js";
 import { drawPianoRoll, drawSequencerGrid } from "./sequencer.js";
 import { chordSlots } from "./chordPalette.js";
 import { createOscillator, stopOscillator } from "./audio.js";
+import { captureChordImage } from "./chordPalette.js";
 
 /******************************************************
  * Global pagination & wide mode states
@@ -77,10 +78,8 @@ export function populateLibrary() {
   const slideover = document.getElementById("librarySlideover");
   if (!slideover) return;
 
-  // The white library panel is the child with "absolute" class
-  // (the second div inside #librarySlideover).
+  // The white library panel
   const libraryPanel = slideover.querySelector("div.absolute.left-0.top-0.bottom-0.bg-white");
-  // If wideModeEnabled => replace w-72 with w-[50vw]
   if (libraryPanel) {
     if (wideModeEnabled) {
       libraryPanel.classList.remove("w-72");
@@ -159,7 +158,7 @@ export function populateLibrary() {
     libraryContent.classList.add("space-y-4");
   }
 
-  // Build each item in pageItems
+  // Build each item
   pageItems.forEach((selection) => {
     const div = document.createElement("div");
     div.className = "relative p-2 border rounded hover:bg-gray-100";
@@ -184,10 +183,9 @@ export function populateLibrary() {
     });
     div.appendChild(previewBtn);
 
-    // If it's a chord, add a "Chord Tool" button all the way on the left
+    // If it's a chord, add a "Chord Tool" button
     if (selection.type === "chord") {
       const chordToolBtn = document.createElement("button");
-      // "left" instead of "right" so it doesn't overlap preview
       chordToolBtn.className = "absolute top-2 left-2 px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs";
       chordToolBtn.textContent = "Chord Tool";
       chordToolBtn.addEventListener("click", (e) => {
@@ -319,7 +317,7 @@ function deleteSelectionByObject(selection) {
   const all = JSON.parse(localStorage.getItem("harpejjiSelections") || "[]");
   let index = all.findIndex(it => it === selection);
 
-  // If not found by reference, try to match content
+  // If not found by direct reference, try to match content
   if (index < 0) {
     index = all.findIndex(it =>
       it.type === selection.type &&
@@ -459,7 +457,6 @@ function getScaleSemitones(scaleName, rootNote) {
 
   let setPC = new Set();
   let currentPos = 0;
-  // include root first
   setPC.add(rootIndex % 12);
   intervals.forEach(iv => {
     currentPos += iv;
@@ -903,7 +900,6 @@ export function importFilesScaleLocked() {
     let rejectedCount = 0;
     let processed = 0;
 
-    // Process each file
     files.forEach(file => {
       const baseName = getFilenameBase(file.name);
       const reader = new FileReader();
@@ -913,13 +909,10 @@ export function importFilesScaleLocked() {
           const items = Array.isArray(data) ? data : [data];
 
           for (const item of items) {
-            // Must be chord or tab
             if (item.type !== "tab" && item.type !== "chord") {
               rejectedCount++;
               continue;
             }
-
-            // Scale check
             let passesScale;
             if (item.type === "tab") {
               passesScale = allNotesInCurrentScale(item.notesPlainText);
@@ -928,9 +921,8 @@ export function importFilesScaleLocked() {
             }
 
             if (passesScale) {
-              // Rename chord from filename:
               if (item.type === "chord") {
-                item.name = baseName;
+                item.name = baseName; 
               }
               saved.push(item);
               importedCount++;
@@ -940,7 +932,6 @@ export function importFilesScaleLocked() {
           }
         } catch (err) {
           console.error("Error importing file:", err);
-          // entire file invalid => rejected
           rejectedCount++;
         }
         processed++;
@@ -956,7 +947,6 @@ export function importFilesScaleLocked() {
     });
   };
 
-  // Trigger file chooser
   input.click();
 }
 
@@ -964,27 +954,35 @@ export function importFilesScaleLocked() {
  *  CHORD TOOL FUNCTIONALITY
  *    1) openChordToolPopup(selection)
  *    2) build transformation rows
- *    3) on "Generate", create each new chord, prompt user, save as file
+ *    3) on "Generate", create each new chord, 
+ *       CLEAR the board, mark the chord -> capture updated image,
+ *       revert board, and prompt user to save.
  ********************************************************************* */
+
+/**
+ * openChordToolPopup(selection)
+ *  - Save the selection for reference
+ *  - Show the popup
+ *  - Clear transformation rows
+ *  - Add 1 row by default
+ */
 function openChordToolPopup(chordSelection) {
   chordToolSourceChord = chordSelection;
   const popup = document.getElementById("chordToolPopup");
   if (!popup) return;
 
-  // Clear existing transformation rows
   const transformContainer = document.getElementById("chordToolTransformations");
   transformContainer.innerHTML = "";
 
-  // Show the chord tool popup
   popup.classList.remove("hidden");
 
   // Add 1 initial row
   addTransformationRow();
 
-  // Set up close button
+  // Close
   const closeBtn = document.getElementById("closeChordToolPopup");
   closeBtn.onclick = () => {
-    chordToolSourceChord = null; // reset
+    chordToolSourceChord = null;
     popup.classList.add("hidden");
   };
 
@@ -1018,7 +1016,7 @@ function addTransformationRow() {
   rowInput.className = "w-20 border rounded px-2 py-1 text-sm";
   rowInput.value = "0";
 
-  // Remove button
+  // Remove
   const removeBtn = document.createElement("button");
   removeBtn.textContent = "-";
   removeBtn.className = "px-2 py-1 bg-rose-500 text-white rounded hover:bg-rose-600 text-sm";
@@ -1035,6 +1033,11 @@ function addTransformationRow() {
   container.appendChild(rowDiv);
 }
 
+/**
+ * generateBatchChords()
+ *  - For each transformation row => 
+ *    shift the chord => build name => CLEAR board => mark chord => capture => revert => confirm => save.
+ */
 async function generateBatchChords() {
   if (!chordToolSourceChord) return;
 
@@ -1045,7 +1048,6 @@ async function generateBatchChords() {
     return;
   }
 
-  // We'll parse each row, apply transformation, generate a chord
   const originalName = chordToolSourceChord.name || "Chord";
   const originalKeys = chordToolSourceChord.keys || [];
   if (!originalKeys.length) {
@@ -1053,35 +1055,24 @@ async function generateBatchChords() {
     return;
   }
 
-  // Preserve the chord's image if any
-  const originalImage = chordToolSourceChord.image || null;
-
-  // For each transformation, we:
-  // 1) shift the chord
-  // 2) build a new name
-  // 3) briefly play it
-  // 4) prompt "Ready to save next chord?"
-  // 5) if user OK => auto-download .json with appended name + same image
+  // For each transformation row
   for (let i = 0; i < rows.length; i++) {
     const inputs = rows[i].querySelectorAll("input");
     const colShiftVal = parseInt(inputs[0].value, 10) || 0;
     const rowShiftVal = parseInt(inputs[1].value, 10) || 0;
 
-    // Build a new chord name
-    let nameSuffix = "";
-    if (rowShiftVal !== 0) {
-      nameSuffix += "_rowshift_" + (rowShiftVal > 0 ? "plus" + rowShiftVal : "minus" + Math.abs(rowShiftVal));
-    }
-    if (colShiftVal !== 0) {
-      nameSuffix += "_colshift_" + (colShiftVal > 0 ? "plus" + colShiftVal : "minus" + Math.abs(colShiftVal));
-    }
-    if (!nameSuffix) {
-      nameSuffix = "_shift_none";
-    }
+    // Build name suffix (rowshift first, then colshift)
+    const rowPart = rowShiftVal === 0 
+      ? "rowshift_0" 
+      : (rowShiftVal > 0 ? `rowshift_plus${rowShiftVal}` : `rowshift_minus${Math.abs(rowShiftVal)}`);
+    const colPart = colShiftVal === 0 
+      ? "colshift_0"
+      : (colShiftVal > 0 ? `colshift_plus${colShiftVal}` : `colshift_minus${Math.abs(colShiftVal)}`);
 
+    const nameSuffix = `_${rowPart}_${colPart}`;
     const newName = originalName + nameSuffix;
 
-    // Apply the shift
+    // Apply shift
     const newKeys = applyRowColShift(originalKeys, rowShiftVal, colShiftVal);
 
     if (!newKeys.length) {
@@ -1089,44 +1080,51 @@ async function generateBatchChords() {
       continue;
     }
 
-    // Briefly play the new chord
+    // Preview chord (optional)
     await previewChord(newKeys);
 
-    // Confirm user wants to save
+    // Automated approach: 
+    //  1) capture a fresh image of the SHIFTED chord with blue circles 
+    //  2) prompt user to save
+    const chordImage = renderChordAndCaptureImage(newKeys);
+
     const ok = confirm(`Transformation #${i+1}:\n"${newName}"\nSave this chord as a file?`);
     if (!ok) {
-      // if user hits Cancel, skip saving
+      // skip saving
       continue;
     }
 
-    // Auto-save as .json
+    // Grab the current model (for library filtering)
+    const currentModelSelect = document.getElementById("modelSelect");
+    const chordModel = currentModelSelect ? currentModelSelect.value : null;
+
+    // Save to JSON with newly captured image
     const chordData = {
       type: "chord",
       name: newName,
       keys: newKeys,
-      model: chordToolSourceChord.model || "",
-      image: originalImage // preserve original image
+      model: chordModel,
+      image: chordImage,
+      timestamp: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(chordData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = newName.replace(/\s+/g, "_") + ".json"; // remove spaces
+    // remove spaces from name
+    a.download = newName.replace(/\s+/g, "_") + ".json";
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  // Done. Hide chord tool popup.
+  // Done
   document.getElementById("chordToolPopup").classList.add("hidden");
   chordToolSourceChord = null;
 }
 
-/******************************************************
- * applyRowColShift(keys, rowShift, colShift)
- *   - keys[] => { x, y, noteName, octave }
- *   - we shift x by colShift, y by rowShift
- *   - if out of range => drop that note
- ******************************************************/
+/**
+ * applyRowColShift(originalKeys, rowShift, colShift)
+ */
 function applyRowColShift(originalKeys, rowShift, colShift) {
   const newKeys = [];
   for (const k of originalKeys) {
@@ -1136,7 +1134,6 @@ function applyRowColShift(originalKeys, rowShift, colShift) {
       newX >= 0 && newX < numberOfStrings &&
       newY >= 0 && newY < numberOfFrets
     ) {
-      // Keep it
       newKeys.push({
         x: newX,
         y: newY,
@@ -1146,4 +1143,48 @@ function applyRowColShift(originalKeys, rowShift, colShift) {
     }
   }
   return newKeys;
+}
+
+/**
+ * renderChordAndCaptureImage(chordKeys):
+ *  - Save user’s current board state
+ *  - Clear board
+ *  - Mark chord keys so the circles are visible
+ *  - drawTablature()
+ *  - captureChordImage(...) from chordPalette.js
+ *  - Restore board state
+ *  - Return the base64-encoded chord image
+ */
+function renderChordAndCaptureImage(chordKeys) {
+  // Deep copy current keysState
+  const oldKeysState = JSON.parse(JSON.stringify(keysState));
+
+  // Clear board
+  initKeysState();
+
+  // Mark chord keys
+  chordKeys.forEach(k => {
+    if (
+      k.x >= 0 && k.x < numberOfStrings &&
+      k.y >= 0 && k.y < numberOfFrets
+    ) {
+      keysState[k.y][k.x].marker = true;
+    }
+  });
+
+  drawTablature();
+
+  // Use the chordPalette capture function
+  const tempChord = { keys: chordKeys };
+  const chordImage = captureChordImage(tempChord);
+
+  // Restore user’s old board
+  for (let y = 0; y < oldKeysState.length; y++) {
+    for (let x = 0; x < oldKeysState[y].length; x++) {
+      keysState[y][x] = oldKeysState[y][x];
+    }
+  }
+  drawTablature();
+
+  return chordImage;
 }

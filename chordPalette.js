@@ -25,15 +25,17 @@ import {
   currentInstrument,
   fretSpacing,
   stringSpacing,
-  keyHeight
+  keyHeight,
+  initKeysState
 } from "./globals.js";
 
 import { createOscillator, stopOscillator, activeUserOscillators } from "./audio.js";
+import { drawTablature } from "./tablature.js";
 
 /**
  * The chordSlots array of 8 chord objects:
  *   {
- *     name: "Chord #",
+ *     name: `Chord ${i+1}`,
  *     keys: [ { x, y, noteName, octave } ],
  *     favorite: false,
  *     tags: "",
@@ -86,7 +88,7 @@ export function renameChordSlot(index) {
 }
 
 /******************************************************
- * recordChordNoteIfNeeded(x,y):
+ * recordChordNoteIfNeeded(x, y):
  *   If chordRecordIndex>=0, add that note to the chord slot
  *   if not already present.
  ******************************************************/
@@ -140,6 +142,10 @@ export async function chordPressDown(index) {
   }
 }
 
+/******************************************************
+ * chordPressUp(index):
+ *   Release all notes.
+ ******************************************************/
 export function chordPressUp(index) {
   const chord = chordSlots[index];
   chord.keys.forEach(k => {
@@ -183,20 +189,13 @@ export async function chordStrum(index, delayMs = 100) {
 }
 
 /******************************************************
- * NEW FUNCTIONS: chordStrumNAndPress, chordStrum2AndPress,
- * chordStrum3AndPress.
- *
- * The "strumNAndPress" logic:
- *   - Strum the first N notes (individually, with a delay).
- *   - Then press the remaining notes simultaneously,
- *     and release them together after ~300ms.
+ * chordStrumNAndPress: used for strum2press, strum3press
  ******************************************************/
 async function chordStrumNAndPress(index, n, delayMs = 100) {
   const chord = chordSlots[index];
   const sorted = chord.keys.slice().sort((a,b) => (a.x - b.x) || (a.y - b.y));
   if (!sorted.length) return;
 
-  // If the chord has N or fewer notes, just strum all individually.
   if (sorted.length <= n) {
     return chordStrum(index, delayMs);
   }
@@ -213,10 +212,10 @@ async function chordStrumNAndPress(index, n, delayMs = 100) {
     }
   }
 
-  // 2) Wait one strum interval before pressing the remainder
+  // 2) Wait one strum interval
   await new Promise(resolve => setTimeout(resolve, delayMs));
 
-  // 3) Press the remainder simultaneously
+  // 3) Press remainder simultaneously
   const remainder = sorted.slice(n);
   remainder.forEach(k => {
     handleKeyDownProgrammatically(k.x, k.y);
@@ -252,9 +251,7 @@ export function clearAllTabMarkers() {
       keysState[fy][fx].fadeOutStart = null;
     }
   }
-  import("./tablature.js").then(({ drawTablature }) => {
-    drawTablature();
-  });
+  drawTablature();
 }
 
 /******************************************************
@@ -272,23 +269,12 @@ async function handleKeyDownProgrammatically(x, y) {
   if (keyMode === "toggle") {
     const old = keysState[y][x].marker;
     keysState[y][x].marker = !old;
-    if (keysState[y][x].marker) {
-      // Assign finger if selected
-      const fingerSel = document.getElementById("fingerSelect");
-      if (fingerSel && fingerSel.value !== "None") {
-        keysState[y][x].finger = fingerSel.value;
-      }
-    } else {
-      keysState[y][x].finger = null;
-    }
   } else {
-    // "press" mode
     keysState[y][x].pressing = true;
     keysState[y][x].fading   = false;
     keysState[y][x].fadeOutStart = null;
   }
 
-  // chord record
   recordChordNoteIfNeeded(x, y);
 
   // sequencer record
@@ -296,10 +282,7 @@ async function handleKeyDownProgrammatically(x, y) {
     startNoteRecording(x, y);
   });
 
-  // re-draw tablature
-  import("./tablature.js").then(({ drawTablature }) => {
-    drawTablature();
-  });
+  drawTablature();
 }
 
 /******************************************************
@@ -307,7 +290,7 @@ async function handleKeyDownProgrammatically(x, y) {
  *   Release a key as if user mouseup.
  ******************************************************/
 function handleKeyUpProgrammatically(x, y) {
-  const keyStr = `${x}_${y}`;
+  const keyStr= `${x}_${y}`;
   if (activeUserOscillators.has(keyStr)) {
     stopOscillator(activeUserOscillators.get(keyStr));
     activeUserOscillators.delete(keyStr);
@@ -328,16 +311,14 @@ function handleKeyUpProgrammatically(x, y) {
     stopNoteRecording(x, y);
   });
 
-  import("./tablature.js").then(({ drawTablature }) => {
-    drawTablature();
-  });
+  drawTablature();
 }
 
 /******************************************************
  * updateChordPaletteUI():
  *   Refreshes the chord slot UI elements,
  *   highlighting the currently recording slot,
- *   updating chord names, and wiring up the "i" buttons.
+ *   updating chord names, etc.
  ******************************************************/
 export function updateChordPaletteUI() {
   const recordBtns = document.querySelectorAll(".chord-record-btn");
@@ -357,7 +338,7 @@ export function updateChordPaletteUI() {
     btn.textContent = chordSlots[idx].name;
   });
 
-  // Wire up the chord-info-btns for the popup
+  // Wire up info button clicks for the popup
   document.querySelectorAll(".chord-info-btn").forEach(infoBtn => {
     infoBtn.onclick = () => {
       const idx = parseInt(infoBtn.getAttribute("data-chord-index"), 10);
@@ -368,11 +349,8 @@ export function updateChordPaletteUI() {
 
 /******************************************************
  * saveChordToFile(index):
- *   Exports chord data => .json file, including:
- *     - chord image (freshly captured)
- *     - favorite
- *     - tags
- *     - model (so library filters work)
+ *   Exports chord data => .json file, capturing
+ *   a fresh chord image with blue circle notes.
  ******************************************************/
 export function saveChordToFile(index) {
   const chord = chordSlots[index];
@@ -383,14 +361,13 @@ export function saveChordToFile(index) {
   const chordName = prompt("Enter name for this chord:", chord.name);
   if (!chordName) return;
 
-  // Overwrite chord's name
   chord.name = chordName;
 
   // Capture chord image
-  const chordImage = captureChordImage(chord) || null;
+  const chordImage = captureChordImage(chord);
   chord.image = chordImage;
 
-  // Grab the current model from the UI
+  // Grab current model
   const currentModelSelect = document.getElementById("modelSelect");
   const chordModel = currentModelSelect ? currentModelSelect.value : null;
 
@@ -407,7 +384,6 @@ export function saveChordToFile(index) {
     image: chordImage,
     favorite: chord.favorite || false,
     tags: chord.tags || "",
-    // Ensure model is included so library model filters work
     model: chordModel
   };
 
@@ -423,8 +399,7 @@ export function saveChordToFile(index) {
 /******************************************************
  * sendChordToLibrary(index):
  *   Adds chord to localStorage library, capturing
- *   an image snippet from the tablature, plus favorite/tags,
- *   and includes the model for library filtering.
+ *   an image snippet with the blue circles.
  ******************************************************/
 export function sendChordToLibrary(index) {
   const chord = chordSlots[index];
@@ -438,10 +413,10 @@ export function sendChordToLibrary(index) {
   chord.name = chordName;
 
   // Capture chord image
-  const chordImage = captureChordImage(chord) || null;
+  const chordImage = captureChordImage(chord);
   chord.image = chordImage;
 
-  // Grab the current model
+  // Grab current model
   const currentModelSelect = document.getElementById("modelSelect");
   const chordModel = currentModelSelect ? currentModelSelect.value : null;
 
@@ -472,12 +447,31 @@ export function sendChordToLibrary(index) {
 
 /******************************************************
  * captureChordImage(chord):
- *   Takes the bounding-box of chord keys from <svg id="tablature">
- *   => base64-encoded SVG snippet for display/printing
+ *   1) Save current board state
+ *   2) Clear board
+ *   3) Mark chord keys => drawTablature => bounding-box
+ *   4) Restore board => drawTablature
+ *   5) Return base64 SVG
  ******************************************************/
-function captureChordImage(chord) {
+export function captureChordImage(chord) {
   if (!chord.keys || !chord.keys.length) return null;
 
+  // Save old board
+  const oldKeys = JSON.parse(JSON.stringify(keysState));
+
+  // Clear & mark chord
+  initKeysState();
+  chord.keys.forEach(k => {
+    if (
+      k.x >= 0 && k.x < numberOfStrings &&
+      k.y >= 0 && k.y < numberOfFrets
+    ) {
+      keysState[k.y][k.x].marker = true;
+    }
+  });
+  drawTablature();
+
+  // Determine bounding box from chord keys
   let minX = Math.min(...chord.keys.map(k => k.x));
   let maxX = Math.max(...chord.keys.map(k => k.x));
   let minY = Math.min(...chord.keys.map(k => k.y));
@@ -489,14 +483,18 @@ function captureChordImage(chord) {
   minY = Math.max(0, minY - 2);
   maxY = Math.min(numberOfFrets - 1, maxY + 2);
 
+  // Get the <svg> and sizes
   const svg = document.getElementById("tablature");
-  if (!svg) return null;
+  if (!svg) {
+    // restore
+    restoreOldBoard(oldKeys);
+    return null;
+  }
 
   const totalWidth  = parseFloat(svg.getAttribute("width")) || 0;
   const totalHeight = parseFloat(svg.getAttribute("height")) || 0;
 
-  // Convert row->y coords for the bounding area
-  // (We invert y because row=0 is top in data, but in our SVG row=0 is bottom)
+  // Convert row->y coords 
   const yTop    = totalHeight - ((maxY * fretSpacing) + fretSpacing/2) - keyHeight;
   const yBottom = totalHeight - ((minY * fretSpacing) + fretSpacing/2);
   const chordHeight = yBottom - yTop;
@@ -505,27 +503,39 @@ function captureChordImage(chord) {
   const xRight = (maxX * stringSpacing) + stringSpacing + 7.5;
   const chordWidth = xRight - xLeft;
 
+  // Clone the current <svg> content in that bounding box
   const cloned = svg.cloneNode(true);
   cloned.setAttribute("viewBox", `${xLeft} ${yTop} ${chordWidth} ${chordHeight}`);
   cloned.setAttribute("width", chordWidth);
   cloned.setAttribute("height", chordHeight);
 
   const svgData = new XMLSerializer().serializeToString(cloned);
-  return "data:image/svg+xml;base64," + btoa(svgData);
+  const chordImage = "data:image/svg+xml;base64," + btoa(svgData);
+
+  // restore original board
+  restoreOldBoard(oldKeys);
+
+  return chordImage;
+}
+
+function restoreOldBoard(oldKeys) {
+  for (let y = 0; y < oldKeys.length; y++) {
+    for (let x = 0; x < oldKeys[y].length; x++) {
+      keysState[y][x] = oldKeys[y][x];
+    }
+  }
+  drawTablature();
 }
 
 /******************************************************
  * openChordInfoPopup(index):
- *   Displays the chord's image (if any),
- *   allows user to toggle favorite + edit tags,
- *   then saves changes back to chordSlots[index].
+ *   Displays chord's image, favorite check, tags, etc.
  ******************************************************/
 function openChordInfoPopup(index) {
   const chord = chordSlots[index];
   const popup = document.getElementById("chordInfoPopup");
   if (!popup) return;
 
-  // Show/hide chord image
   const imgEl = document.getElementById("chordInfoImage");
   if (chord.image) {
     imgEl.src = chord.image;
@@ -535,30 +545,23 @@ function openChordInfoPopup(index) {
     imgEl.classList.add("hidden");
   }
 
-  // Favorite checkbox
   const favEl = document.getElementById("chordInfoFavorite");
   favEl.checked = !!chord.favorite;
 
-  // Tags
   const tagsEl = document.getElementById("chordInfoTags");
   tagsEl.value = chord.tags || "";
 
-  // Save button
   const saveBtn = document.getElementById("saveChordInfoBtn");
-  // Clear any previous onclick to avoid stacking
-  saveBtn.onclick = null;
   saveBtn.onclick = () => {
     chord.favorite = favEl.checked;
     chord.tags = tagsEl.value.trim();
     popup.classList.add("hidden");
   };
 
-  // Close button
   const closeBtn = document.getElementById("closeChordInfoPopup");
   closeBtn.onclick = () => {
     popup.classList.add("hidden");
   };
 
-  // Show the popup
   popup.classList.remove("hidden");
 }
