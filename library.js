@@ -645,8 +645,16 @@ export function clearLibrary() {
 }
 
 /******************************************************
+ * Helper to get the filename without extension
+ ******************************************************/
+function getFilenameBase(fullName) {
+  return fullName.replace(/\.[^/.]+$/, "");
+}
+
+/******************************************************
  * importFiles():
  *  - Import multiple JSON files => merges them into localStorage
+ *  - NEW: If a chord is found, rename it from the filename (minus extension)
  ******************************************************/
 export function importFiles() {
   const input = document.createElement("input");
@@ -658,17 +666,25 @@ export function importFiles() {
     if (!files.length) return;
     const saved = JSON.parse(localStorage.getItem("harpejjiSelections") || "[]");
     let processed = 0;
+
     Array.from(files).forEach(file => {
+      const baseName = getFilenameBase(file.name);
       const reader = new FileReader();
       reader.onload = (rEv) => {
         try {
           const data = JSON.parse(rEv.target.result);
           // Single item or array of items:
           if (data.type === "tab" || data.type === "chord") {
+            if (data.type === "chord") {
+              data.name = baseName; // rename chord
+            }
             saved.push(data);
           } else if (Array.isArray(data)) {
             data.forEach(d => {
               if (d.type === "tab" || d.type === "chord") {
+                if (d.type === "chord") {
+                  d.name = baseName; // rename chord
+                }
                 saved.push(d);
               }
             });
@@ -870,6 +886,7 @@ export function printLibrary() {
  * importFilesScaleLocked()
  *  - Import multiple chord/tab .json files
  *    but only keep items that fit the current scale
+ *  - NEW: If chord is kept, rename with filename minus extension
  ******************************************************/
 export function importFilesScaleLocked() {
   const input = document.createElement("input");
@@ -888,6 +905,7 @@ export function importFilesScaleLocked() {
 
     // Process each file
     files.forEach(file => {
+      const baseName = getFilenameBase(file.name);
       const reader = new FileReader();
       reader.onload = (rEv) => {
         try {
@@ -900,6 +918,7 @@ export function importFilesScaleLocked() {
               rejectedCount++;
               continue;
             }
+
             // Scale check
             let passesScale;
             if (item.type === "tab") {
@@ -907,7 +926,12 @@ export function importFilesScaleLocked() {
             } else {
               passesScale = allChordNotesInCurrentScale(item.keys);
             }
+
             if (passesScale) {
+              // Rename chord from filename:
+              if (item.type === "chord") {
+                item.name = baseName;
+              }
               saved.push(item);
               importedCount++;
             } else {
