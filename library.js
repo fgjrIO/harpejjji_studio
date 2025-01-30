@@ -8,7 +8,7 @@
  *  - Loading a selection (tab or chord) back into the app
  *  - Printing, importing, exporting
  *  - "Wide Mode" toggle => expands the white panel to half the screen
- *  - 4×4 grid layout with pagination
+ *  - 4x4 grid layout with pagination
  *  - "Chord Tool" for batch row/col shifting
  ******************************************************/
 
@@ -883,7 +883,7 @@ export function printLibrary() {
  * importFilesScaleLocked()
  *  - Import multiple chord/tab .json files
  *    but only keep items that fit the current scale
- *  - NEW: If chord is kept, rename with filename minus extension
+ *  - If chord is kept, rename with filename minus extension
  ******************************************************/
 export function importFilesScaleLocked() {
   const input = document.createElement("input");
@@ -953,19 +953,11 @@ export function importFilesScaleLocked() {
 /* ********************************************************************
  *  CHORD TOOL FUNCTIONALITY
  *    1) openChordToolPopup(selection)
- *    2) build transformation rows
- *    3) on "Generate", create each new chord, 
- *       CLEAR the board, mark the chord -> capture updated image,
- *       revert board, and prompt user to save.
+ *    2) build transformation rows (row shift on the left, col shift on right, plus an optional name)
+ *    3) on "Generate", create each new chord => uses name if provided,
+ *       else fallback to row/col-based naming.
  ********************************************************************* */
 
-/**
- * openChordToolPopup(selection)
- *  - Save the selection for reference
- *  - Show the popup
- *  - Clear transformation rows
- *  - Add 1 row by default
- */
 function openChordToolPopup(chordSelection) {
   chordToolSourceChord = chordSelection;
   const popup = document.getElementById("chordToolPopup");
@@ -1000,7 +992,14 @@ function openChordToolPopup(chordSelection) {
 function addTransformationRow() {
   const container = document.getElementById("chordToolTransformations");
   const rowDiv = document.createElement("div");
-  rowDiv.className = "flex items-center gap-2";
+  rowDiv.className = "flex items-center gap-2 mb-2";
+
+  // Row shift
+  const rowInput = document.createElement("input");
+  rowInput.type = "number";
+  rowInput.placeholder = "Row Shift";
+  rowInput.className = "w-20 border rounded px-2 py-1 text-sm";
+  rowInput.value = "0";
 
   // Col shift
   const colInput = document.createElement("input");
@@ -1009,12 +1008,11 @@ function addTransformationRow() {
   colInput.className = "w-20 border rounded px-2 py-1 text-sm";
   colInput.value = "0";
 
-  // Row shift
-  const rowInput = document.createElement("input");
-  rowInput.type = "number";
-  rowInput.placeholder = "Row Shift";
-  rowInput.className = "w-20 border rounded px-2 py-1 text-sm";
-  rowInput.value = "0";
+  // Optional name
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.placeholder = "Optional Name";
+  nameInput.className = "border rounded px-2 py-1 text-sm flex-1";
 
   // Remove
   const removeBtn = document.createElement("button");
@@ -1024,20 +1022,17 @@ function addTransformationRow() {
     container.removeChild(rowDiv);
   };
 
-  rowDiv.appendChild(document.createTextNode("Col:"));
-  rowDiv.appendChild(colInput);
+  // Append
   rowDiv.appendChild(document.createTextNode("Row:"));
   rowDiv.appendChild(rowInput);
+  rowDiv.appendChild(document.createTextNode("Col:"));
+  rowDiv.appendChild(colInput);
+  rowDiv.appendChild(nameInput);
   rowDiv.appendChild(removeBtn);
 
   container.appendChild(rowDiv);
 }
 
-/**
- * generateBatchChords()
- *  - For each transformation row => 
- *    shift the chord => build name => CLEAR board => mark chord => capture => revert => confirm => save.
- */
 async function generateBatchChords() {
   if (!chordToolSourceChord) return;
 
@@ -1055,26 +1050,28 @@ async function generateBatchChords() {
     return;
   }
 
-  // For each transformation row
   for (let i = 0; i < rows.length; i++) {
     const inputs = rows[i].querySelectorAll("input");
-    const colShiftVal = parseInt(inputs[0].value, 10) || 0;
-    const rowShiftVal = parseInt(inputs[1].value, 10) || 0;
+    const rowShiftVal = parseInt(inputs[0].value, 10) || 0;
+    const colShiftVal = parseInt(inputs[1].value, 10) || 0;
+    const manualName  = inputs[2].value.trim();
 
-    // Build name suffix (rowshift first, then colshift)
-    const rowPart = rowShiftVal === 0 
-      ? "rowshift_0" 
-      : (rowShiftVal > 0 ? `rowshift_plus${rowShiftVal}` : `rowshift_minus${Math.abs(rowShiftVal)}`);
-    const colPart = colShiftVal === 0 
-      ? "colshift_0"
-      : (colShiftVal > 0 ? `colshift_plus${colShiftVal}` : `colshift_minus${Math.abs(colShiftVal)}`);
+    // If user typed a custom name, use that. Otherwise, fallback to row/col naming
+    let newName = manualName;
+    if (!newName) {
+      // Build name suffix with row first, then col
+      const rowPart = rowShiftVal === 0 
+        ? "rowshift_0" 
+        : (rowShiftVal > 0 ? `rowshift_plus${rowShiftVal}` : `rowshift_minus${Math.abs(rowShiftVal)}`);
+      const colPart = colShiftVal === 0
+        ? "colshift_0"
+        : (colShiftVal > 0 ? `colshift_plus${colShiftVal}` : `colshift_minus${Math.abs(colShiftVal)}`);
 
-    const nameSuffix = `_${rowPart}_${colPart}`;
-    const newName = originalName + nameSuffix;
+      newName = `${originalName}_${rowPart}_${colPart}`;
+    }
 
     // Apply shift
     const newKeys = applyRowColShift(originalKeys, rowShiftVal, colShiftVal);
-
     if (!newKeys.length) {
       alert(`Skipping transformation #${i+1} because all notes ended up out of range.`);
       continue;
@@ -1083,22 +1080,21 @@ async function generateBatchChords() {
     // Preview chord (optional)
     await previewChord(newKeys);
 
-    // Automated approach: 
-    //  1) capture a fresh image of the SHIFTED chord with blue circles 
-    //  2) prompt user to save
+    // Automated approach: capture updated image
     const chordImage = renderChordAndCaptureImage(newKeys);
 
-    const ok = confirm(`Transformation #${i+1}:\n"${newName}"\nSave this chord as a file?`);
+    const ok = confirm(
+      `Transformation #${i+1}:\n"${newName}"\nSave this chord as a file?`
+    );
     if (!ok) {
-      // skip saving
       continue;
     }
 
-    // Grab the current model (for library filtering)
+    // current model
     const currentModelSelect = document.getElementById("modelSelect");
     const chordModel = currentModelSelect ? currentModelSelect.value : null;
 
-    // Save to JSON with newly captured image
+    // Save
     const chordData = {
       type: "chord",
       name: newName,
@@ -1111,20 +1107,15 @@ async function generateBatchChords() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    // remove spaces from name
     a.download = newName.replace(/\s+/g, "_") + ".json";
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  // Done
   document.getElementById("chordToolPopup").classList.add("hidden");
   chordToolSourceChord = null;
 }
 
-/**
- * applyRowColShift(originalKeys, rowShift, colShift)
- */
 function applyRowColShift(originalKeys, rowShift, colShift) {
   const newKeys = [];
   for (const k of originalKeys) {
@@ -1148,15 +1139,9 @@ function applyRowColShift(originalKeys, rowShift, colShift) {
 /**
  * renderChordAndCaptureImage(chordKeys):
  *  - Save user’s current board state
- *  - Clear board
- *  - Mark chord keys so the circles are visible
- *  - drawTablature()
- *  - captureChordImage(...) from chordPalette.js
- *  - Restore board state
- *  - Return the base64-encoded chord image
+ *  - Clear board, mark chord => drawTablature => capture => restore
  */
 function renderChordAndCaptureImage(chordKeys) {
-  // Deep copy current keysState
   const oldKeysState = JSON.parse(JSON.stringify(keysState));
 
   // Clear board
@@ -1164,21 +1149,17 @@ function renderChordAndCaptureImage(chordKeys) {
 
   // Mark chord keys
   chordKeys.forEach(k => {
-    if (
-      k.x >= 0 && k.x < numberOfStrings &&
-      k.y >= 0 && k.y < numberOfFrets
-    ) {
+    if (k.x >= 0 && k.x < numberOfStrings && k.y >= 0 && k.y < numberOfFrets) {
       keysState[k.y][k.x].marker = true;
     }
   });
-
   drawTablature();
 
-  // Use the chordPalette capture function
+  // Capture
   const tempChord = { keys: chordKeys };
   const chordImage = captureChordImage(tempChord);
 
-  // Restore user’s old board
+  // Restore
   for (let y = 0; y < oldKeysState.length; y++) {
     for (let x = 0; x < oldKeysState[y].length; x++) {
       keysState[y][x] = oldKeysState[y][x];

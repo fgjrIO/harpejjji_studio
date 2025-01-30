@@ -1177,19 +1177,18 @@
     </div>
   </div>
 
-  <!-- Chord Tool Popup -->
-  <div id="chordToolPopup" class="fixed inset-0 bg-slate-800 bg-opacity-75 hidden">
+  <!-- Chord Tool Popup (widened) -->
+  <div id="chordToolPopup" class="fixed inset-0 bg-slate-1000 bg-opacity-75 hidden">
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+      <!-- CHANGED max-w-md => max-w-xl for more width -->
+      <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-xl relative">
         <h2 class="text-2xl font-bold mb-4 text-slate-800">Chord Tool</h2>
         <p class="mb-4 text-sm text-slate-600">
           Add transformations to shift the chord by row/column.
         </p>
 
         <!-- Container where we dynamically add row/col shift inputs -->
-        <div id="chordToolTransformations" class="space-y-2 mb-4">
-          <!-- Each transformation row gets appended here by library.js -->
-        </div>
+        <div id="chordToolTransformations" class="space-y-2 mb-4"></div>
 
         <button 
           id="addTransformationBtn"
@@ -1300,12 +1299,11 @@
       isRecording,
       stopPlayback,
       startPlayback,
-      jumpToTime,
       jumpToPosition,
       deleteSelectedNotes,
       addSection,
-      isStepMode,
       toggleStepMode,
+      isStepMode,
       setSequencerBPM,
       pushHistory,
       undo,
@@ -1401,7 +1399,6 @@
       // Instrument changes
       document.getElementById("instrumentSelect").addEventListener("change", (e) => {
         setCurrentInstrument(e.target.value);
-        // NEW: apply defaults for the selected instrument
         applyInstrumentDefaults(e.target.value);
       });
 
